@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Setup - Player Auction System{% endblock %}
+
+{% block content %}
+<h2>Setup Teams and Players</h2>
+
+<div class="setup-container">
+    <!-- Teams Section -->
+    <div class="setup-section">
+        <h3>Teams (Budget in Cr)</h3>
+        <form id="teamForm" class="form-inline">
+            <input type="text" id="teamName" placeholder="Team Name" required>
+            <input type="number" id="teamBudget" placeholder="Budget (in Cr)" value="50" step="1">
+            <button type="submit" class="btn btn-primary">Add Team</button>
+        </form>
+        
+        <div id="teamsList" class="list-container">
+            {% for team in teams %}
+            <div class="list-item">
+                <span>{{ team.name }}</span>
+                <span class="budget">₹{{ '{:.2f}'.format(team.budget / 10000000) }} Cr</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Players Section -->
+    <div class="setup-section">
+        <h3>Players (Base Price in Lakhs)</h3>
+        <form id="playerForm" class="form-inline">
+            <input type="text" id="playerName" placeholder="Player Name" required>
+            <select id="playerPosition" required>
+                <option value="">Select Position</option>
+                <option value="Batter">Batter</option>
+                <option value="Bowler">Bowler</option>
+                <option value="Allrounder">Allrounder</option>
+                <option value="Keeper">Keeper</option>
+            </select>
+            <select id="playerCountry" required>
+                <option value="Indian">Indian</option>
+                <option value="Overseas">Overseas</option>
+            </select>
+            <input type="number" id="playerBasePrice" placeholder="Base Price (in Lakhs)" value="50" step="10">
+            <button type="submit" class="btn btn-primary">Add Player</button>
+        </form>
+        
+        <div id="playersList" class="list-container">
+            {% for player in players %}
+            <div class="list-item" data-player-id="{{ player.id }}">
+                <span class="player-name">{{ player.name }}</span>
+                <span class="position">{{ player.position }}</span>
+                <span>{% if player.country == 'Overseas' %}<span class="country-emoji">✈️</span>{% else %}<span class="flag-india"></span>{% endif %}</span>
+                <span class="price">₹{{ '{:.0f}'.format(player.base_price / 100000) }} L</span>
+                <button class="btn btn-small btn-edit" onclick="editPlayer({{ player.id }}, '{{ player.name }}', '{{ player.position }}', '{{ player.country }}', {{ player.base_price }})">✏️</button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Edit Player Modal -->
+<div id="editPlayerModal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="closeEditModal()">&times;</span>
+        <h3>Edit Player</h3>
+        <form id="editPlayerForm">
+            <input type="hidden" id="editPlayerId">
+            <div class="form-group">
+                <label>Name</label>
+                <input type="text" id="editPlayerName" required>
+            </div>
+            <div class="form-group">
+                <label>Position</label>
+                <select id="editPlayerPosition" required>
+                    <option value="Batter">Batter</option>
+                    <option value="Bowler">Bowler</option>
+                    <option value="Allrounder">Allrounder</option>
+                    <option value="Keeper">Keeper</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Country</label>
+                <select id="editPlayerCountry" required>
+                    <option value="Indian">Indian</option>
+                    <option value="Overseas">Overseas</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Base Price (Lakhs)</label>
+                <input type="number" id="editPlayerBasePrice" step="10" required>
+            </div>
+            <div class="modal-buttons">
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+                <button type="button" class="btn btn-danger" onclick="deletePlayer()">Delete Player</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/setup.js') }}"></script>
+{% endblock %}

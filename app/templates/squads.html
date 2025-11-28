@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block title %}Squads - Player Auction System{% endblock %}
+
+{% block content %}
+<h2>Team Squads</h2>
+
+<div class="squads-container">
+    {% for team in teams %}
+    <div class="team-card">
+        <div class="team-header">
+            <h3>{{ team.name }}</h3>
+            <div class="team-stats">
+                <div class="stat">
+                    <span class="stat-label">Purse Left</span>
+                    <span class="stat-value purse">₹{{ '{:.2f}'.format(team.budget / 10000000) }} Cr</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Players</span>
+                    <span class="stat-value">{{ team.players | length }}</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Spent</span>
+                    <span class="stat-value spent">₹{{ '{:.2f}'.format(((team.initial_budget or 500000000) - team.budget) / 10000000) }} Cr</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="players-list">
+            {% if team.players %}
+                <table class="squad-table">
+                    <thead>
+                        <tr>
+                            <th>Player</th>
+                            <th>Position</th>
+                            <th>Price</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for player in team.players %}
+                        <tr class="player-row" onclick="showBidHistory({{ player.id }}, '{{ player.name }}')">
+                            <td>{{ player.name }}</td>
+                            <td><span class="position-badge {{ player.position | lower }}">{{ player.position }}</span></td>
+                            <td class="price">₹{{ '{:.0f}'.format(player.current_price / 100000) }} L</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p class="no-players">No players yet</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Bid History Modal -->
+<div id="bidModal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="closeModal()">&times;</span>
+        <h3 id="modalPlayerName">Player Name</h3>
+        <div id="modalBidHistory"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function showBidHistory(playerId, playerName) {
+    const modal = document.getElementById('bidModal');
+    const playerNameEl = document.getElementById('modalPlayerName');
+    const bidHistoryEl = document.getElementById('modalBidHistory');
+    
+    playerNameEl.textContent = playerName + ' - Bid History';
+    bidHistoryEl.innerHTML = '<p>Loading...</p>';
+    modal.style.display = 'flex';
+    
+    try {
+        const response = await fetch(`/api/players/${playerId}/bids`);
+        const data = await response.json();
+        
+        if (data.success) {
+            if (data.bids.length > 0) {
+                let html = `
+                    <div class="final-price">
+                        <strong>Final Price:</strong> ₹${(data.player.final_price / 100000).toFixed(0)} L
+                    </div>
+                    <table class="bid-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Team</th>
+                                <th>Amount</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                data.bids.forEach((bid, index) => {
+                    const isWinning = index === 0;
+                    html += `
+                        <tr class="${isWinning ? 'winning-bid' : ''}">
+                            <td>${data.bids.length - index}</td>
+                            <td>${bid.team_name}</td>
+                            <td>₹${(bid.amount / 100000).toFixed(0)} L</td>
+                            <td>${bid.timestamp}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table>';
+                bidHistoryEl.innerHTML = html;
+            } else {
+                bidHistoryEl.innerHTML = '<p class="no-bids">No bid history available</p>';
+            }
+        } else {
+            bidHistoryEl.innerHTML = '<p class="error">Error loading bid history</p>';
+        }
+    } catch (error) {
+        bidHistoryEl.innerHTML = '<p class="error">Error loading bid history</p>';
+    }
+}
+
+function closeModal() {
+    document.getElementById('bidModal').style.display = 'none';
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('bidModal');
+    if (event.target === modal) {
+        modal.style.display = 'none';
+    }
+}
+</script>
+{% endblock %}

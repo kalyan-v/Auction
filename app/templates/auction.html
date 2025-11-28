@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}Auction Room - Player Auction System{% endblock %}
+
+{% block content %}
+<div class="auction-container">
+    <!-- Current Player Section -->
+    <div class="current-player-section">
+        <h2>Current Player</h2>
+        <div id="currentPlayer" class="player-card" data-player-id="{% if auction_state and auction_state.is_active %}{{ auction_state.current_player.id }}{% endif %}">
+            {% if auction_state and auction_state.is_active %}
+                <h3>{{ auction_state.current_player.name }}</h3>
+                <p>Position: {{ auction_state.current_player.position }}</p>
+                <p class="current-price">Current Price: ₹<span id="currentPrice">{{ '{:.0f}'.format(auction_state.current_player.current_price / 100000) }}</span> L</p>
+                <p class="timer">Time Remaining: <span id="timer">{{ auction_state.time_remaining }}</span>s</p>
+            {% else %}
+                <p>No active auction. Select a player to start.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Auctioneer Panel -->
+    <div class="auctioneer-panel">
+        <h2>🎤 Auctioneer Panel</h2>
+        <div class="current-bid-display">
+            <div class="bid-info">
+                <label>Current Price</label>
+                <div class="big-price" id="bigCurrentPrice">₹50 L</div>
+            </div>
+            <div class="bid-info">
+                <label>Leading Team</label>
+                <div class="leading-team" id="leadingTeam">-</div>
+            </div>
+        </div>
+        
+        <div class="quick-bid-section">
+            <h4>Quick Bid - Select Team & Click Amount</h4>
+            <div class="team-buttons" id="teamButtons">
+                {% for team in teams %}
+                <button class="team-btn" data-team-id="{{ team.id }}" data-team-name="{{ team.name }}" onclick="selectTeam({{ team.id }}, '{{ team.name }}')">{{ team.name }}</button>
+                {% endfor %}
+            </div>
+            <p class="selected-team-display">Selected: <strong id="selectedTeamName">None</strong></p>
+            
+            <div class="quick-amounts">
+                <button class="amount-btn" onclick="quickBid(25)">+25 L</button>
+                <button class="amount-btn" onclick="quickBid(50)">+50 L</button>
+            </div>
+            
+            <div class="reset-price">
+                <input type="number" id="resetPriceInput" placeholder="Reset to (in Lakhs)" step="25">
+                <button class="btn btn-warning" onclick="resetPrice()">Reset Price</button>
+            </div>
+        </div>
+        
+        <div class="auction-controls">
+            <button class="btn btn-success" id="soldBtn" onclick="markSold()">✅ SOLD!</button>
+            <button class="btn btn-danger" id="unsoldBtn" onclick="markUnsold()">❌ UNSOLD</button>
+        </div>
+    </div>
+
+    <!-- Bidding Section -->
+    <div class="bidding-section">
+        <h2>Place Your Bid</h2>
+        <form id="bidForm">
+            <select id="teamSelect" required>
+                <option value="">Select Team</option>
+                {% for team in teams %}
+                <option value="{{ team.id }}" data-budget="{{ team.budget }}">
+                    {{ team.name }} (Budget: ₹{{ '{:.2f}'.format(team.budget / 10000000) }} Cr)
+                </option>
+                {% endfor %}
+            </select>
+            
+            <input type="number" id="bidAmount" placeholder="Bid Amount (in Lakhs)" step="10" required>
+            <button type="submit" class="btn btn-primary" id="bidButton">Place Bid</button>
+        </form>
+        
+        <div id="bidHistory" class="bid-history">
+            <h3>Bid History</h3>
+            <div id="bidList"></div>
+        </div>
+    </div>
+
+    <!-- Randomizer Section -->
+    <div class="randomizer-section">
+        <h2>🎲 Random Player Picker</h2>
+        
+        <div class="mode-toggle">
+            <label class="toggle-switch">
+                <input type="checkbox" id="unsoldMode" onchange="toggleUnsoldMode()">
+                <span class="toggle-slider"></span>
+            </label>
+            <span id="modeLabel">Normal Mode</span>
+        </div>
+        
+        <div class="randomizer-controls">
+            <select id="positionFilter">
+                <option value="">Any Position</option>
+                <option value="Batter">Batter</option>
+                <option value="Bowler">Bowler</option>
+                <option value="Allrounder">Allrounder</option>
+                <option value="Keeper">Keeper</option>
+            </select>
+            <button class="btn btn-primary" onclick="pickRandomPlayer()">🎲 Pick Random Player</button>
+        </div>
+        <div id="randomResult" class="random-result"></div>
+    </div>
+
+    <!-- Available Players -->
+    <div class="players-section">
+        <h2>Available Players</h2>
+        <div id="playersList" class="players-grid">
+            {% for player in players %}
+            <div class="player-item" data-player-id="{{ player.id }}">
+                <h4>{{ player.name }}</h4>
+                <p>{{ player.position }} {% if player.country == 'Overseas' %}<span class="country-emoji">✈️</span>{% else %}<span class="flag-india"></span>{% endif %}</p>
+                <p>Base: ₹{{ '{:.0f}'.format(player.base_price / 100000) }} L</p>
+                <button class="btn btn-small" onclick="startAuction({{ player.id }})">Start Auction</button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Unsold Players Section -->
+    <div class="unsold-players-section">
+        <h2>❌ Unsold Players</h2>
+        <div id="unsoldPlayersList" class="players-grid unsold-grid">
+            {% for player in unsold_players %}
+            <div class="player-item unsold-item" data-player-id="{{ player.id }}">
+                <h4>{{ player.name }}</h4>
+                <p>{{ player.position }} {% if player.country == 'Overseas' %}<span class="country-emoji">✈️</span>{% else %}<span class="flag-india"></span>{% endif %}</p>
+                <p>Base: ₹{{ '{:.0f}'.format(player.base_price / 100000) }} L</p>
+                <button class="btn btn-small btn-retry" onclick="startAuction({{ player.id }})">🔄 Retry</button>
+            </div>
+            {% else %}
+            <p class="no-unsold">No unsold players yet</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="controls">
+    <button id="endAuctionBtn" class="btn btn-danger">End Current Auction</button>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+<script src="{{ url_for('static', filename='js/auction.js') }}"></script>
+{% endblock %}

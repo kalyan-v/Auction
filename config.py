@@ -6,6 +6,10 @@ class Config:
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///auction.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
+    # Admin credentials - change these!
+    ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
+    ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'wpl2025')
+    
     # Auction settings
     DEFAULT_AUCTION_TIME = 300  # 5 minutes in seconds
     MIN_BID_INCREMENT = 1000000  # Minimum bid increment (10 Lakhs)

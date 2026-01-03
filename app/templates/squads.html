@@ -5,6 +5,12 @@
 {% block content %}
 <h2>Team Squads</h2>
 
+{% if not admin_mode %}
+<div class="readonly-banner">
+    🔒 <strong>View Only Mode</strong> - <a href="{{ url_for('main.login') }}">Login as admin</a> to release players back to auction
+</div>
+{% endif %}
+
 <div class="squads-container">
     {% for team in teams %}
     <div class="team-card">
@@ -34,14 +40,20 @@
                             <th>Player</th>
                             <th>Position</th>
                             <th>Price</th>
+                            {% if admin_mode %}<th>Action</th>{% endif %}
                         </tr>
                     </thead>
                     <tbody>
                         {% for player in team.players %}
-                        <tr class="player-row" onclick="showBidHistory({{ player.id }}, '{{ player.name }}')">
-                            <td>{{ player.name }}</td>
-                            <td><span class="position-badge {{ player.position | lower }}">{{ player.position }}</span></td>
-                            <td class="price">₹{{ '{:.0f}'.format(player.current_price / 100000) }} L</td>
+                        <tr class="player-row">
+                            <td onclick="showBidHistory({{ player.id }}, '{{ player.name }}')">{{ player.name }}</td>
+                            <td onclick="showBidHistory({{ player.id }}, '{{ player.name }}')"><span class="position-badge {{ player.position | lower }}">{{ player.position }}</span></td>
+                            <td class="price" onclick="showBidHistory({{ player.id }}, '{{ player.name }}')">₹{{ '{:.0f}'.format(player.current_price / 100000) }} L</td>
+                            {% if admin_mode %}
+                            <td>
+                                <button class="btn btn-small btn-danger release-btn" onclick="releasePlayer({{ player.id }}, '{{ player.name }}', event)">🔄 Release</button>
+                            </td>
+                            {% endif %}
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -66,6 +78,32 @@
 
 {% block scripts %}
 <script>
+async function releasePlayer(playerId, playerName, event) {
+    event.stopPropagation(); // Prevent triggering bid history modal
+    
+    if (!confirm(`Are you sure you want to release ${playerName} back to auction?\n\nThis will:\n• Remove them from the team\n• Refund the purchase price to the team\n• Reset them to available status\n• Delete all bid history`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/players/${playerId}/release`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (error) {
+        alert('Error releasing player: ' + error.message);
+    }
+}
+
 async function showBidHistory(playerId, playerName) {
     const modal = document.getElementById('bidModal');
     const playerNameEl = document.getElementById('modalPlayerName');

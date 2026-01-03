@@ -15,6 +15,13 @@
                 <li><a href="{{ url_for('main.setup') }}">Setup</a></li>
                 <li><a href="{{ url_for('auction.auction_room') }}">Auction Room</a></li>
                 <li><a href="{{ url_for('main.squads') }}">Squads</a></li>
+                <li class="nav-divider">|</li>
+                {% if session.get('is_admin') %}
+                <li><span class="admin-badge">👤 Admin</span></li>
+                <li><a href="{{ url_for('main.logout') }}" class="logout-link">Logout</a></li>
+                {% else %}
+                <li><a href="{{ url_for('main.login') }}" class="login-link">🔐 Login</a></li>
+                {% endif %}
             </ul>
         </div>
     </nav>

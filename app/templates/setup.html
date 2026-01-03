@@ -5,15 +5,23 @@
 {% block content %}
 <h2>Setup Teams and Players</h2>
 
+{% if not admin_mode %}
+<div class="readonly-banner">
+    🔒 <strong>View Only Mode</strong> - Adding/editing is disabled. Contact admin for changes.
+</div>
+{% endif %}
+
 <div class="setup-container">
     <!-- Teams Section -->
     <div class="setup-section">
         <h3>Teams (Budget in Cr)</h3>
+        {% if admin_mode %}
         <form id="teamForm" class="form-inline">
             <input type="text" id="teamName" placeholder="Team Name" required>
             <input type="number" id="teamBudget" placeholder="Budget (in Cr)" value="50" step="1">
             <button type="submit" class="btn btn-primary">Add Team</button>
         </form>
+        {% endif %}
         
         <div id="teamsList" class="list-container">
             {% for team in teams %}
@@ -28,6 +36,7 @@
     <!-- Players Section -->
     <div class="setup-section">
         <h3>Players (Base Price in Lakhs)</h3>
+        {% if admin_mode %}
         <form id="playerForm" class="form-inline">
             <input type="text" id="playerName" placeholder="Player Name" required>
             <select id="playerPosition" required>
@@ -44,6 +53,7 @@
             <input type="number" id="playerBasePrice" placeholder="Base Price (in Lakhs)" value="50" step="10">
             <button type="submit" class="btn btn-primary">Add Player</button>
         </form>
+        {% endif %}
         
         <div id="playersList" class="list-container">
             {% for player in players %}
@@ -52,13 +62,16 @@
                 <span class="position">{{ player.position }}</span>
                 <span>{% if player.country == 'Overseas' %}<span class="country-emoji">✈️</span>{% else %}<span class="flag-india"></span>{% endif %}</span>
                 <span class="price">₹{{ '{:.0f}'.format(player.base_price / 100000) }} L</span>
+                {% if admin_mode %}
                 <button class="btn btn-small btn-edit" onclick="editPlayer({{ player.id }}, '{{ player.name }}', '{{ player.position }}', '{{ player.country }}', {{ player.base_price }})">✏️</button>
+                {% endif %}
             </div>
             {% endfor %}
         </div>
     </div>
 </div>
 
+{% if admin_mode %}
 <!-- Edit Player Modal -->
 <div id="editPlayerModal" class="modal">
     <div class="modal-content">
@@ -97,6 +110,7 @@
         </form>
     </div>
 </div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}

@@ -3,6 +3,12 @@
 {% block title %}Auction Room - Player Auction System{% endblock %}
 
 {% block content %}
+{% if not admin_mode %}
+<div class="readonly-banner">
+    🔒 <strong>View Only Mode</strong> - <a href="{{ url_for('main.login', next=request.path) }}">Login as Admin</a> to manage the auction.
+</div>
+{% endif %}
+
 <div class="auction-container">
     <!-- Current Player Section -->
     <div class="current-player-section">
@@ -19,7 +25,8 @@
         </div>
     </div>
 
-    <!-- Auctioneer Panel -->
+    {% if admin_mode %}
+    <!-- Auctioneer Panel - Admin Only -->
     <div class="auctioneer-panel">
         <h2>🎤 Auctioneer Panel</h2>
         <div class="current-bid-display">
@@ -59,7 +66,7 @@
         </div>
     </div>
 
-    <!-- Bidding Section -->
+    <!-- Bidding Section - Admin Only -->
     <div class="bidding-section">
         <h2>Place Your Bid</h2>
         <form id="bidForm">
@@ -82,7 +89,7 @@
         </div>
     </div>
 
-    <!-- Randomizer Section -->
+    <!-- Randomizer Section - Admin Only -->
     <div class="randomizer-section">
         <h2>🎲 Random Player Picker</h2>
         
@@ -106,6 +113,7 @@
         </div>
         <div id="randomResult" class="random-result"></div>
     </div>
+    {% endif %}
 
     <!-- Available Players -->
     <div class="players-section">
@@ -116,7 +124,9 @@
                 <h4>{{ player.name }}</h4>
                 <p>{{ player.position }} {% if player.country == 'Overseas' %}<span class="country-emoji">✈️</span>{% else %}<span class="flag-india"></span>{% endif %}</p>
                 <p>Base: ₹{{ '{:.0f}'.format(player.base_price / 100000) }} L</p>
+                {% if admin_mode %}
                 <button class="btn btn-small" onclick="startAuction({{ player.id }})">Start Auction</button>
+                {% endif %}
             </div>
             {% endfor %}
         </div>
@@ -131,7 +141,9 @@
                 <h4>{{ player.name }}</h4>
                 <p>{{ player.position }} {% if player.country == 'Overseas' %}<span class="country-emoji">✈️</span>{% else %}<span class="flag-india"></span>{% endif %}</p>
                 <p>Base: ₹{{ '{:.0f}'.format(player.base_price / 100000) }} L</p>
+                {% if admin_mode %}
                 <button class="btn btn-small btn-retry" onclick="startAuction({{ player.id }})">🔄 Retry</button>
+                {% endif %}
             </div>
             {% else %}
             <p class="no-unsold">No unsold players yet</p>
@@ -140,9 +152,11 @@
     </div>
 </div>
 
+{% if admin_mode %}
 <div class="controls">
     <button id="endAuctionBtn" class="btn btn-danger">End Current Auction</button>
 </div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}

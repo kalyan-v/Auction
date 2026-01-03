@@ -214,5 +214,3 @@ This is a learning project - use it however you want!
 ---
 
 **Happy Coding! 🎉**
-
-*This is your first project - be proud of yourself for starting this journey!*

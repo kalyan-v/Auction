@@ -298,8 +298,17 @@ def place_bid():
     if player.status != 'bidding':
         return jsonify({'success': False, 'error': 'Player is not up for auction'})
     
-    if amount <= player.current_price:
-        return jsonify({'success': False, 'error': 'Bid too low'})
+    # Check if this is a base price bid (first bid) or a raise
+    existing_bids = Bid.query.filter_by(player_id=player_id).count()
+    
+    if existing_bids == 0:
+        # First bid - allow base price (equal to current price)
+        if amount < player.current_price:
+            return jsonify({'success': False, 'error': 'Bid must be at least the base price'})
+    else:
+        # Subsequent bids - must be higher than current
+        if amount <= player.current_price:
+            return jsonify({'success': False, 'error': 'Bid must be higher than current price'})
     
     if amount > team.budget:
         return jsonify({'success': False, 'error': 'Insufficient budget'})

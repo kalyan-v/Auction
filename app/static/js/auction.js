@@ -42,8 +42,16 @@ function initAuctioneerPanel() {
     console.log('Auctioneer Panel initialized. Current Player ID:', currentPlayerId, 'Current Price:', currentBidPrice);
 }
 
-// Select team for quick bidding
-function selectTeam(teamId, teamName) {
+// Fixed bid increment in Lakhs
+const BID_INCREMENT = 25;
+
+// Select team for bidding - first click = base price, subsequent clicks = +25L
+async function selectTeam(teamId, teamName) {
+    if (!currentPlayerId) {
+        showNotification('No active auction!', 'error');
+        return;
+    }
+    
     selectedTeamId = teamId;
     selectedTeamName = teamName;
     
@@ -51,6 +59,55 @@ function selectTeam(teamId, teamName) {
     document.querySelectorAll('.team-btn').forEach(btn => btn.classList.remove('selected'));
     document.querySelector(`.team-btn[data-team-id="${teamId}"]`).classList.add('selected');
     document.getElementById('selectedTeamName').textContent = teamName;
+    
+    // Calculate bid amount:
+    // - If no bids yet (leadingTeamName is '-'), bid at base price
+    // - Otherwise, add 25L increment
+    let newBidPrice;
+    let isBasePriceBid = false;
+    
+    if (leadingTeamName === '-') {
+        // First bid - use base price
+        newBidPrice = currentBidPrice;
+        isBasePriceBid = true;
+    } else {
+        // Subsequent bid - add increment
+        newBidPrice = currentBidPrice + BID_INCREMENT;
+    }
+    
+    const bidAmount = newBidPrice * 100000;
+    
+    try {
+        const response = await fetch('/api/bid', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                player_id: currentPlayerId,
+                team_id: teamId,
+                amount: bidAmount
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            currentBidPrice = newBidPrice;
+            leadingTeamName = teamName;
+            updateBidDisplay();
+            
+            if (isBasePriceBid) {
+                showNotification(`${teamName} bids ₹${newBidPrice} L (base price)`, 'success');
+            } else {
+                showNotification(`${teamName} bids ₹${newBidPrice} L (+${BID_INCREMENT}L)`, 'success');
+            }
+            addToBidHistory(teamName, newBidPrice);
+        } else {
+            showNotification(data.error || 'Bid failed', 'error');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showNotification('Error placing bid', 'error');
+    }
 }
 
 // Quick bid with preset amount

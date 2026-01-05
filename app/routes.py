@@ -36,8 +36,8 @@ api_bp = Blueprint('api', __name__)
 
 @main_bp.route('/')
 def index():
-    """Home page"""
-    return render_template('index.html')
+    """Home page - redirects to Fantasy Points"""
+    return redirect(url_for('main.fantasy'))
 
 @main_bp.route('/login', methods=['GET', 'POST'])
 def login():

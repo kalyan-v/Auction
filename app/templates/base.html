@@ -15,6 +15,7 @@
                 <li><a href="{{ url_for('main.setup') }}">Setup</a></li>
                 <li><a href="{{ url_for('auction.auction_room') }}">Auction Room</a></li>
                 <li><a href="{{ url_for('main.squads') }}">Squads</a></li>
+                <li><a href="{{ url_for('main.fantasy') }}">Fantasy Points</a></li>
                 <li class="nav-divider">|</li>
                 {% if session.get('is_admin') %}
                 <li><span class="admin-badge">👤 Admin</span></li>
@@ -31,7 +32,7 @@
     </main>
 
     <footer>
-        <p>&copy; 2025 Twitter WPL Player Auction</p>
+        <p>&copy; 2026 Twitter WPL Player Auction</p>
     </footer>
 
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>

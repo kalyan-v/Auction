@@ -27,9 +27,36 @@ class Player(db.Model):
     current_price = db.Column(db.Float, default=0)
     status = db.Column(db.String(20), default='available')  # available, sold, unsold
     team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=True)
+    fantasy_points = db.Column(db.Float, default=0)  # Fantasy points for the player
     
     def __repr__(self):
         return f'<Player {self.name}>'
+
+
+class FantasyAward(db.Model):
+    """Model for special fantasy awards (MVP, Orange Cap, Purple Cap)"""
+    id = db.Column(db.Integer, primary_key=True)
+    award_type = db.Column(db.String(50), nullable=False, unique=True)  # 'mvp', 'orange_cap', 'purple_cap'
+    player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=True)
+    
+    player = db.relationship('Player', backref='awards')
+    
+    def __repr__(self):
+        return f'<FantasyAward {self.award_type}>'
+
+
+class FantasyPointEntry(db.Model):
+    """Model for individual match fantasy point entries"""
+    id = db.Column(db.Integer, primary_key=True)
+    player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=False)
+    match_number = db.Column(db.Integer, nullable=False)
+    points = db.Column(db.Float, default=0)
+    timestamp = db.Column(db.DateTime, default=get_pacific_time)
+    
+    player = db.relationship('Player', backref='point_entries')
+    
+    def __repr__(self):
+        return f'<FantasyPointEntry Match {self.match_number}: {self.points} pts>'
 
 class Bid(db.Model):
     """Bid history model"""

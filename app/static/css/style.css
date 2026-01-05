@@ -913,12 +913,12 @@ footer {
 }
 
 .position-badge.bowler {
-    background: #e74c3c;
+    background: #9b59b6;
     color: white;
 }
 
 .position-badge.allrounder {
-    background: #9b59b6;
+    background: #e74c3c;
     color: white;
 }
 
@@ -1055,4 +1055,324 @@ footer {
     text-align: center;
     color: #999;
     padding: 1rem;
+}
+
+/* Fantasy Points Page */
+.awards-section {
+    background: white;
+    border-radius: 10px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.awards-section h3 {
+    font-size: 1.5rem;
+    margin-bottom: 1.5rem;
+    color: #2c3e50;
+    text-align: center;
+}
+
+.awards-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+
+.award-card {
+    border-radius: 10px;
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.award-card.mvp {
+    background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+    border: 2px solid #daa520;
+}
+
+.award-card.orange-cap {
+    background: linear-gradient(135deg, #ff8c00 0%, #ffa500 100%);
+    border: 2px solid #e67300;
+}
+
+.award-card.purple-cap {
+    background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+    border: 2px solid #6c3483;
+}
+
+.award-icon {
+    font-size: 2.5rem;
+    flex-shrink: 0;
+}
+
+.award-info {
+    flex: 1;
+}
+
+.award-info h4 {
+    font-size: 1.2rem;
+    margin-bottom: 0.25rem;
+    color: #2c3e50;
+}
+
+.award-card.purple-cap .award-info h4,
+.award-card.purple-cap .award-description {
+    color: white;
+}
+
+.award-description {
+    font-size: 0.85rem;
+    color: #555;
+    margin-bottom: 0.5rem;
+}
+
+.award-select {
+    width: 100%;
+    padding: 0.5rem;
+    border-radius: 5px;
+    border: 1px solid rgba(0,0,0,0.2);
+    font-size: 0.9rem;
+    background: white;
+    cursor: pointer;
+}
+
+.award-winner {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #2c3e50;
+    margin: 0;
+}
+
+.award-card.purple-cap .award-winner {
+    color: white;
+}
+
+.fantasy-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 2rem;
+}
+
+.fantasy-card .team-header {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+}
+
+.fantasy-total {
+    color: #ffd700 !important;
+    font-size: 1.4rem !important;
+}
+
+.fantasy-table .points-cell {
+    font-weight: bold;
+    color: #27ae60;
+    font-size: 1.1rem;
+}
+
+.points-input {
+    width: 70px;
+    padding: 0.4rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+.points-input:focus {
+    border-color: #3498db;
+    outline: none;
+    box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+}
+
+.action-cell {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.save-points-btn {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.6rem;
+    white-space: nowrap;
+}
+
+.no-data-message {
+    background: white;
+    padding: 3rem;
+    border-radius: 10px;
+    text-align: center;
+    color: #666;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.no-data-message p {
+    font-size: 1.1rem;
+}
+
+/* Clickable rows in fantasy table */
+.clickable-row {
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+}
+
+.clickable-row:hover {
+    background: #e8f4fd;
+    transform: scale(1.01);
+}
+
+/* Fantasy Modal Styles */
+.fantasy-modal-content {
+    max-width: 500px;
+    width: 90%;
+}
+
+.modal-total-points {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    font-size: 1.1rem;
+}
+
+.modal-total-points .total-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #ffd700;
+}
+
+.match-points-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1.5rem;
+}
+
+.match-points-table th,
+.match-points-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+
+.match-points-table th {
+    background: #f8f9fa;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.match-points-table .points-cell {
+    font-weight: bold;
+    color: #27ae60;
+}
+
+.no-matches {
+    text-align: center;
+    color: #999;
+    padding: 2rem;
+    font-style: italic;
+}
+
+.add-points-section {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-top: 1rem;
+}
+
+.add-points-section h4 {
+    margin-bottom: 1rem;
+    color: #2c3e50;
+}
+
+.add-points-form {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-end;
+    flex-wrap: wrap;
+}
+
+.add-points-form .form-group {
+    flex: 1;
+    min-width: 80px;
+}
+
+.add-points-form label {
+    display: block;
+    font-size: 0.85rem;
+    color: #666;
+    margin-bottom: 0.3rem;
+}
+
+.add-points-form input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+.add-points-form input:focus {
+    border-color: #3498db;
+    outline: none;
+    box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+}
+
+.add-points-form .btn {
+    white-space: nowrap;
+}
+
+/* Sortable table headers */
+.sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+}
+
+.sortable:hover {
+    background: #e8f4fd;
+}
+
+.sort-icon {
+    display: inline-block;
+    margin-left: 0.3rem;
+    font-size: 0.9rem;
+    color: #3498db;
+    transition: transform 0.2s;
+}
+
+.sortable:hover .sort-icon {
+    transform: scale(1.2);
+}
+
+/* Responsive for fantasy page */
+@media (max-width: 768px) {
+    .awards-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .fantasy-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .action-cell {
+        flex-direction: column;
+        gap: 0.3rem;
+    }
+    
+    .points-input {
+        width: 100%;
+    }
+    
+    .add-points-form {
+        flex-direction: column;
+    }
+    
+    .add-points-form .form-group {
+        width: 100%;
+    }
 }

@@ -3,7 +3,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from functools import wraps
 from app import db
-from app.models import Team, Player, Bid, AuctionState
+from app.models import Team, Player, Bid, AuctionState, FantasyAward, FantasyPointEntry
 
 def is_admin():
     """Check if current user is logged in as admin"""
@@ -73,6 +73,25 @@ def squads():
     """View all team squads with players and budgets"""
     teams = Team.query.all()
     return render_template('squads.html', teams=teams, admin_mode=is_admin())
+
+@main_bp.route('/fantasy')
+def fantasy():
+    """Fantasy points page for viewing and managing player points"""
+    teams = Team.query.all()
+    all_players = Player.query.filter_by(status='sold').all()
+    
+    # Get or create fantasy awards
+    mvp = FantasyAward.query.filter_by(award_type='mvp').first()
+    orange_cap = FantasyAward.query.filter_by(award_type='orange_cap').first()
+    purple_cap = FantasyAward.query.filter_by(award_type='purple_cap').first()
+    
+    return render_template('fantasy.html', 
+                           teams=teams, 
+                           all_players=all_players,
+                           mvp=mvp,
+                           orange_cap=orange_cap,
+                           purple_cap=purple_cap,
+                           admin_mode=is_admin())
 
 @auction_bp.route('/')
 def auction_room():
@@ -425,3 +444,187 @@ def reset_price():
     db.session.commit()
     
     return jsonify({'success': True, 'new_price': new_price})
+
+# Fantasy Points API endpoints
+@api_bp.route('/fantasy/points', methods=['POST'])
+def update_fantasy_points():
+    """Update fantasy points for a player"""
+    if not is_admin():
+        return jsonify({'success': False, 'error': 'Admin login required'}), 403
+    
+    data = request.get_json()
+    player_id = data.get('player_id')
+    points = data.get('points', 0)
+    
+    player = Player.query.get(player_id)
+    if not player:
+        return jsonify({'success': False, 'error': 'Player not found'})
+    
+    player.fantasy_points = points
+    db.session.commit()
+    
+    return jsonify({'success': True, 'player_id': player_id, 'points': points})
+
+@api_bp.route('/fantasy/award', methods=['POST'])
+def set_fantasy_award():
+    """Set a fantasy award (MVP, Orange Cap, Purple Cap)"""
+    if not is_admin():
+        return jsonify({'success': False, 'error': 'Admin login required'}), 403
+    
+    data = request.get_json()
+    award_type = data.get('award_type')
+    player_id = data.get('player_id')
+    
+    if award_type not in ['mvp', 'orange_cap', 'purple_cap']:
+        return jsonify({'success': False, 'error': 'Invalid award type'})
+    
+    # Get or create the award
+    award = FantasyAward.query.filter_by(award_type=award_type).first()
+    if not award:
+        award = FantasyAward(award_type=award_type)
+        db.session.add(award)
+    
+    # Set player (can be None to clear the award)
+    award.player_id = player_id if player_id else None
+    db.session.commit()
+    
+    player_name = None
+    if player_id:
+        player = Player.query.get(player_id)
+        player_name = player.name if player else None
+    
+    return jsonify({
+        'success': True, 
+        'award_type': award_type, 
+        'player_id': player_id,
+        'player_name': player_name
+    })
+
+@api_bp.route('/fantasy/awards', methods=['GET'])
+def get_fantasy_awards():
+    """Get all fantasy awards"""
+    awards = FantasyAward.query.all()
+    result = {}
+    for award in awards:
+        result[award.award_type] = {
+            'player_id': award.player_id,
+            'player_name': award.player.name if award.player else None
+        }
+    return jsonify({'success': True, 'awards': result})
+
+@api_bp.route('/fantasy/players', methods=['GET'])
+def get_fantasy_players():
+    """Get all sold players with fantasy points"""
+    players = Player.query.filter_by(status='sold').all()
+    return jsonify({
+        'success': True,
+        'players': [{
+            'id': p.id,
+            'name': p.name,
+            'position': p.position,
+            'team_id': p.team_id,
+            'team_name': p.team.name if p.team else None,
+            'fantasy_points': p.fantasy_points
+        } for p in players]
+    })
+
+@api_bp.route('/fantasy/points/add', methods=['POST'])
+def add_match_points():
+    """Add fantasy points for a specific match"""
+    if not is_admin():
+        return jsonify({'success': False, 'error': 'Admin login required'}), 403
+    
+    data = request.get_json()
+    player_id = data.get('player_id')
+    match_number = data.get('match_number')
+    points = data.get('points', 0)
+    
+    if not player_id or not match_number:
+        return jsonify({'success': False, 'error': 'Player ID and match number required'})
+    
+    player = Player.query.get(player_id)
+    if not player:
+        return jsonify({'success': False, 'error': 'Player not found'})
+    
+    # Check if entry for this match already exists
+    existing = FantasyPointEntry.query.filter_by(
+        player_id=player_id, 
+        match_number=match_number
+    ).first()
+    
+    if existing:
+        # Update existing entry
+        existing.points = points
+    else:
+        # Create new entry
+        entry = FantasyPointEntry(
+            player_id=player_id,
+            match_number=match_number,
+            points=points
+        )
+        db.session.add(entry)
+    
+    # Update total fantasy points for the player
+    db.session.flush()
+    total_points = db.session.query(db.func.sum(FantasyPointEntry.points)).filter_by(player_id=player_id).scalar() or 0
+    player.fantasy_points = total_points
+    
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'player_id': player_id,
+        'match_number': match_number,
+        'points': points,
+        'total_points': total_points
+    })
+
+@api_bp.route('/fantasy/points/<int:player_id>', methods=['GET'])
+def get_player_match_points(player_id):
+    """Get all match point entries for a player"""
+    player = Player.query.get(player_id)
+    if not player:
+        return jsonify({'success': False, 'error': 'Player not found'})
+    
+    entries = FantasyPointEntry.query.filter_by(player_id=player_id).order_by(FantasyPointEntry.match_number).all()
+    
+    return jsonify({
+        'success': True,
+        'player': {
+            'id': player.id,
+            'name': player.name,
+            'team_name': player.team.name if player.team else None,
+            'total_points': player.fantasy_points
+        },
+        'entries': [{
+            'id': e.id,
+            'match_number': e.match_number,
+            'points': e.points
+        } for e in entries]
+    })
+
+@api_bp.route('/fantasy/points/delete/<int:entry_id>', methods=['DELETE'])
+def delete_match_points(entry_id):
+    """Delete a specific match point entry"""
+    if not is_admin():
+        return jsonify({'success': False, 'error': 'Admin login required'}), 403
+    
+    entry = FantasyPointEntry.query.get(entry_id)
+    if not entry:
+        return jsonify({'success': False, 'error': 'Entry not found'})
+    
+    player_id = entry.player_id
+    db.session.delete(entry)
+    
+    # Update total fantasy points for the player
+    db.session.flush()
+    total_points = db.session.query(db.func.sum(FantasyPointEntry.points)).filter_by(player_id=player_id).scalar() or 0
+    player = Player.query.get(player_id)
+    player.fantasy_points = total_points
+    
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'total_points': total_points
+    })

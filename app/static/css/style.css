@@ -896,6 +896,325 @@ footer {
     }
 }
 
+/* ==================== MOBILE RESPONSIVE STYLES ==================== */
+
+/* Mobile Menu Button */
+.mobile-menu-btn {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 40px;
+    height: 40px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 5px;
+    z-index: 1001;
+}
+
+.hamburger-line {
+    width: 25px;
+    height: 3px;
+    background-color: white;
+    margin: 3px 0;
+    transition: all 0.3s ease;
+    border-radius: 2px;
+}
+
+.mobile-menu-btn.active .hamburger-line:nth-child(1) {
+    transform: rotate(45deg) translate(6px, 6px);
+}
+
+.mobile-menu-btn.active .hamburger-line:nth-child(2) {
+    opacity: 0;
+}
+
+.mobile-menu-btn.active .hamburger-line:nth-child(3) {
+    transform: rotate(-45deg) translate(6px, -6px);
+}
+
+.desktop-only {
+    display: block;
+}
+
+/* Mobile Styles */
+@media (max-width: 900px) {
+    /* Navbar */
+    .navbar .container {
+        flex-wrap: wrap;
+        position: relative;
+    }
+    
+    .logo {
+        font-size: 1.2rem;
+    }
+    
+    .logo-text {
+        font-size: 1rem;
+    }
+    
+    .mobile-menu-btn {
+        display: flex;
+    }
+    
+    .desktop-only {
+        display: none !important;
+    }
+    
+    .nav-links {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: #2c3e50;
+        flex-direction: column;
+        padding: 1rem;
+        gap: 0;
+        z-index: 1000;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+    
+    .nav-links.mobile-open {
+        display: flex;
+    }
+    
+    .nav-links li {
+        padding: 0.75rem 0;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .nav-links li:last-child {
+        border-bottom: none;
+    }
+    
+    .nav-links a {
+        display: block;
+        padding: 0.5rem;
+        font-size: 1.1rem;
+    }
+    
+    .league-selector {
+        width: 100%;
+    }
+    
+    .league-selector select {
+        width: 100%;
+        padding: 0.75rem;
+        font-size: 1rem;
+    }
+    
+    /* Container */
+    .container {
+        padding: 0 10px;
+    }
+    
+    /* Page Headers */
+    .page-header h2,
+    .section-header h2,
+    h2 {
+        font-size: 1.4rem;
+    }
+    
+    /* Tables - Horizontal Scroll */
+    .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin: 0 -10px;
+        padding: 0 10px;
+    }
+    
+    table {
+        min-width: 600px;
+        font-size: 0.85rem;
+    }
+    
+    th, td {
+        padding: 0.6rem 0.4rem;
+        white-space: nowrap;
+    }
+    
+    /* Cards Grid */
+    .squads-container,
+    .teams-grid,
+    .players-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .team-card {
+        margin-bottom: 1rem;
+    }
+    
+    .team-header {
+        padding: 1rem;
+    }
+    
+    .team-header h3 {
+        font-size: 1.4rem;
+    }
+    
+    .team-stats {
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    
+    /* Forms */
+    .form-row {
+        flex-direction: column;
+    }
+    
+    .form-group {
+        width: 100%;
+        margin-bottom: 0.75rem;
+    }
+    
+    input, select, textarea {
+        font-size: 16px !important; /* Prevent iOS zoom */
+        padding: 0.75rem;
+    }
+    
+    button, .btn {
+        width: 100%;
+        padding: 0.875rem;
+        font-size: 1rem;
+    }
+    
+    /* Setup Page */
+    .setup-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .setup-section {
+        padding: 1rem;
+    }
+    
+    /* Auction Page */
+    .auction-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .current-player-card {
+        padding: 1rem;
+    }
+    
+    .player-name {
+        font-size: 1.5rem;
+    }
+    
+    .bid-controls {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .bid-controls button {
+        width: 100%;
+    }
+    
+    /* Fantasy Page */
+    .awards-container {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .award-card {
+        padding: 1rem;
+    }
+    
+    .award-image-container {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .award-player-image {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .fantasy-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .add-points-form {
+        flex-direction: column;
+    }
+    
+    .add-points-form .form-group {
+        width: 100%;
+    }
+    
+    /* Action Buttons in Tables */
+    .action-cell {
+        flex-direction: column;
+        gap: 0.3rem;
+    }
+    
+    .action-cell button,
+    .action-cell .btn {
+        width: 100%;
+        padding: 0.5rem;
+        font-size: 0.8rem;
+    }
+    
+    /* Filters */
+    .filters-container,
+    .filter-row {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .filter-row select,
+    .filter-row input {
+        width: 100%;
+    }
+    
+    /* Stats Display */
+    .stats-row,
+    .stat-cards {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .stat-card {
+        width: 100%;
+    }
+    
+    /* Footer */
+    footer {
+        padding: 1rem 0;
+        font-size: 0.85rem;
+    }
+    
+    /* Modals */
+    .modal-content {
+        width: 95%;
+        margin: 10% auto;
+        padding: 1rem;
+    }
+    
+    /* Player List in Team Cards */
+    .player-list {
+        font-size: 0.85rem;
+    }
+    
+    .player-row {
+        padding: 0.5rem;
+    }
+    
+    /* Readonly Banner */
+    .readonly-banner {
+        font-size: 0.85rem;
+        padding: 0.75rem;
+    }
+    
+    /* Alert Messages */
+    .alert {
+        padding: 0.75rem;
+        font-size: 0.9rem;
+    }
+}
+
 /* Squads Page */
 .squads-container {
     display: grid;

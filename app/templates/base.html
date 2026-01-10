@@ -2,15 +2,20 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>{% block title %}{% if current_league %}{{ current_league.display_name }}{% else %}Player Auction{% endif %}{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
     <nav class="navbar">
         <div class="container">
-            <h1 class="logo">🏏 {% if current_league %}{{ current_league.display_name }}{% else %}Player Auction{% endif %}</h1>
-            <ul class="nav-links">
+            <h1 class="logo">🏏 <span class="logo-text">{% if current_league %}{{ current_league.name }}{% else %}Auction{% endif %}</span></h1>
+            <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Toggle menu">
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+            </button>
+            <ul class="nav-links" id="navLinks">
                 {% if all_leagues and all_leagues|length > 0 %}
                 <li class="league-selector">
                     <select id="leagueSwitcher" onchange="switchLeague(this.value)">
@@ -21,17 +26,17 @@
                         {% endfor %}
                     </select>
                 </li>
-                <li class="nav-divider">|</li>
+                <li class="nav-divider desktop-only">|</li>
                 {% endif %}
-                <li><a href="{{ url_for('main.index') }}">Home</a></li>
-                <li><a href="{{ url_for('main.setup') }}">Setup</a></li>
-                <li><a href="{{ url_for('auction.auction_room') }}">Auction Room</a></li>
-                <li><a href="{{ url_for('main.squads') }}">Squads</a></li>
-                <li><a href="{{ url_for('main.fantasy') }}">Fantasy Points</a></li>
-                <li class="nav-divider">|</li>
+                <li><a href="{{ url_for('main.index') }}">🏠 Home</a></li>
+                <li><a href="{{ url_for('main.setup') }}">⚙️ Setup</a></li>
+                <li><a href="{{ url_for('auction.auction_room') }}">🔨 Auction</a></li>
+                <li><a href="{{ url_for('main.squads') }}">👥 Squads</a></li>
+                <li><a href="{{ url_for('main.fantasy') }}">⭐ Fantasy</a></li>
+                <li class="nav-divider desktop-only">|</li>
                 {% if session.get('is_admin') %}
                 <li><span class="admin-badge">👤 Admin</span></li>
-                <li><a href="{{ url_for('main.logout') }}" class="logout-link">Logout</a></li>
+                <li><a href="{{ url_for('main.logout') }}" class="logout-link">🚪 Logout</a></li>
                 {% else %}
                 <li><a href="{{ url_for('main.login') }}" class="login-link">🔐 Login</a></li>
                 {% endif %}
@@ -58,6 +63,23 @@
         function switchLeague(leagueId) {
             window.location.href = '/switch-league/' + leagueId + '?next=' + encodeURIComponent(window.location.pathname);
         }
+        
+        function toggleMobileMenu() {
+            const navLinks = document.getElementById('navLinks');
+            const menuBtn = document.querySelector('.mobile-menu-btn');
+            navLinks.classList.toggle('mobile-open');
+            menuBtn.classList.toggle('active');
+        }
+        
+        // Close menu when clicking outside
+        document.addEventListener('click', function(e) {
+            const navLinks = document.getElementById('navLinks');
+            const menuBtn = document.querySelector('.mobile-menu-btn');
+            if (!navLinks.contains(e.target) && !menuBtn.contains(e.target)) {
+                navLinks.classList.remove('mobile-open');
+                menuBtn.classList.remove('active');
+            }
+        });
     </script>
     {% block scripts %}{% endblock %}
 </body>

@@ -142,16 +142,17 @@
         </div>
         
         <div class="players-list">
+            <div class="table-responsive">
             <table class="squad-table fantasy-table" id="table-{{ team.id }}">
                 <thead>
                     <tr>
                         <th>Player</th>
+                        <th class="sortable" onclick="sortTable({{ team.id }}, 'points')">
+                            Total Points <span class="sort-icon" id="sort-points-{{ team.id }}">⇅</span>
+                        </th>
                         <th>Original Team</th>
                         <th class="sortable" onclick="sortTable({{ team.id }}, 'position')">
                             Position <span class="sort-icon" id="sort-position-{{ team.id }}">⇅</span>
-                        </th>
-                        <th class="sortable" onclick="sortTable({{ team.id }}, 'points')">
-                            Total Points <span class="sort-icon" id="sort-points-{{ team.id }}">⇅</span>
                         </th>
                     </tr>
                 </thead>
@@ -166,15 +167,16 @@
                         data-points="{{ player.fantasy_points }}"
                         onclick="showPointsModalFromRow(this)">
                         <td>{{ player.name }}</td>
-                        <td><span class="original-team-badge">{{ player.original_team or '-' }}</span></td>
-                        <td><span class="position-badge {{ player.position | lower }}">{{ player.position }}</span></td>
                         <td class="points-cell">
                             <span class="points-value" id="points-{{ player.id }}">{{ player.fantasy_points }}</span>
                         </td>
+                        <td><span class="original-team-badge">{{ player.original_team or '-' }}</span></td>
+                        <td><span class="position-badge {{ player.position | lower }}">{{ player.position }}</span></td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
     {% endif %}

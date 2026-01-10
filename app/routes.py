@@ -3,6 +3,8 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from functools import wraps
 from sqlalchemy.orm import joinedload
+import requests
+import re
 from app import db
 from app.models import Team, Player, Bid, AuctionState, FantasyAward, FantasyPointEntry, League
 
@@ -834,4 +836,235 @@ def delete_match_points(entry_id):
     return jsonify({
         'success': True,
         'total_points': total_points
+    })
+
+
+# ==================== Player Image APIs ====================
+
+import os
+from flask import current_app
+
+def get_player_image_path():
+    """Get the path to store player images"""
+    return os.path.join(current_app.root_path, 'static', 'images', 'players')
+
+def download_and_save_image(image_url, player_id, player_name):
+    """Download image from URL and save locally"""
+    try:
+        headers = {
+            'User-Agent': 'WPLAuctionApp/1.0 (https://github.com/auction; auction@example.com) python-requests'
+        }
+        response = requests.get(image_url, headers=headers, timeout=15)
+        if response.status_code == 200:
+            # Ensure directory exists
+            image_dir = get_player_image_path()
+            os.makedirs(image_dir, exist_ok=True)
+            
+            # Create safe filename from player name
+            safe_name = "".join(c if c.isalnum() else "_" for c in player_name.lower())
+            filename = f"{player_id}_{safe_name}.jpg"
+            filepath = os.path.join(image_dir, filename)
+            
+            # Save image
+            with open(filepath, 'wb') as f:
+                f.write(response.content)
+            
+            # Return the URL path for the static file
+            return f"/static/images/players/{filename}"
+        return None
+    except Exception as e:
+        print(f"Error downloading image for {player_name}: {e}")
+        return None
+
+# WPL Player ID mapping (from wplt20.com squad pages)
+WPL_PLAYER_IDS = {
+    # Mumbai Indians
+    'Harmanpreet Kaur': 59348, 'Amanjot Kaur': 75657, 'Amelia Kerr': 66632,
+    'Hayley Matthews': 64970, 'Nalla Reddy': 83685, 'Natalie Sciver-Brunt': 63998,
+    'Nicola Carey': 63267, 'Poonam Khemnar': 71472, 'Sajeevan Sajana': 84022,
+    'Sanskriti Gupta': 84334, 'Triveni Vasistha': 83731, 'G. Kamalini': 108890,
+    'G. Kamlini': 108890, 'Rahila Firdous': 75635, 'Milly Illingworth': 100377,
+    'Saika Ishaque': 100194, 'Shabnim Ismail': 6658,
+    # Delhi Capitals
+    'Deeya Yadav': 117710, 'Jemimah Rodrigues': 68442, 'Laura Wolvaardt': 66176,
+    'Shafali Verma': 70772, 'Chinelle Henry': 64347, 'Marizanne Kapp': 7759,
+    'Minnu Mani': 70723, 'N. Charani': 89194, 'Niki Prasad': 99166,
+    'Sneh Rana': 64550, 'Lizelle Lee': 64192, 'Mamatha Madiwala': 89202,
+    'Taniya Bhatia': 68443, 'Taniyaa Bhatia': 68443, 'Alana King': 67057,
+    'Lucy Hamilton': 100376, 'Nandni Sharma': 75642,
+    # Gujarat Giants
+    'Anushka Sharma': 84308, 'Bharti Fulmali': 70708, 'Danni Wyatt-Hodge': 59131,
+    'Danni Wyatt': 59131, 'Ashleigh Gardner': 67023, 'Ayushi Soni': 81824,
+    'Georgia Wareham': 67047, 'Kanika Ahuja': 84086, 'Kim Garth': 19948,
+    'Sophie Devine': 62067, 'Tanuja Kanwer': 70721, 'Beth Mooney': 64853,
+    'Shivani Singh': 84013, 'Yastika Bhatia': 73424, 'Happy Kumari': 129259,
+    'Kashvee Gautam': 75656, 'Rajeshwari Gayakwad': 64549, 'Renuka Singh': 70714,
+    'Titas Sadhu': 83663,
+    # Royal Challengers Bengaluru
+    'Georgia Voll': 75001, 'Smriti Mandhana': 63992, 'Arundhati Reddy': 70064,
+    'Dayalan Hemalatha': 69399, 'Gautami Naik': 93529, 'Grace Harris': 65633,
+    'Nadine de Klerk': 67302, 'Pooja Vastrakar': 68423, 'Prema Rawat': 112786,
+    'Radha Yadav': 68441, 'Sayali Satghare': 83633, 'Sayali Satghare ': 83633,
+    'Shreyanka Patil': 75598, 'Prathyoosha Kumar': 82877, 'Richa Ghosh': 74530,
+    'Lauren Bell': 69906, 'Linsey Smith': 69760,
+    # UP Warriorz
+    'Kiran Navgire': 71461, 'Meg Lanning': 57908, 'Phoebe Litchfield': 71357,
+    'Shweta Sehrawat': 83619, 'Simran Shaikh': 83648, 'Asha Sobhana': 75591,
+    'Chloe Tryon': 11858, 'Deandra Dottin': 59467, 'Deepti Sharma': 65146,
+    'Harleen Deol': 70726, 'Kranti Goud': 84330, 'Kranti Gaud': 84330,
+    'Pratika Rawal': 83623, 'Shikha Pandey': 64755, 'Shipra Giri': 84241,
+    'Sophie Ecclestone': 66391, 'Suman Meena': 83897, 'Gongadi Trisha': 83660,
+    'Trisha Gongadi': 83660, 'Charli Knott': 70455,
+}
+
+def search_and_download_player_image(player_id, player_name):
+    """Search for player image and download it locally - tries WPL first"""
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }
+    
+    # Try WPL first (official source with high-quality headshots)
+    wpl_player_id = WPL_PLAYER_IDS.get(player_name.strip())
+    if wpl_player_id:
+        try:
+            image_url = f"https://www.wplt20.com/static-assets/images/players/series/13458/{wpl_player_id}.png"
+            response = requests.get(image_url, headers=headers, timeout=15)
+            if response.status_code == 200 and len(response.content) > 1000:
+                # Ensure directory exists
+                image_dir = get_player_image_path()
+                os.makedirs(image_dir, exist_ok=True)
+                
+                # Create safe filename
+                safe_name = "".join(c if c.isalnum() else "_" for c in player_name.lower().strip())
+                filename = f"{player_id}_{safe_name}.png"
+                filepath = os.path.join(image_dir, filename)
+                
+                with open(filepath, 'wb') as f:
+                    f.write(response.content)
+                
+                return f"/static/images/players/{filename}"
+        except Exception as e:
+            print(f"WPL image fetch error for {player_name}: {e}")
+    
+    # Fallback to Wikipedia for players not in WPL
+    wiki_headers = {
+        'User-Agent': 'WPLAuctionApp/1.0 (https://github.com/auction; auction@example.com) python-requests'
+    }
+    try:
+        wiki_url = 'https://en.wikipedia.org/w/api.php'
+        params = {
+            'action': 'query',
+            'titles': player_name,
+            'prop': 'pageimages',
+            'format': 'json',
+            'pithumbsize': 200
+        }
+        response = requests.get(wiki_url, params=params, headers=wiki_headers, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            pages = data.get('query', {}).get('pages', {})
+            for page_id, page_data in pages.items():
+                if page_id != '-1':
+                    thumbnail = page_data.get('thumbnail', {})
+                    if thumbnail.get('source'):
+                        local_path = download_and_save_image(thumbnail['source'], player_id, player_name)
+                        if local_path:
+                            return local_path
+    except Exception as e:
+        print(f"Wikipedia search error for {player_name}: {e}")
+    
+    return None
+
+
+@api_bp.route('/players/<int:player_id>/fetch-image', methods=['POST'])
+def fetch_player_image(player_id):
+    """Fetch, download and save player image locally"""
+    if not is_admin():
+        return jsonify({'success': False, 'error': 'Admin login required'}), 403
+    
+    player = Player.query.get(player_id)
+    if not player:
+        return jsonify({'success': False, 'error': 'Player not found'}), 404
+    
+    # Search and download image
+    local_image_path = search_and_download_player_image(player.id, player.name)
+    
+    if local_image_path:
+        player.image_url = local_image_path
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'image_url': local_image_path,
+            'message': f'Image downloaded for {player.name}'
+        })
+    else:
+        return jsonify({
+            'success': False,
+            'error': f'No image found for {player.name}. Try setting manually.'
+        })
+
+
+@api_bp.route('/players/<int:player_id>/image', methods=['PUT'])
+def update_player_image(player_id):
+    """Manually update player image URL"""
+    if not is_admin():
+        return jsonify({'success': False, 'error': 'Admin login required'}), 403
+    
+    player = Player.query.get(player_id)
+    if not player:
+        return jsonify({'success': False, 'error': 'Player not found'}), 404
+    
+    data = request.get_json()
+    image_url = data.get('image_url', '').strip()
+    
+    # Basic URL validation
+    if image_url and not image_url.startswith(('http://', 'https://')):
+        return jsonify({'success': False, 'error': 'Invalid URL format'})
+    
+    player.image_url = image_url if image_url else None
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'image_url': player.image_url,
+        'message': 'Image URL updated'
+    })
+
+
+@api_bp.route('/players/fetch-all-images', methods=['POST'])
+def fetch_all_player_images():
+    """Fetch images for all players without images"""
+    if not is_admin():
+        return jsonify({'success': False, 'error': 'Admin login required'}), 403
+    
+    current_league = get_current_league()
+    if not current_league:
+        return jsonify({'success': False, 'error': 'No league selected'})
+    
+    # Get players without images
+    players = Player.query.filter(
+        Player.league_id == current_league.id,
+        Player.is_deleted == False,
+        (Player.image_url == None) | (Player.image_url == '')
+    ).all()
+    
+    results = {'found': 0, 'not_found': 0, 'players': []}
+    
+    for player in players:
+        local_image_path = search_and_download_player_image(player.id, player.name)
+        
+        if local_image_path:
+            player.image_url = local_image_path
+            results['found'] += 1
+            results['players'].append({'name': player.name, 'status': 'found', 'image_url': local_image_path})
+        else:
+            results['not_found'] += 1
+            results['players'].append({'name': player.name, 'status': 'not_found'})
+    
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': f"Downloaded images for {results['found']} players, {results['not_found']} not found",
+        'results': results
     })

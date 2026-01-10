@@ -58,6 +58,7 @@ class Player(db.Model):
     league_id = db.Column(db.Integer, db.ForeignKey('league.id'), nullable=True, index=True)
     original_team = db.Column(db.String(100), nullable=True, index=True)  # Previous/original team name
     fantasy_points = db.Column(db.Float, default=0)  # Total fantasy points
+    image_url = db.Column(db.String(500), nullable=True)  # Player image URL
     is_deleted = db.Column(db.Boolean, default=False, index=True)  # Soft delete
     
     def __repr__(self):

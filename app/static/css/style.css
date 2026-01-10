@@ -1264,6 +1264,39 @@ footer {
     flex-shrink: 0;
 }
 
+.award-image-container {
+    flex-shrink: 0;
+    width: 80px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.award-player-image {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid rgba(255, 255, 255, 0.8);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.award-image-container .award-icon {
+    font-size: 2.5rem;
+}
+
+.award-image-container .award-icon.fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.awards-actions {
+    margin-bottom: 1rem;
+    text-align: right;
+}
+
 .award-info {
     flex: 1;
 }

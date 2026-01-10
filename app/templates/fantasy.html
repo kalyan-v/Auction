@@ -14,9 +14,21 @@
 <!-- Special Awards Section -->
 <div class="awards-section">
     <h3>🏆 Special Awards</h3>
+    {% if admin_mode %}
+    <div class="awards-actions">
+        <button class="btn btn-small btn-secondary" onclick="fetchAllAwardImages()">🔄 Fetch Award Images</button>
+    </div>
+    {% endif %}
     <div class="awards-container">
         <div class="award-card mvp">
-            <div class="award-icon">🏅</div>
+            <div class="award-image-container">
+                {% if mvp and mvp.player and mvp.player.image_url %}
+                <img src="{{ mvp.player.image_url }}" alt="{{ mvp.player.name }}" class="award-player-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div class="award-icon fallback" style="display:none;">🏅</div>
+                {% else %}
+                <div class="award-icon">🏅</div>
+                {% endif %}
+            </div>
             <div class="award-info">
                 <h4>MVP</h4>
                 <p class="award-description">Most Valuable Player</p>
@@ -36,7 +48,14 @@
         </div>
         
         <div class="award-card orange-cap">
-            <div class="award-icon">🧢</div>
+            <div class="award-image-container">
+                {% if orange_cap and orange_cap.player and orange_cap.player.image_url %}
+                <img src="{{ orange_cap.player.image_url }}" alt="{{ orange_cap.player.name }}" class="award-player-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div class="award-icon fallback" style="display:none;">🧢</div>
+                {% else %}
+                <div class="award-icon">🧢</div>
+                {% endif %}
+            </div>
             <div class="award-info">
                 <h4>Orange Cap</h4>
                 <p class="award-description">Most Runs</p>
@@ -56,7 +75,14 @@
         </div>
         
         <div class="award-card purple-cap">
-            <div class="award-icon">🧢</div>
+            <div class="award-image-container">
+                {% if purple_cap and purple_cap.player and purple_cap.player.image_url %}
+                <img src="{{ purple_cap.player.image_url }}" alt="{{ purple_cap.player.name }}" class="award-player-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div class="award-icon fallback" style="display:none;">🧢</div>
+                {% else %}
+                <div class="award-icon">🧢</div>
+                {% endif %}
+            </div>
             <div class="award-info">
                 <h4>Purple Cap</h4>
                 <p class="award-description">Most Wickets</p>
@@ -203,6 +229,34 @@
 let currentPlayerId = null;
 let currentTeamId = null;
 const isAdmin = {{ 'true' if admin_mode else 'false' }};
+
+// Fetch images for award winners
+async function fetchAllAwardImages() {
+    const selects = ['mvp-select', 'orange-cap-select', 'purple-cap-select'];
+    let fetchCount = 0;
+    
+    for (const selectId of selects) {
+        const select = document.getElementById(selectId);
+        if (select && select.value) {
+            try {
+                const response = await fetch(`/api/players/${select.value}/fetch-image`, { method: 'POST' });
+                const data = await response.json();
+                if (data.success) {
+                    fetchCount++;
+                }
+            } catch (e) {
+                console.error('Error fetching image:', e);
+            }
+        }
+    }
+    
+    if (fetchCount > 0) {
+        showNotification(`Fetched ${fetchCount} award winner image(s). Refreshing...`, 'success');
+        setTimeout(() => location.reload(), 1500);
+    } else {
+        showNotification('No images found or no award winners selected', 'info');
+    }
+}
 
 // Helper to show modal using data attributes (safe for special characters in names)
 function showPointsModalFromRow(row) {

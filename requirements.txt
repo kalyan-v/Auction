@@ -4,3 +4,4 @@ Flask-SocketIO==5.3.6
 python-socketio==5.11.0
 Werkzeug==3.0.1
 tzdata
+requests>=2.31.0

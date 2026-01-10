@@ -5,6 +5,7 @@ from functools import wraps
 from sqlalchemy.orm import joinedload
 import requests
 import re
+import os
 from app import db
 from app.models import Team, Player, Bid, AuctionState, FantasyAward, FantasyPointEntry, League
 
@@ -840,9 +841,6 @@ def delete_match_points(entry_id):
 
 
 # ==================== Player Image APIs ====================
-
-import os
-from flask import current_app
 
 def get_player_image_path():
     """Get the path to store player images"""

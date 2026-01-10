@@ -3,14 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Twitter WPL Player Auction{% endblock %}</title>
+    <title>{% block title %}{% if current_league %}{{ current_league.display_name }}{% else %}Player Auction{% endif %}{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
     <nav class="navbar">
         <div class="container">
-            <h1 class="logo">🏏 Twitter WPL Player Auction</h1>
+            <h1 class="logo">🏏 {% if current_league %}{{ current_league.display_name }}{% else %}Player Auction{% endif %}</h1>
             <ul class="nav-links">
+                {% if all_leagues and all_leagues|length > 0 %}
+                <li class="league-selector">
+                    <select id="leagueSwitcher" onchange="switchLeague(this.value)">
+                        {% for league in all_leagues %}
+                        <option value="{{ league.id }}" {% if current_league and league.id == current_league.id %}selected{% endif %}>
+                            {{ league.display_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </li>
+                <li class="nav-divider">|</li>
+                {% endif %}
                 <li><a href="{{ url_for('main.index') }}">Home</a></li>
                 <li><a href="{{ url_for('main.setup') }}">Setup</a></li>
                 <li><a href="{{ url_for('auction.auction_room') }}">Auction Room</a></li>
@@ -28,14 +40,25 @@
     </nav>
 
     <main class="container">
+        {% if not current_league and session.get('is_admin') %}
+        <div class="alert alert-warning" style="background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <strong>⚠️ No league selected.</strong> 
+            <a href="{{ url_for('main.setup') }}">Go to Setup</a> to create a league first.
+        </div>
+        {% endif %}
         {% block content %}{% endblock %}
     </main>
 
     <footer>
-        <p>&copy; 2026 Twitter WPL Player Auction</p>
+        <p>&copy; 2026 {% if current_league %}{{ current_league.display_name }}{% else %}Player Auction{% endif %}</p>
     </footer>
 
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        function switchLeague(leagueId) {
+            window.location.href = '/switch-league/' + leagueId + '?next=' + encodeURIComponent(window.location.pathname);
+        }
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

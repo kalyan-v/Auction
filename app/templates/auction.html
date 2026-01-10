@@ -44,7 +44,7 @@
             <h4>Quick Bid - Select Team & Click Amount</h4>
             <div class="team-buttons" id="teamButtons">
                 {% for team in teams %}
-                <button class="team-btn" data-team-id="{{ team.id }}" data-team-name="{{ team.name }}" onclick="selectTeam({{ team.id }}, '{{ team.name }}')">{{ team.name }}</button>
+                <button class="team-btn" data-team-id="{{ team.id }}" data-team-name="{{ team.name }}" onclick="selectTeamFromData(this)">{{ team.name }}</button>
                 {% endfor %}
             </div>
             <p class="selected-team-display">Selected: <strong id="selectedTeamName">None</strong></p>

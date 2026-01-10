@@ -77,6 +77,22 @@
     </div>
 </div>
 
+<!-- Filter Section -->
+<div class="filter-section">
+    <div class="filter-group">
+        <label>Filter by:</label>
+        <select id="filterType" onchange="updateFilterOptions()">
+            <option value="none">All Players</option>
+            <option value="team">Original Team</option>
+            <option value="position">Position</option>
+        </select>
+        <select id="filterValue" onchange="applyFilter()" style="display: none;">
+            <option value="">Select...</option>
+        </select>
+        <button class="btn btn-secondary" onclick="clearFilter()">Clear Filter</button>
+    </div>
+</div>
+
 <!-- Team Fantasy Points Section -->
 <div class="fantasy-container">
     {% for team in teams %}
@@ -104,6 +120,7 @@
                 <thead>
                     <tr>
                         <th>Player</th>
+                        <th>Original Team</th>
                         <th class="sortable" onclick="sortTable({{ team.id }}, 'position')">
                             Position <span class="sort-icon" id="sort-position-{{ team.id }}">⇅</span>
                         </th>
@@ -116,11 +133,14 @@
                     {% for player in team_players %}
                     <tr class="player-row clickable-row" 
                         data-player-id="{{ player.id }}" 
+                        data-player-name="{{ player.name }}"
                         data-team-id="{{ team.id }}"
                         data-position="{{ player.position }}"
+                        data-original-team="{{ player.original_team or '' }}"
                         data-points="{{ player.fantasy_points }}"
-                        onclick="showPointsModal({{ player.id }}, '{{ player.name }}', {{ team.id }})">
+                        onclick="showPointsModalFromRow(this)">
                         <td>{{ player.name }}</td>
+                        <td><span class="original-team-badge">{{ player.original_team or '-' }}</span></td>
                         <td><span class="position-badge {{ player.position | lower }}">{{ player.position }}</span></td>
                         <td class="points-cell">
                             <span class="points-value" id="points-{{ player.id }}">{{ player.fantasy_points }}</span>
@@ -135,7 +155,8 @@
     {% endfor %}
 </div>
 
-{% if not teams or teams | selectattr('players') | list | length == 0 %}
+{% set has_sold_players = teams | map(attribute='players') | sum(start=[]) | selectattr('status', 'equalto', 'sold') | list | length > 0 %}
+{% if not teams or not has_sold_players %}
 <div class="no-data-message">
     <p>No players have been sold yet. Complete the auction first to manage fantasy points.</p>
 </div>
@@ -182,6 +203,14 @@
 let currentPlayerId = null;
 let currentTeamId = null;
 const isAdmin = {{ 'true' if admin_mode else 'false' }};
+
+// Helper to show modal using data attributes (safe for special characters in names)
+function showPointsModalFromRow(row) {
+    const playerId = parseInt(row.dataset.playerId);
+    const playerName = row.dataset.playerName;
+    const teamId = parseInt(row.dataset.teamId);
+    showPointsModal(playerId, playerName, teamId);
+}
 
 // Track sort state for each team
 const sortState = {};
@@ -306,10 +335,10 @@ async function showPointsModal(playerId, playerName, teamId) {
                 document.getElementById('matchPoints').value = '';
             }
         } else {
-            containerEl.innerHTML = '<p class="error">Error loading points: ' + data.error + '</p>';
+            containerEl.innerHTML = '<p class="error">Error loading points: ' + escapeHtml(data.error) + '</p>';
         }
     } catch (error) {
-        containerEl.innerHTML = '<p class="error">Error loading points: ' + error.message + '</p>';
+        containerEl.innerHTML = '<p class="error">Error loading points: ' + escapeHtml(error.message) + '</p>';
     }
 }
 
@@ -441,5 +470,104 @@ async function setAward(awardType, playerId) {
         alert('Error setting award: ' + error.message);
     }
 }
+
+// Filter functionality - dynamically get values from page data
+function getUniqueValues(attribute) {
+    const values = new Set();
+    document.querySelectorAll('.player-row').forEach(row => {
+        const val = row.dataset[attribute];
+        if (val && val.trim()) values.add(val.trim());
+    });
+    return Array.from(values).sort();
+}
+
+const positions = ['Batter', 'Keeper', 'Allrounder', 'Bowler'];
+
+function updateFilterOptions() {
+    const filterType = document.getElementById('filterType').value;
+    const filterValueSelect = document.getElementById('filterValue');
+    
+    if (filterType === 'none') {
+        filterValueSelect.style.display = 'none';
+        clearFilter();
+        return;
+    }
+    
+    filterValueSelect.style.display = 'inline-block';
+    filterValueSelect.innerHTML = '<option value="">Select...</option>';
+    
+    // Get dynamic values from page data
+    const options = filterType === 'team' ? getUniqueValues('originalTeam') : positions;
+    options.forEach(opt => {
+        filterValueSelect.innerHTML += `<option value="${opt}">${opt}</option>`;
+    });
+}
+
+function applyFilter() {
+    const filterType = document.getElementById('filterType').value;
+    const filterValue = document.getElementById('filterValue').value;
+    
+    if (!filterValue) {
+        clearFilter();
+        return;
+    }
+    
+    const allRows = document.querySelectorAll('.player-row');
+    
+    allRows.forEach(row => {
+        let match = false;
+        
+        if (filterType === 'team') {
+            match = row.dataset.originalTeam === filterValue;
+        } else if (filterType === 'position') {
+            match = row.dataset.position === filterValue;
+        }
+        
+        row.style.display = match ? '' : 'none';
+    });
+    
+    // Hide team cards with no visible players
+    updateTeamCardVisibility();
+}
+
+function clearFilter() {
+    document.getElementById('filterType').value = 'none';
+    document.getElementById('filterValue').value = '';
+    document.getElementById('filterValue').style.display = 'none';
+    
+    const allRows = document.querySelectorAll('.player-row');
+    allRows.forEach(row => {
+        row.style.display = '';
+    });
+    
+    // Show all team cards
+    document.querySelectorAll('.fantasy-card').forEach(card => {
+        card.style.display = '';
+    });
+}
+
+function updateTeamCardVisibility() {
+    document.querySelectorAll('.fantasy-card').forEach(card => {
+        const visibleRows = card.querySelectorAll('.player-row[style=""], .player-row:not([style])');
+        const hiddenRows = card.querySelectorAll('.player-row[style*="display: none"]');
+        
+        // Check if all rows in this card are hidden
+        const allRows = card.querySelectorAll('.player-row');
+        const allHidden = Array.from(allRows).every(row => row.style.display === 'none');
+        
+        card.style.display = allHidden ? 'none' : '';
+    });
+}
+
+// Sort all tables by position on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const teamCards = document.querySelectorAll('.fantasy-card[data-team-id]');
+    teamCards.forEach(card => {
+        const teamId = card.dataset.teamId;
+        if (teamId) {
+            sortTable(parseInt(teamId), 'points');
+        }
+    });
+});
 </script>
 {% endblock %}

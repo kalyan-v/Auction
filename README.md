@@ -4,11 +4,14 @@ A complete web-based player auction system built with Flask, perfect for managin
 
 ## 📋 Features
 
+- **Multi-League Support**: Create and manage multiple leagues (WPL, IPL, etc.) with separate teams, players, and settings
 - **Team Management**: Add and track multiple teams with budgets
-- **Player Database**: Manage player information, positions, and base prices
+- **Player Database**: Manage player information, positions, base prices, and original teams
 - **Live Auction**: Real-time bidding interface with countdown timer
 - **Budget Tracking**: Automatic budget updates after successful bids
+- **Fantasy Points**: Track player fantasy points across matches with MVP, Orange Cap, and Purple Cap awards
 - **Bid History**: Track all bids placed during auctions
+- **Session-Based League Switching**: Switch between leagues from any page
 - **Responsive Design**: Works on desktop and mobile devices
 
 ## 🛠️ Technology Stack
@@ -104,20 +107,40 @@ You need to install Python first. Here's how:
 
 ## 📖 How to Use
 
-### Step 1: Setup Teams and Players
+### Step 0: Login as Admin (Required for Making Changes)
+
+1. Click the **🔐 Login** link in the navigation bar
+2. Enter the admin credentials:
+   - Username: `admin`
+   - Password: `wpl2025`
+3. Once logged in, you'll see **👤 Admin** badge in the navbar
+
+### Step 1: Create a League
+
+1. Navigate to **Setup** page
+2. In the **Leagues** section:
+   - Enter a League ID (e.g., `wpl2025`, `ipl2026`)
+   - Enter Display Name (e.g., `WPL 2025`, `IPL 2026`)
+   - Set the default purse for teams (in Crores)
+   - Click "Create League"
+3. The new league will be selected automatically
+
+### Step 2: Setup Teams and Players
 
 1. Navigate to **Setup** page
 2. **Add Teams**:
    - Enter team name
-   - Set budget (default: $10,000,000)
+   - Set budget (default: from league settings)
    - Click "Add Team"
 3. **Add Players**:
    - Enter player name
-   - Enter position (e.g., Batsman, Bowler)
-   - Set base price
+   - Select position (Batter, Bowler, Allrounder, Keeper)
+   - Select country (Indian/Overseas)
+   - Set base price (in Lakhs)
+   - Optionally set Original Team (e.g., "MI", "CSK")
    - Click "Add Player"
 
-### Step 2: Run the Auction
+### Step 3: Run the Auction
 
 1. Navigate to **Auction Room** page
 2. Click "Start Auction" on any available player
@@ -132,7 +155,18 @@ You need to install Python first. Here's how:
 - Check which team won the player
 - View updated team budgets
 - See bid history for each auction
+### Step 5: Manage Fantasy Points
 
+1. Navigate to **Fantasy Points** page
+2. View player standings with total points
+3. Click on a player to add/view match-by-match points
+4. Set awards (MVP, Orange Cap, Purple Cap) for top performers
+
+### Switching Between Leagues
+
+- Use the league dropdown in the navbar to switch between different leagues
+- Each league has its own teams, players, and fantasy awards
+- League selection is saved in your browser session
 ## ⚙️ Configuration
 
 Edit `config.py` to customize:
@@ -183,13 +217,33 @@ STARTING_BUDGET = 10000000      # Default team budget
 
 ## 📝 API Endpoints
 
-- `GET /api/teams` - Get all teams
+### League Management
+- `GET /api/leagues` - Get all leagues
+- `POST /api/leagues` - Create a new league
+- `PUT /api/leagues/<league_id>` - Update a league
+- `DELETE /api/leagues/<league_id>` - Soft-delete a league
+
+### Teams
+- `GET /api/teams` - Get all teams (filtered by current league)
 - `POST /api/teams` - Create a new team
-- `GET /api/players` - Get all players
+
+### Players
+- `GET /api/players` - Get all players (filtered by current league)
 - `POST /api/players` - Create a new player
+- `PUT /api/players/<player_id>` - Update a player
+- `DELETE /api/players/<player_id>` - Soft-delete a player
+
+### Auction
 - `POST /api/bid` - Place a bid
 - `POST /api/auction/start/<player_id>` - Start auction for player
 - `POST /api/auction/end` - End current auction
+
+### Fantasy Points
+- `GET /api/fantasy/players` - Get all sold players with fantasy points
+- `POST /api/fantasy/points/add` - Add match points for a player
+- `GET /api/fantasy/points/<player_id>` - Get match-by-match points
+- `POST /api/fantasy/award` - Set an award (MVP, Orange Cap, Purple Cap)
+- `GET /api/fantasy/awards` - Get all awards
 
 ## 🤝 Contributing
 

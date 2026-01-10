@@ -1,6 +1,14 @@
 // Main JavaScript file
 console.log('Player Auction System loaded');
 
+// Utility function to escape HTML to prevent XSS
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
 // Utility function to format currency in Indian Rupees (Lakhs/Crores)
 function formatCurrency(amount) {
     if (amount >= 10000000) {

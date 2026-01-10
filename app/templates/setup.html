@@ -12,6 +12,35 @@
 {% endif %}
 
 <div class="setup-container">
+    {% if admin_mode %}
+    <!-- Leagues Section -->
+    <div class="setup-section leagues-section">
+        <h3>🏆 Leagues</h3>
+        <form id="leagueForm" class="form-inline">
+            <input type="text" id="leagueName" placeholder="League ID (e.g. wpl2025)" required>
+            <input type="text" id="leagueDisplayName" placeholder="Display Name (e.g. WPL 2025)" required>
+            <input type="number" id="leaguePurse" placeholder="Default Purse (Cr)" value="50" step="1">
+            <button type="submit" class="btn btn-primary">Create League</button>
+        </form>
+        
+        <div id="leaguesList" class="list-container">
+            {% for league in all_leagues %}
+            <div class="list-item {% if current_league and league.id == current_league.id %}active-league{% endif %}">
+                <span class="league-name">{{ league.display_name }}</span>
+                <span class="league-id">({{ league.name }})</span>
+                <span class="purse">₹{{ '{:.0f}'.format(league.default_purse / 10000000) }} Cr</span>
+                <span class="squad-limits">Squad: {{ league.min_squad_size }}-{{ league.max_squad_size }}</span>
+                {% if current_league and league.id == current_league.id %}
+                <span class="badge active">Active</span>
+                {% else %}
+                <button class="btn btn-small btn-select" onclick="switchLeague({{ league.id }})">Select</button>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Teams Section -->
     <div class="setup-section">
         <h3>Teams (Budget in Cr)</h3>
@@ -51,6 +80,7 @@
                 <option value="Overseas">Overseas</option>
             </select>
             <input type="number" id="playerBasePrice" placeholder="Base Price (in Lakhs)" value="50" step="10">
+            <input type="text" id="playerOriginalTeam" placeholder="Original Team (optional)">
             <button type="submit" class="btn btn-primary">Add Player</button>
         </form>
         {% endif %}
@@ -62,8 +92,16 @@
                 <span class="position">{{ player.position }}</span>
                 <span>{% if player.country == 'Overseas' %}<span class="country-emoji">✈️</span>{% else %}<span class="flag-india"></span>{% endif %}</span>
                 <span class="price">₹{{ '{:.0f}'.format(player.base_price / 100000) }} L</span>
+                {% if player.original_team %}<span class="original-team">{{ player.original_team }}</span>{% endif %}
                 {% if admin_mode %}
-                <button class="btn btn-small btn-edit" onclick="editPlayer({{ player.id }}, '{{ player.name }}', '{{ player.position }}', '{{ player.country }}', {{ player.base_price }})">✏️</button>
+                <button class="btn btn-small btn-edit" 
+                    data-player-id="{{ player.id }}"
+                    data-player-name="{{ player.name }}"
+                    data-player-position="{{ player.position }}"
+                    data-player-country="{{ player.country }}"
+                    data-player-base-price="{{ player.base_price }}"
+                    data-player-original-team="{{ player.original_team or '' }}"
+                    onclick="editPlayerFromData(this)">✏️</button>
                 {% endif %}
             </div>
             {% endfor %}
@@ -102,6 +140,10 @@
             <div class="form-group">
                 <label>Base Price (Lakhs)</label>
                 <input type="number" id="editPlayerBasePrice" step="10" required>
+            </div>
+            <div class="form-group">
+                <label>Original Team</label>
+                <input type="text" id="editPlayerOriginalTeam" placeholder="Leave blank if none">
             </div>
             <div class="modal-buttons">
                 <button type="submit" class="btn btn-primary">Save Changes</button>

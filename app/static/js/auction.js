@@ -45,6 +45,13 @@ function initAuctioneerPanel() {
 // Fixed bid increment in Lakhs
 const BID_INCREMENT = 25;
 
+// Helper to select team from data attributes (safe for special characters)
+function selectTeamFromData(btn) {
+    const teamId = parseInt(btn.dataset.teamId);
+    const teamName = btn.dataset.teamName;
+    selectTeam(teamId, teamName);
+}
+
 // Select team for bidding - first click = base price, subsequent clicks = +25L
 async function selectTeam(teamId, teamName) {
     if (!currentPlayerId) {
@@ -310,7 +317,7 @@ async function pickRandomPlayer() {
         const data = await response.json();
         
         if (!data.success || data.players.length === 0) {
-            resultDiv.innerHTML = `<p style="color: #e74c3c;">${data.error || 'No available players'}</p>`;
+            resultDiv.innerHTML = `<p style="color: #e74c3c;">${escapeHtml(data.error || 'No available players')}</p>`;
             resultDiv.classList.add('show');
             btn.disabled = false;
             btn.innerHTML = '🎲 Pick Random Player';
@@ -332,8 +339,8 @@ async function pickRandomPlayer() {
             
             resultDiv.innerHTML = `
                 <div class="spinning-name">
-                    <h3>${player.name}</h3>
-                    <p>${player.position}</p>
+                    <h3>${escapeHtml(player.name)}</h3>
+                    <p>${escapeHtml(player.position)}</p>
                 </div>
             `;
             
@@ -377,13 +384,13 @@ async function selectFinalPlayer(position, resultDiv, btn) {
         resultDiv.innerHTML = `
             <div class="final-result">
                 <div class="confetti">🎉</div>
-                <h3>${player.name}</h3>
-                <p>${player.position} | Base Price: ₹${player.base_price / 100000} L</p>
-                <button class="btn btn-primary pulse" onclick="startAuction(${player.id})">Start Auction for ${player.name}</button>
+                <h3>${escapeHtml(player.name)}</h3>
+                <p>${escapeHtml(player.position)} | Base Price: ₹${player.base_price / 100000} L</p>
+                <button class="btn btn-primary pulse" onclick="startAuction(${parseInt(player.id)})">Start Auction for ${escapeHtml(player.name)}</button>
             </div>
         `;
     } else {
-        resultDiv.innerHTML = `<p style="color: #e74c3c;">${data.error}</p>`;
+        resultDiv.innerHTML = `<p style="color: #e74c3c;">${escapeHtml(data.error)}</p>`;
     }
     
     btn.disabled = false;

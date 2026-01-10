@@ -2,12 +2,26 @@ from flask import Blueprint, render_template, jsonify, request, current_app, ses
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from functools import wraps
+from sqlalchemy.orm import joinedload
 from app import db
-from app.models import Team, Player, Bid, AuctionState, FantasyAward, FantasyPointEntry
+from app.models import Team, Player, Bid, AuctionState, FantasyAward, FantasyPointEntry, League
 
 def is_admin():
     """Check if current user is logged in as admin"""
     return session.get('is_admin', False)
+
+def get_current_league():
+    """Get the currently selected league from session"""
+    league_id = session.get('current_league_id')
+    if league_id:
+        league = League.query.filter_by(id=league_id, is_deleted=False).first()
+        if league:
+            return league
+    # Default to first non-deleted league
+    league = League.query.filter_by(is_deleted=False).first()
+    if league:
+        session['current_league_id'] = league.id
+    return league
 
 def admin_required(f):
     """Decorator to check if user is logged in as admin"""
@@ -39,6 +53,18 @@ def index():
     """Home page - redirects to Fantasy Points"""
     return redirect(url_for('main.fantasy'))
 
+@main_bp.route('/switch-league/<int:league_id>')
+def switch_league(league_id):
+    """Switch to a different league"""
+    league = League.query.filter_by(id=league_id, is_deleted=False).first()
+    if league:
+        session['current_league_id'] = league.id
+    # Validate referrer to prevent open redirect
+    referrer = request.referrer
+    if referrer and request.host in referrer:
+        return redirect(referrer)
+    return redirect(url_for('main.fantasy'))
+
 @main_bp.route('/login', methods=['GET', 'POST'])
 def login():
     """Admin login page"""
@@ -49,7 +75,11 @@ def login():
         if (username == current_app.config['ADMIN_USERNAME'] and 
             password == current_app.config['ADMIN_PASSWORD']):
             session['is_admin'] = True
-            return redirect(request.args.get('next') or url_for('main.setup'))
+            # Validate next URL to prevent open redirect
+            next_url = request.args.get('next')
+            if next_url and next_url.startswith('/'):
+                return redirect(next_url)
+            return redirect(url_for('main.setup'))
         else:
             return render_template('login.html', error='Invalid credentials')
     
@@ -64,26 +94,52 @@ def logout():
 @main_bp.route('/setup')
 def setup():
     """Setup page for adding teams and players - view only if not admin"""
-    teams = Team.query.all()
-    players = Player.query.all()
-    return render_template('setup.html', teams=teams, players=players, admin_mode=is_admin())
+    current_league = get_current_league()
+    all_leagues = League.query.filter_by(is_deleted=False).all()
+    
+    if current_league:
+        teams = Team.query.filter_by(league_id=current_league.id, is_deleted=False).all()
+        players = Player.query.filter_by(league_id=current_league.id, is_deleted=False).all()
+    else:
+        teams = []
+        players = []
+    
+    return render_template('setup.html', teams=teams, players=players, 
+                           admin_mode=is_admin(), current_league=current_league,
+                           all_leagues=all_leagues)
 
 @main_bp.route('/squads')
 def squads():
     """View all team squads with players and budgets"""
-    teams = Team.query.all()
-    return render_template('squads.html', teams=teams, admin_mode=is_admin())
+    current_league = get_current_league()
+    all_leagues = League.query.filter_by(is_deleted=False).all()
+    
+    if current_league:
+        teams = Team.query.filter_by(league_id=current_league.id, is_deleted=False).all()
+    else:
+        teams = []
+    
+    return render_template('squads.html', teams=teams, admin_mode=is_admin(),
+                           current_league=current_league, all_leagues=all_leagues)
 
 @main_bp.route('/fantasy')
 def fantasy():
     """Fantasy points page for viewing and managing player points"""
-    teams = Team.query.all()
-    all_players = Player.query.filter_by(status='sold').all()
+    current_league = get_current_league()
+    all_leagues = League.query.filter_by(is_deleted=False).all()
     
-    # Get or create fantasy awards
-    mvp = FantasyAward.query.filter_by(award_type='mvp').first()
-    orange_cap = FantasyAward.query.filter_by(award_type='orange_cap').first()
-    purple_cap = FantasyAward.query.filter_by(award_type='purple_cap').first()
+    if current_league:
+        teams = Team.query.filter_by(league_id=current_league.id, is_deleted=False).all()
+        all_players = Player.query.filter_by(league_id=current_league.id, status='sold', is_deleted=False).all()
+        
+        # Get or create fantasy awards for this league
+        mvp = FantasyAward.query.filter_by(award_type='mvp', league_id=current_league.id).first()
+        orange_cap = FantasyAward.query.filter_by(award_type='orange_cap', league_id=current_league.id).first()
+        purple_cap = FantasyAward.query.filter_by(award_type='purple_cap', league_id=current_league.id).first()
+    else:
+        teams = []
+        all_players = []
+        mvp = orange_cap = purple_cap = None
     
     return render_template('fantasy.html', 
                            teams=teams, 
@@ -91,70 +147,163 @@ def fantasy():
                            mvp=mvp,
                            orange_cap=orange_cap,
                            purple_cap=purple_cap,
-                           admin_mode=is_admin())
+                           admin_mode=is_admin(),
+                           current_league=current_league,
+                           all_leagues=all_leagues)
 
 @auction_bp.route('/')
 def auction_room():
     """Main auction interface"""
-    teams = Team.query.all()
-    players = Player.query.filter_by(status='available').all()
-    unsold_players = Player.query.filter_by(status='unsold').all()
+    current_league = get_current_league()
+    all_leagues = League.query.filter_by(is_deleted=False).all()
+    
+    if current_league:
+        teams = Team.query.filter_by(league_id=current_league.id, is_deleted=False).all()
+        players = Player.query.filter_by(league_id=current_league.id, status='available', is_deleted=False).all()
+        unsold_players = Player.query.filter_by(league_id=current_league.id, status='unsold', is_deleted=False).all()
+    else:
+        teams = []
+        players = []
+        unsold_players = []
+    
     auction_state = AuctionState.query.first()
-    return render_template('auction.html', teams=teams, players=players, unsold_players=unsold_players, auction_state=auction_state, admin_mode=is_admin())
+    return render_template('auction.html', teams=teams, players=players, 
+                           unsold_players=unsold_players, auction_state=auction_state, 
+                           admin_mode=is_admin(), current_league=current_league,
+                           all_leagues=all_leagues)
 
 # API endpoints
-@api_bp.route('/teams', methods=['GET', 'POST'])
-def manage_teams():
-    """Get all teams or create a new team"""
+
+# League management API
+@api_bp.route('/leagues', methods=['GET', 'POST'])
+def manage_leagues():
+    """Get all leagues or create a new league"""
     if request.method == 'POST':
         if not is_admin():
             return jsonify({'success': False, 'error': 'Admin login required'}), 403
         data = request.get_json()
-        budget = data.get('budget', 500000000)
-        team = Team(name=data['name'], budget=budget, initial_budget=budget)
+        league = League(
+            name=data['name'],
+            display_name=data.get('display_name', data['name']),
+            default_purse=data.get('default_purse', 500000000),
+            max_squad_size=data.get('max_squad_size', 20),
+            min_squad_size=data.get('min_squad_size', 16)
+        )
+        db.session.add(league)
+        db.session.commit()
+        return jsonify({'success': True, 'league_id': league.id})
+    
+    leagues = League.query.filter_by(is_deleted=False).all()
+    return jsonify([{
+        'id': l.id, 
+        'name': l.name, 
+        'display_name': l.display_name,
+        'default_purse': l.default_purse,
+        'max_squad_size': l.max_squad_size,
+        'min_squad_size': l.min_squad_size
+    } for l in leagues])
+
+@api_bp.route('/leagues/<int:league_id>', methods=['PUT', 'DELETE'])
+def update_league(league_id):
+    """Update or soft-delete a league"""
+    if not is_admin():
+        return jsonify({'success': False, 'error': 'Admin login required'}), 403
+    
+    league = League.query.get(league_id)
+    if not league:
+        return jsonify({'success': False, 'error': 'League not found'})
+    
+    if request.method == 'DELETE':
+        # Soft delete
+        league.is_deleted = True
+        db.session.commit()
+        return jsonify({'success': True})
+    
+    data = request.get_json()
+    league.name = data.get('name', league.name)
+    league.display_name = data.get('display_name', league.display_name)
+    league.default_purse = data.get('default_purse', league.default_purse)
+    league.max_squad_size = data.get('max_squad_size', league.max_squad_size)
+    league.min_squad_size = data.get('min_squad_size', league.min_squad_size)
+    db.session.commit()
+    return jsonify({'success': True})
+
+@api_bp.route('/teams', methods=['GET', 'POST'])
+def manage_teams():
+    """Get all teams or create a new team"""
+    current_league = get_current_league()
+    
+    if request.method == 'POST':
+        if not is_admin():
+            return jsonify({'success': False, 'error': 'Admin login required'}), 403
+        if not current_league:
+            return jsonify({'success': False, 'error': 'No league selected. Create a league first.'}), 400
+        
+        data = request.get_json()
+        budget = data.get('budget', current_league.default_purse)
+        team = Team(
+            name=data['name'], 
+            budget=budget, 
+            initial_budget=budget,
+            league_id=current_league.id
+        )
         db.session.add(team)
         db.session.commit()
         return jsonify({'success': True, 'team_id': team.id})
     
-    teams = Team.query.all()
+    if current_league:
+        teams = Team.query.filter_by(league_id=current_league.id, is_deleted=False).all()
+    else:
+        teams = []
     return jsonify([{'id': t.id, 'name': t.name, 'budget': t.budget} for t in teams])
 
 @api_bp.route('/players', methods=['GET', 'POST'])
 def manage_players():
     """Get all players or create a new player"""
+    current_league = get_current_league()
+    
     if request.method == 'POST':
         if not is_admin():
             return jsonify({'success': False, 'error': 'Admin login required'}), 403
+        if not current_league:
+            return jsonify({'success': False, 'error': 'No league selected. Create a league first.'}), 400
+        
         data = request.get_json()
         player = Player(
             name=data['name'],
             position=data.get('position', ''),
             country=data.get('country', 'Indian'),
-            base_price=data.get('base_price', 100000)
+            base_price=data.get('base_price', 100000),
+            original_team=data.get('original_team', ''),
+            league_id=current_league.id
         )
         db.session.add(player)
         db.session.commit()
         return jsonify({'success': True, 'player_id': player.id})
     
-    players = Player.query.all()
+    if current_league:
+        players = Player.query.filter_by(league_id=current_league.id, is_deleted=False).all()
+    else:
+        players = []
     return jsonify([{
         'id': p.id,
         'name': p.name,
         'position': p.position,
         'country': p.country,
         'base_price': p.base_price,
+        'original_team': p.original_team,
         'status': p.status
     } for p in players])
 
 @api_bp.route('/players/<int:player_id>', methods=['PUT', 'DELETE'])
 def update_player(player_id):
-    """Update or delete a player"""
+    """Update or soft-delete a player"""
     if not is_admin():
         return jsonify({'success': False, 'error': 'Admin login required'}), 403
     
     player = Player.query.get(player_id)
     if not player:
-        return jsonify({'success': False, 'error': 'Player not found'})
+        return jsonify({'success': False, 'error': 'Player not found'}), 404
     
     if request.method == 'DELETE':
         # Check if player is in active auction
@@ -163,8 +312,8 @@ def update_player(player_id):
             auction_state.current_player_id = None
             auction_state.is_active = False
         
-        Bid.query.filter_by(player_id=player_id).delete()
-        db.session.delete(player)
+        # Soft delete instead of hard delete
+        player.is_deleted = True
         db.session.commit()
         return jsonify({'success': True})
     
@@ -173,6 +322,7 @@ def update_player(player_id):
     player.position = data.get('position', player.position)
     player.country = data.get('country', player.country)
     player.base_price = data.get('base_price', player.base_price)
+    player.original_team = data.get('original_team', player.original_team)
     db.session.commit()
     return jsonify({'success': True})
 
@@ -212,13 +362,25 @@ def release_player(player_id):
 def get_random_player():
     """Get a random available player, optionally filtered by position"""
     import random
+    current_league = get_current_league()
+    if not current_league:
+        return jsonify({'success': False, 'error': 'No league selected'})
+    
     position = request.args.get('position', '')
     include_unsold = request.args.get('include_unsold', 'false') == 'true'
     
     if include_unsold:
-        query = Player.query.filter(Player.status.in_(['available', 'unsold']))
+        query = Player.query.filter(
+            Player.league_id == current_league.id,
+            Player.is_deleted == False,
+            Player.status.in_(['available', 'unsold'])
+        )
     else:
-        query = Player.query.filter_by(status='available')
+        query = Player.query.filter_by(
+            league_id=current_league.id, 
+            is_deleted=False, 
+            status='available'
+        )
     
     if position:
         query = query.filter_by(position=position)
@@ -243,13 +405,25 @@ def get_random_player():
 @api_bp.route('/players/available', methods=['GET'])
 def get_available_players():
     """Get all available players for animation, optionally filtered by position"""
+    current_league = get_current_league()
+    if not current_league:
+        return jsonify({'success': False, 'error': 'No league selected', 'players': []})
+    
     position = request.args.get('position', '')
     include_unsold = request.args.get('include_unsold', 'false') == 'true'
     
     if include_unsold:
-        query = Player.query.filter(Player.status.in_(['available', 'unsold']))
+        query = Player.query.filter(
+            Player.league_id == current_league.id,
+            Player.is_deleted == False,
+            Player.status.in_(['available', 'unsold'])
+        )
     else:
-        query = Player.query.filter_by(status='available')
+        query = Player.query.filter_by(
+            league_id=current_league.id, 
+            is_deleted=False, 
+            status='available'
+        )
     
     if position:
         query = query.filter_by(position=position)
@@ -275,9 +449,9 @@ def get_player_bids(player_id):
     """Get bid history for a specific player"""
     player = Player.query.get(player_id)
     if not player:
-        return jsonify({'success': False, 'error': 'Player not found'})
+        return jsonify({'success': False, 'error': 'Player not found'}), 404
     
-    bids = Bid.query.filter_by(player_id=player_id).order_by(Bid.amount.desc()).all()
+    bids = Bid.query.filter_by(player_id=player_id).options(joinedload(Bid.team)).order_by(Bid.amount.desc()).all()
     
     return jsonify({
         'success': True,
@@ -436,6 +610,9 @@ def reset_price():
         return jsonify({'success': False, 'error': 'Invalid price'})
     
     player = Player.query.get(auction_state.current_player_id)
+    if not player:
+        return jsonify({'success': False, 'error': 'Player not found'}), 404
+    
     player.current_price = new_price
     
     # Clear bids for this player above the new price (optional - keeps history clean)
@@ -471,6 +648,10 @@ def set_fantasy_award():
     if not is_admin():
         return jsonify({'success': False, 'error': 'Admin login required'}), 403
     
+    current_league = get_current_league()
+    if not current_league:
+        return jsonify({'success': False, 'error': 'No league selected'}), 400
+    
     data = request.get_json()
     award_type = data.get('award_type')
     player_id = data.get('player_id')
@@ -478,10 +659,10 @@ def set_fantasy_award():
     if award_type not in ['mvp', 'orange_cap', 'purple_cap']:
         return jsonify({'success': False, 'error': 'Invalid award type'})
     
-    # Get or create the award
-    award = FantasyAward.query.filter_by(award_type=award_type).first()
+    # Get or create the award for this league
+    award = FantasyAward.query.filter_by(award_type=award_type, league_id=current_league.id).first()
     if not award:
-        award = FantasyAward(award_type=award_type)
+        award = FantasyAward(award_type=award_type, league_id=current_league.id)
         db.session.add(award)
     
     # Set player (can be None to clear the award)
@@ -502,8 +683,12 @@ def set_fantasy_award():
 
 @api_bp.route('/fantasy/awards', methods=['GET'])
 def get_fantasy_awards():
-    """Get all fantasy awards"""
-    awards = FantasyAward.query.all()
+    """Get all fantasy awards for current league"""
+    current_league = get_current_league()
+    if not current_league:
+        return jsonify({'success': True, 'awards': {}})
+    
+    awards = FantasyAward.query.filter_by(league_id=current_league.id).all()
     result = {}
     for award in awards:
         result[award.award_type] = {
@@ -514,8 +699,12 @@ def get_fantasy_awards():
 
 @api_bp.route('/fantasy/players', methods=['GET'])
 def get_fantasy_players():
-    """Get all sold players with fantasy points"""
-    players = Player.query.filter_by(status='sold').all()
+    """Get all sold players with fantasy points for current league"""
+    current_league = get_current_league()
+    if not current_league:
+        return jsonify({'success': True, 'players': []})
+    
+    players = Player.query.filter_by(league_id=current_league.id, status='sold', is_deleted=False).all()
     return jsonify({
         'success': True,
         'players': [{
@@ -534,6 +723,10 @@ def add_match_points():
     if not is_admin():
         return jsonify({'success': False, 'error': 'Admin login required'}), 403
     
+    current_league = get_current_league()
+    if not current_league:
+        return jsonify({'success': False, 'error': 'No league selected'}), 400
+    
     data = request.get_json()
     player_id = data.get('player_id')
     match_number = data.get('match_number')
@@ -549,7 +742,8 @@ def add_match_points():
     # Check if entry for this match already exists
     existing = FantasyPointEntry.query.filter_by(
         player_id=player_id, 
-        match_number=match_number
+        match_number=match_number,
+        league_id=current_league.id
     ).first()
     
     if existing:
@@ -560,13 +754,17 @@ def add_match_points():
         entry = FantasyPointEntry(
             player_id=player_id,
             match_number=match_number,
-            points=points
+            points=points,
+            league_id=current_league.id
         )
         db.session.add(entry)
     
     # Update total fantasy points for the player
     db.session.flush()
-    total_points = db.session.query(db.func.sum(FantasyPointEntry.points)).filter_by(player_id=player_id).scalar() or 0
+    total_points = db.session.query(db.func.sum(FantasyPointEntry.points)).filter_by(
+        player_id=player_id, 
+        league_id=current_league.id
+    ).scalar() or 0
     player.fantasy_points = total_points
     
     db.session.commit()
@@ -582,11 +780,16 @@ def add_match_points():
 @api_bp.route('/fantasy/points/<int:player_id>', methods=['GET'])
 def get_player_match_points(player_id):
     """Get all match point entries for a player"""
+    current_league = get_current_league()
+    
     player = Player.query.get(player_id)
     if not player:
         return jsonify({'success': False, 'error': 'Player not found'})
     
-    entries = FantasyPointEntry.query.filter_by(player_id=player_id).order_by(FantasyPointEntry.match_number).all()
+    query = FantasyPointEntry.query.filter_by(player_id=player_id)
+    if current_league:
+        query = query.filter_by(league_id=current_league.id)
+    entries = query.order_by(FantasyPointEntry.match_number).all()
     
     return jsonify({
         'success': True,
@@ -614,11 +817,15 @@ def delete_match_points(entry_id):
         return jsonify({'success': False, 'error': 'Entry not found'})
     
     player_id = entry.player_id
+    league_id = entry.league_id
     db.session.delete(entry)
     
-    # Update total fantasy points for the player
+    # Update total fantasy points for the player (filter by league)
     db.session.flush()
-    total_points = db.session.query(db.func.sum(FantasyPointEntry.points)).filter_by(player_id=player_id).scalar() or 0
+    total_points = db.session.query(db.func.sum(FantasyPointEntry.points)).filter_by(
+        player_id=player_id,
+        league_id=league_id
+    ).scalar() or 0
     player = Player.query.get(player_id)
     player.fantasy_points = total_points
     

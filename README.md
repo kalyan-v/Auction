@@ -112,15 +112,15 @@ You need to install Python first. Here's how:
 1. Click the **🔐 Login** link in the navigation bar
 2. Enter the admin credentials:
    - Username: `admin`
-   - Password: `wpl2025`
+   - Password: `wpl2026`
 3. Once logged in, you'll see **👤 Admin** badge in the navbar
 
 ### Step 1: Create a League
 
 1. Navigate to **Setup** page
 2. In the **Leagues** section:
-   - Enter a League ID (e.g., `wpl2025`, `ipl2026`)
-   - Enter Display Name (e.g., `WPL 2025`, `IPL 2026`)
+   - Enter a League ID (e.g., `wpl2026`, `ipl2026`)
+   - Enter Display Name (e.g., `WPL 2026`, `IPL 2026`)
    - Set the default purse for teams (in Crores)
    - Click "Create League"
 3. The new league will be selected automatically

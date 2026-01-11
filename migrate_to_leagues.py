@@ -60,15 +60,15 @@ def migrate():
             print("Database created. Now setting up default league...")
             # After creating all tables, we can use SQLAlchemy directly
             default_league = League(
-                name='wpl2025',
-                display_name='WPL 2025',
+                name='wpl2026',
+                display_name='WPL 2026',
                 default_purse=500000000,
                 max_squad_size=20,
                 min_squad_size=16
             )
             db.session.add(default_league)
             db.session.commit()
-            print(f"\n✅ New database created with WPL 2025 league!")
+            print(f"\n✅ New database created with WPL 2026 league!")
             return
         
         # Connect directly to SQLite to add columns
@@ -116,8 +116,8 @@ def migrate():
         conn.commit()
         
         # Step 3: Create default league
-        print("\n3. Creating default WPL 2025 league...")
-        cursor.execute("SELECT id FROM league WHERE name = 'wpl2025'")
+        print("\n3. Creating default WPL 2026 league...")
+        cursor.execute("SELECT id FROM league WHERE name = 'wpl2026'")
         existing = cursor.fetchone()
         
         if existing:
@@ -126,15 +126,15 @@ def migrate():
         else:
             cursor.execute('''
                 INSERT INTO league (name, display_name, default_purse, max_squad_size, min_squad_size, is_deleted)
-                VALUES ('wpl2025', 'WPL 2025', 500000000, 20, 16, 0)
+                VALUES ('wpl2026', 'WPL 2026', 500000000, 20, 16, 0)
             ''')
             default_league_id = cursor.lastrowid
-            print(f"  Created league: WPL 2025 (ID: {default_league_id})")
+            print(f"  Created league: WPL 2026 (ID: {default_league_id})")
         
         conn.commit()
         
         # Step 4: Update existing data to belong to default league
-        print("\n4. Updating existing data to belong to WPL 2025...")
+        print("\n4. Updating existing data to belong to WPL 2026...")
         
         # Update teams
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='team'")
@@ -173,7 +173,7 @@ def migrate():
         
         print("\n✅ Migration completed successfully!")
         print(f"\nSummary:")
-        print(f"  - Default League: WPL 2025 (ID: {default_league_id})")
+        print(f"  - Default League: WPL 2026 (ID: {default_league_id})")
         print(f"  - Teams updated: {teams_updated}")
         print(f"  - Players updated: {players_updated}")
         print(f"  - Fantasy Awards updated: {awards_updated}")

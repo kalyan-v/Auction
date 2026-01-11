@@ -8,7 +8,7 @@ class Config:
     
     # Admin credentials - change these!
     ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
-    ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'wpl2025')
+    ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'wpl2026')
     
     # Auction settings
     DEFAULT_AUCTION_TIME = 300  # 5 minutes in seconds

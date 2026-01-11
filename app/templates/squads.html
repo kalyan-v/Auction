@@ -14,21 +14,35 @@
 <div class="squads-container">
     {% for team in teams %}
     {% set sold_players = team.players | selectattr('status', 'equalto', 'sold') | rejectattr('is_deleted', 'equalto', true) | list %}
-    <div class="team-card">
+    {% set team_class = team.name | lower | replace(' ', '-') | replace("'", '') %}
+    {% set spent = (team.initial_budget or 500000000) - team.budget %}
+    {% set initial = team.initial_budget or 500000000 %}
+    {% set spent_percent = ((spent / initial) * 100) | round(1) %}
+    <div class="team-card team-{{ team_class }}">
         <div class="team-header">
-            <h3>{{ team.name }}</h3>
-            <div class="team-stats">
-                <div class="stat">
-                    <span class="stat-label">Purse Left</span>
-                    <span class="stat-value purse">₹{{ '{:.2f}'.format(team.budget / 10000000) }} Cr</span>
+            <div class="team-logo">{{ team.name[:2] | upper }}</div>
+            <div class="team-info">
+                <h3>{{ team.name }}</h3>
+                <div class="team-stats">
+                    <div class="stat">
+                        <span class="stat-label">Purse Left</span>
+                        <span class="stat-value purse">₹{{ '{:.2f}'.format(team.budget / 10000000) }} Cr</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Players</span>
+                        <span class="stat-value">{{ sold_players | length }}</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Spent</span>
+                        <span class="stat-value spent">₹{{ '{:.2f}'.format(spent / 10000000) }} Cr</span>
+                    </div>
                 </div>
-                <div class="stat">
-                    <span class="stat-label">Players</span>
-                    <span class="stat-value">{{ sold_players | length }}</span>
-                </div>
-                <div class="stat">
-                    <span class="stat-label">Spent</span>
-                    <span class="stat-value spent">₹{{ '{:.2f}'.format(((team.initial_budget or 500000000) - team.budget) / 10000000) }} Cr</span>
+                <!-- Budget Progress Bar -->
+                <div class="budget-progress-container">
+                    <div class="budget-progress-bar">
+                        <div class="budget-progress-fill" style="width: {{ spent_percent }}%"></div>
+                    </div>
+                    <span class="budget-progress-label">{{ spent_percent }}% spent</span>
                 </div>
             </div>
         </div>
@@ -48,12 +62,20 @@
                     <tbody>
                         {% for player in sold_players %}
                         <tr class="player-row" data-player-id="{{ player.id }}" data-player-name="{{ player.name }}">
-                            <td onclick="showBidHistoryFromRow(this.parentElement)">{{ player.name }}</td>
+                            <td onclick="showBidHistoryFromRow(this.parentElement)" class="player-name-cell">
+                                {% if player.image_url %}
+                                <img src="{{ player.image_url }}" alt="" class="player-thumbnail" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <span class="player-thumbnail-placeholder" style="display:none;">🏏</span>
+                                {% else %}
+                                <span class="player-thumbnail-placeholder">🏏</span>
+                                {% endif %}
+                                <span class="player-name-text">{{ player.name }}</span>
+                            </td>
                             <td onclick="showBidHistoryFromRow(this.parentElement)"><span class="position-badge {{ player.position | lower }}">{{ player.position }}</span></td>
                             <td class="price" onclick="showBidHistoryFromRow(this.parentElement)">₹{{ '{:.0f}'.format(player.current_price / 100000) }} L</td>
                             {% if admin_mode %}
                             <td>
-                                <button class="btn btn-small btn-danger release-btn" data-player-id="{{ player.id }}" data-player-name="{{ player.name }}" onclick="releasePlayerFromData(this, event)">🔄 Release</button>
+                                <button class="btn btn-small btn-danger release-btn" data-player-id="{{ player.id }}" data-player-name="{{ player.name }}" onclick="releasePlayerFromData(this, event)" data-tooltip="Release player back to auction pool">🔄 Release</button>
                             </td>
                             {% endif %}
                         </tr>
@@ -62,7 +84,11 @@
                 </table>
                 </div>
             {% else %}
-                <p class="no-players">No players yet</p>
+                <div class="empty-state">
+                    <div class="empty-state-icon">👥</div>
+                    <p class="empty-state-text">No players yet</p>
+                    <p class="empty-state-hint">Players will appear here after auction</p>
+                </div>
             {% endif %}
         </div>
     </div>

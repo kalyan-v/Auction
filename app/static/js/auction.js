@@ -263,14 +263,61 @@ async function markSold() {
         const data = await response.json();
         
         if (data.success) {
-            showNotification(`SOLD to ${leadingTeamName}!`, 'success');
-            setTimeout(() => location.reload(), 1500);
+            // Trigger confetti celebration!
+            triggerConfetti();
+            showNotification(`🎉 SOLD to ${leadingTeamName}!`, 'success');
+            setTimeout(() => location.reload(), 2500);
         } else {
             showNotification(data.error || 'Error ending auction', 'error');
         }
     } catch (error) {
         showNotification('Error ending auction', 'error');
     }
+}
+
+// Confetti celebration function
+function triggerConfetti() {
+    // Check if confetti library is loaded
+    if (typeof confetti === 'undefined') {
+        console.log('Confetti library not loaded');
+        return;
+    }
+    
+    // Fire confetti from both sides
+    const duration = 3000;
+    const end = Date.now() + duration;
+    
+    // Team colors based confetti
+    const colors = ['#667eea', '#764ba2', '#ffd700', '#00ff88', '#ff6b6b'];
+    
+    (function frame() {
+        confetti({
+            particleCount: 5,
+            angle: 60,
+            spread: 55,
+            origin: { x: 0, y: 0.7 },
+            colors: colors
+        });
+        confetti({
+            particleCount: 5,
+            angle: 120,
+            spread: 55,
+            origin: { x: 1, y: 0.7 },
+            colors: colors
+        });
+        
+        if (Date.now() < end) {
+            requestAnimationFrame(frame);
+        }
+    }());
+    
+    // Also fire a big burst in the center
+    confetti({
+        particleCount: 100,
+        spread: 100,
+        origin: { x: 0.5, y: 0.5 },
+        colors: colors
+    });
 }
 
 async function markUnsold() {

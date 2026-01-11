@@ -5,10 +5,11 @@
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     line-height: 1.6;
     color: #333;
-    background-color: #f4f4f4;
+    background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+    min-height: 100vh;
 }
 
 .container {
@@ -20,21 +21,26 @@ body {
 /* Read-only Banner */
 .readonly-banner {
     background: linear-gradient(135deg, #fff3cd 0%, #ffeeba 100%);
-    border: 1px solid #ffc107;
+    border: none;
+    border-left: 4px solid #f39c12;
     color: #856404;
-    padding: 1rem;
-    border-radius: 8px;
+    padding: 1rem 1.5rem;
+    border-radius: 12px;
     margin-bottom: 1.5rem;
     text-align: center;
     font-size: 0.95rem;
+    box-shadow: 0 4px 15px rgba(243, 156, 18, 0.2);
 }
 
 /* Navbar */
 .navbar {
-    background-color: #2c3e50;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
     color: white;
     padding: 1rem 0;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
 }
 
 .navbar .container {
@@ -45,7 +51,11 @@ body {
 
 .logo {
     font-size: 1.5rem;
-    font-weight: bold;
+    font-weight: 700;
+    background: linear-gradient(135deg, #ffd700, #ff6b6b);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 .nav-links {
@@ -57,11 +67,14 @@ body {
 .nav-links a {
     color: white;
     text-decoration: none;
-    transition: color 0.3s;
+    transition: all 0.3s;
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
 }
 
 .nav-links a:hover {
-    color: #3498db;
+    color: #ffd700;
+    background: rgba(255, 215, 0, 0.1);
 }
 
 .nav-links .nav-divider {
@@ -131,16 +144,24 @@ main {
 .hero {
     text-align: center;
     padding: 3rem 0;
-    background: white;
-    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 20px;
     margin-bottom: 2rem;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 
 .hero h2 {
     font-size: 2.5rem;
+    font-weight: 700;
     margin-bottom: 1rem;
     color: #2c3e50;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 .action-buttons {
@@ -154,39 +175,66 @@ main {
 .btn {
     padding: 0.75rem 1.5rem;
     border: none;
-    border-radius: 5px;
+    border-radius: 8px;
     cursor: pointer;
     font-size: 1rem;
+    font-weight: 500;
     text-decoration: none;
     display: inline-block;
-    transition: all 0.3s;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
+    overflow: hidden;
+}
+
+.btn::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: width 0.4s, height 0.4s;
+}
+
+.btn:hover::after {
+    width: 300px;
+    height: 300px;
 }
 
 .btn-primary {
-    background-color: #3498db;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
 }
 
 .btn-primary:hover {
-    background-color: #2980b9;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
 }
 
 .btn-secondary {
-    background-color: #95a5a6;
+    background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
     color: white;
+    box-shadow: 0 4px 15px rgba(149, 165, 166, 0.4);
 }
 
 .btn-secondary:hover {
-    background-color: #7f8c8d;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(149, 165, 166, 0.5);
 }
 
 .btn-danger {
-    background-color: #e74c3c;
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
     color: white;
+    box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4);
 }
 
 .btn-danger:hover {
-    background-color: #c0392b;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(231, 76, 60, 0.5);
 }
 
 .btn-small {
@@ -203,17 +251,42 @@ main {
 }
 
 .feature-card {
-    background: white;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
     padding: 2rem;
-    border-radius: 10px;
+    border-radius: 16px;
     text-align: center;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.feature-card:hover {
+    transform: translateY(-10px) scale(1.02);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
 }
 
 .feature-card h3 {
     font-size: 1.5rem;
+    font-weight: 600;
     margin-bottom: 0.5rem;
     color: #2c3e50;
+}
+
+.feature-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    display: block;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.feature-card p {
+    color: #666;
+    font-size: 0.95rem;
 }
 
 /* Setup Page */
@@ -224,10 +297,18 @@ main {
 }
 
 .setup-section {
-    background: white;
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
     padding: 2rem;
-    border-radius: 10px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.setup-section:hover {
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
 }
 
 .setup-section.leagues-section {
@@ -372,10 +453,13 @@ main {
 .bidding-section,
 .players-section,
 .unsold-players-section {
-    background: white;
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
     padding: 2rem;
-    border-radius: 10px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 
 .players-section,
@@ -659,26 +743,80 @@ main {
 .players-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 1rem;
+    gap: 1.5rem;
 }
 
 .player-item {
     padding: 1rem;
-    background: #f8f9fa;
-    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(5px);
+    border-radius: 16px;
     text-align: center;
     border: 2px solid transparent;
-    transition: all 0.3s;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
+    overflow: hidden;
+}
+
+.player-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
 }
 
 .player-item:hover {
-    border-color: #3498db;
-    box-shadow: 0 2px 8px rgba(52, 152, 219, 0.2);
+    transform: translateY(-8px) scale(1.02);
+    border-color: rgba(102, 126, 234, 0.3);
+    box-shadow: 0 15px 35px rgba(102, 126, 234, 0.2);
+}
+
+.player-item:hover::before {
+    transform: scaleX(1);
 }
 
 .player-item h4 {
     color: #2c3e50;
     margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+/* Player Photo in Cards */
+.player-photo {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin: 0 auto 0.75rem;
+    border: 3px solid #e0e0e0;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    background: linear-gradient(135deg, #667eea20, #764ba220);
+}
+
+.player-item:hover .player-photo {
+    border-color: #667eea;
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
+}
+
+.player-photo-placeholder {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    margin: 0 auto 0.75rem;
+    background: linear-gradient(135deg, #667eea20, #764ba220);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: #667eea;
+    border: 3px solid #e0e0e0;
 }
 
 .controls {
@@ -872,29 +1010,7 @@ input:checked + .toggle-slider:before {
     100% { transform: scale(1); opacity: 1; }
 }
 
-/* Footer */
-footer {
-    background-color: #2c3e50;
-    color: white;
-    text-align: center;
-    padding: 1rem 0;
-    margin-top: 2rem;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .auction-container {
-        grid-template-columns: 1fr;
-    }
-    
-    .setup-container {
-        grid-template-columns: 1fr;
-    }
-    
-    .nav-links {
-        gap: 1rem;
-    }
-}
+/* Old footer and responsive removed - see ENHANCED VISUAL STYLES section */
 
 /* ==================== MOBILE RESPONSIVE STYLES ==================== */
 
@@ -1213,6 +1329,102 @@ footer {
         padding: 0.75rem;
         font-size: 0.9rem;
     }
+    
+    /* Player Thumbnails in Mobile */
+    .player-thumbnail {
+        width: 28px;
+        height: 28px;
+    }
+    
+    .player-thumbnail-placeholder {
+        width: 28px;
+        height: 28px;
+        font-size: 0.85rem;
+    }
+    
+    .player-name-cell {
+        gap: 0.5rem;
+    }
+    
+    .player-name-text {
+        font-size: 0.85rem;
+    }
+    
+    /* Player Photo Cards in Mobile */
+    .player-photo {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .player-photo-placeholder {
+        width: 60px;
+        height: 60px;
+        font-size: 1.5rem;
+    }
+    
+    .player-item {
+        padding: 0.75rem;
+    }
+    
+    .player-item h4 {
+        font-size: 0.95rem;
+    }
+    
+    /* Feature Cards Mobile */
+    .feature-card {
+        padding: 1.5rem;
+    }
+    
+    .feature-icon {
+        font-size: 2.5rem;
+    }
+    
+    /* Hero Mobile */
+    .hero {
+        padding: 2rem 1rem;
+    }
+    
+    .hero h2 {
+        font-size: 1.8rem;
+    }
+    
+    /* Team Logo Mobile */
+    .team-logo {
+        width: 40px;
+        height: 40px;
+        font-size: 1.2rem;
+    }
+    
+    .team-info h3 {
+        font-size: 1.3rem;
+    }
+    
+    /* Auctioneer Panel Mobile */
+    .auctioneer-panel {
+        padding: 1rem;
+    }
+    
+    .big-price {
+        font-size: 1.8rem;
+    }
+    
+    .leading-team {
+        font-size: 1.4rem;
+    }
+    
+    .team-btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+    }
+    
+    .current-bid-display {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    
+    .bid-info {
+        padding: 0.75rem;
+    }
 }
 
 /* Squads Page */
@@ -1223,30 +1435,34 @@ footer {
 }
 
 .team-card {
-    background: white;
-    border-radius: 10px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
     overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
-.team-header {
-    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-    color: white;
-    padding: 1.5rem;
+.team-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
 }
 
-.team-header h3 {
-    font-size: 1.8rem;
-    margin-bottom: 1rem;
-}
+/* team-header styles moved to ENHANCED VISUAL STYLES section */
 
 .team-stats {
     display: flex;
     gap: 1.5rem;
+    flex-wrap: wrap;
 }
 
 .stat {
     text-align: center;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
 }
 
 .stat-label {
@@ -1390,43 +1606,7 @@ footer {
     padding: 2rem;
 }
 
-/* Modal */
-.modal {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.5);
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-}
-
-.modal-content {
-    background: white;
-    padding: 2rem;
-    border-radius: 10px;
-    max-width: 500px;
-    width: 90%;
-    max-height: 80vh;
-    overflow-y: auto;
-    position: relative;
-}
-
-.close-btn {
-    position: absolute;
-    top: 10px;
-    right: 15px;
-    font-size: 1.5rem;
-    cursor: pointer;
-    color: #999;
-}
-
-.close-btn:hover {
-    color: #333;
-}
+/* Modal styles moved to bottom - see BETTER MODALS section */
 
 .modal-content h3 {
     margin-bottom: 1rem;
@@ -1668,6 +1848,29 @@ footer {
     background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
 }
 
+/* Team-specific header colors */
+.team-mumbai-indians .team-header {
+    background: linear-gradient(135deg, #004ba0 0%, #0066cc 100%);
+}
+
+.team-royal-challengers-bengaluru .team-header,
+.team-royal-challengers-bangalore .team-header,
+.team-rcb .team-header {
+    background: linear-gradient(135deg, #a50000 0%, #d4001a 100%);
+}
+
+.team-delhi-capitals .team-header {
+    background: linear-gradient(135deg, #004c93 0%, #0066b2 100%);
+}
+
+.team-gujarat-giants .team-header {
+    background: linear-gradient(135deg, #1c1c1c 0%, #333333 100%);
+}
+
+.team-up-warriorz .team-header {
+    background: linear-gradient(135deg, #5c2d91 0%, #7b3fa0 100%);
+}
+
 .fantasy-total {
     color: #ffd700 !important;
     font-size: 1.4rem !important;
@@ -1882,5 +2085,736 @@ footer {
     
     .add-points-form .form-group {
         width: 100%;
+    }
+}
+
+/* ==================== ENHANCED VISUAL STYLES ==================== */
+
+/* Animated Background Gradient */
+@keyframes gradientBG {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* Page Section Headers with Gradient */
+.players-section h2,
+.unsold-players-section h2 {
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.players-section h2::before {
+    content: '🎯';
+}
+
+/* Team Logo Container */
+.team-logo {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: white;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* Team Header with Logo */
+.team-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    color: white;
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.team-header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -20%;
+    width: 150px;
+    height: 150px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 50%;
+}
+
+.team-header::after {
+    content: '';
+    position: absolute;
+    bottom: -30%;
+    left: -10%;
+    width: 100px;
+    height: 100px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 50%;
+}
+
+.team-info {
+    flex: 1;
+    position: relative;
+    z-index: 1;
+}
+
+.team-header h3 {
+    font-size: 1.6rem;
+    margin-bottom: 0.75rem;
+    font-weight: 700;
+    position: relative;
+    z-index: 1;
+}
+
+/* Enhanced Team Colors with Gradients */
+.team-mumbai-indians .team-header {
+    background: linear-gradient(135deg, #004ba0 0%, #0074e4 100%);
+}
+
+.team-mumbai-indians .team-logo {
+    background: linear-gradient(135deg, #004ba0 0%, #0074e4 100%);
+}
+
+.team-royal-challengers-bengaluru .team-header,
+.team-royal-challengers-bangalore .team-header,
+.team-rcb .team-header {
+    background: linear-gradient(135deg, #a50000 0%, #ff2d2d 100%);
+}
+
+.team-delhi-capitals .team-header {
+    background: linear-gradient(135deg, #004c93 0%, #0078d4 100%);
+}
+
+.team-gujarat-giants .team-header {
+    background: linear-gradient(135deg, #1c1c1c 0%, #4a4a4a 100%);
+}
+
+.team-up-warriorz .team-header {
+    background: linear-gradient(135deg, #5c2d91 0%, #9b4dca 100%);
+}
+
+/* Chennai Super Kings style (if added) */
+.team-chennai-super-kings .team-header,
+.team-csk .team-header {
+    background: linear-gradient(135deg, #f9cd05 0%, #ffdf00 100%);
+    color: #1a1a2e;
+}
+
+/* Kolkata Knight Riders style */
+.team-kolkata-knight-riders .team-header,
+.team-kkr .team-header {
+    background: linear-gradient(135deg, #3a225d 0%, #6b3fa0 100%);
+}
+
+/* Sunrisers Hyderabad style */
+.team-sunrisers-hyderabad .team-header,
+.team-srh .team-header {
+    background: linear-gradient(135deg, #f7a721 0%, #ff6600 100%);
+}
+
+/* Rajasthan Royals style */
+.team-rajasthan-royals .team-header,
+.team-rr .team-header {
+    background: linear-gradient(135deg, #e91e63 0%, #ff4081 100%);
+}
+
+/* Punjab Kings style */
+.team-punjab-kings .team-header,
+.team-pbks .team-header {
+    background: linear-gradient(135deg, #ed1c24 0%, #ff4d4d 100%);
+}
+
+/* Lucknow Super Giants style */
+.team-lucknow-super-giants .team-header,
+.team-lsg .team-header {
+    background: linear-gradient(135deg, #004a8f 0%, #00a3e0 100%);
+}
+
+/* Current Player Card Enhanced */
+.player-card {
+    text-align: center;
+    padding: 2rem;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 20px;
+    min-height: 200px;
+    position: relative;
+    overflow: hidden;
+}
+
+.player-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 5px;
+    background: linear-gradient(90deg, #667eea, #764ba2, #f093fb, #f5576c);
+    background-size: 300% 100%;
+    animation: gradientBG 3s ease infinite;
+}
+
+.player-card h3 {
+    font-size: 2rem;
+    color: #2c3e50;
+    margin-bottom: 1rem;
+    font-weight: 700;
+}
+
+/* Auctioneer Panel Enhanced */
+.auctioneer-panel {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    padding: 1.5rem;
+    border-radius: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.auctioneer-panel h2 {
+    text-align: center;
+    margin-bottom: 1rem;
+    color: #ffd700;
+    font-weight: 700;
+    text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+}
+
+/* Bid Price Display Glow Effect */
+.big-price {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: #00ff88;
+    text-shadow: 0 0 20px rgba(0, 255, 136, 0.6),
+                 0 0 40px rgba(0, 255, 136, 0.4);
+    animation: priceGlow 2s ease-in-out infinite alternate;
+}
+
+@keyframes priceGlow {
+    from {
+        text-shadow: 0 0 20px rgba(0, 255, 136, 0.6),
+                     0 0 40px rgba(0, 255, 136, 0.4);
+    }
+    to {
+        text-shadow: 0 0 30px rgba(0, 255, 136, 0.8),
+                     0 0 60px rgba(0, 255, 136, 0.6);
+    }
+}
+
+.leading-team {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #ffd700;
+    text-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+}
+
+/* Team Button Enhanced */
+.team-btn {
+    padding: 0.75rem 1.5rem;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.05);
+    color: white;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 500;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    backdrop-filter: blur(5px);
+}
+
+.team-btn:hover {
+    border-color: #ffd700;
+    background: rgba(255, 215, 0, 0.15);
+    transform: translateY(-3px);
+    box-shadow: 0 5px 20px rgba(255, 215, 0, 0.3);
+}
+
+.team-btn.selected {
+    border-color: #ffd700;
+    background: linear-gradient(135deg, #ffd700 0%, #ff9500 100%);
+    color: #1a1a2e;
+    font-weight: 700;
+    transform: scale(1.05);
+    box-shadow: 0 5px 25px rgba(255, 215, 0, 0.5);
+}
+
+/* Footer Enhanced */
+footer {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    color: rgba(255, 255, 255, 0.7);
+    text-align: center;
+    padding: 1.5rem 0;
+    margin-top: 3rem;
+    font-weight: 400;
+}
+
+/* Notification Toast Enhanced */
+.notification {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    padding: 1rem 2rem;
+    border-radius: 12px;
+    color: white;
+    font-weight: 500;
+    z-index: 9999;
+    animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+}
+
+.notification.success {
+    background: linear-gradient(135deg, rgba(39, 174, 96, 0.95) 0%, rgba(46, 204, 113, 0.95) 100%);
+}
+
+.notification.error {
+    background: linear-gradient(135deg, rgba(231, 76, 60, 0.95) 0%, rgba(192, 57, 43, 0.95) 100%);
+}
+
+.notification.info {
+    background: linear-gradient(135deg, rgba(52, 152, 219, 0.95) 0%, rgba(41, 128, 185, 0.95) 100%);
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Input Fields Enhanced */
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    background: rgba(255, 255, 255, 0.9);
+}
+
+input:not([type="checkbox"]):not([type="radio"]):focus,
+select:focus,
+textarea:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
+    outline: none;
+}
+
+/* Squad Table Enhanced */
+.squad-table {
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.squad-table th {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
+}
+
+.squad-table tbody tr {
+    transition: all 0.2s ease;
+}
+
+.squad-table tbody tr:hover {
+    background: linear-gradient(135deg, #f0f7ff 0%, #e8f4fd 100%);
+    transform: scale(1.01);
+}
+
+/* Position Badges Enhanced */
+.position-badge {
+    display: inline-block;
+    padding: 0.3rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.position-badge.batter {
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    color: white;
+    box-shadow: 0 2px 8px rgba(52, 152, 219, 0.4);
+}
+
+.position-badge.bowler {
+    background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+    color: white;
+    box-shadow: 0 2px 8px rgba(155, 89, 182, 0.4);
+}
+
+.position-badge.allrounder {
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+    color: white;
+    box-shadow: 0 2px 8px rgba(231, 76, 60, 0.4);
+}
+
+.position-badge.keeper {
+    background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+    color: white;
+    box-shadow: 0 2px 8px rgba(243, 156, 18, 0.4);
+}
+
+/* Loading Skeleton Animation */
+@keyframes skeleton {
+    0% { background-position: -200px 0; }
+    100% { background-position: calc(200px + 100%) 0; }
+}
+
+.skeleton {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200px 100%;
+    animation: skeleton 1.2s infinite;
+    border-radius: 4px;
+}
+
+/* Scroll to Top Button (optional) */
+.scroll-top-btn {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 1.5rem;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+    transition: all 0.3s ease;
+    z-index: 999;
+}
+
+.scroll-top-btn:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.5);
+}
+
+.scroll-top-btn.show {
+    display: flex;
+}
+
+/* Player Thumbnail in Tables */
+.player-name-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.player-thumbnail {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #e0e0e0;
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+}
+
+.player-row:hover .player-thumbnail {
+    border-color: #667eea;
+    transform: scale(1.1);
+}
+
+.player-thumbnail-placeholder {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea20, #764ba220);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+    border: 2px solid #e0e0e0;
+}
+
+.player-name-text {
+    font-weight: 500;
+}
+
+/* ==================== PAGE LOAD ANIMATION ==================== */
+.page-loading {
+    opacity: 0;
+}
+
+.page-loaded {
+    opacity: 1;
+    transition: opacity 0.4s ease-out;
+}
+
+/* ==================== SCROLL REVEAL ANIMATION ==================== */
+.reveal-on-scroll {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+
+.reveal-on-scroll.revealed {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Staggered animation for grid items */
+.reveal-on-scroll:nth-child(1) { transition-delay: 0.05s; }
+.reveal-on-scroll:nth-child(2) { transition-delay: 0.1s; }
+.reveal-on-scroll:nth-child(3) { transition-delay: 0.15s; }
+.reveal-on-scroll:nth-child(4) { transition-delay: 0.2s; }
+.reveal-on-scroll:nth-child(5) { transition-delay: 0.25s; }
+.reveal-on-scroll:nth-child(6) { transition-delay: 0.3s; }
+
+/* ==================== BUDGET PROGRESS BAR ==================== */
+.budget-progress-container {
+    margin-top: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.budget-progress-bar {
+    flex: 1;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.budget-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #00ff88, #00cc6a, #f39c12, #e74c3c);
+    background-size: 300% 100%;
+    border-radius: 10px;
+    transition: width 1s ease-out;
+    animation: progressGradient 3s ease infinite;
+}
+
+@keyframes progressGradient {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+.budget-progress-label {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.8);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+/* ==================== BETTER MODALS ==================== */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 2000;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.modal-content {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    margin: 5% auto;
+    padding: 2rem;
+    border-radius: 20px;
+    max-width: 600px;
+    width: 90%;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    animation: slideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(50px) scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.close-btn {
+    float: right;
+    font-size: 2rem;
+    font-weight: 300;
+    cursor: pointer;
+    color: #999;
+    line-height: 1;
+    transition: all 0.3s ease;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+
+.close-btn:hover {
+    color: #e74c3c;
+    background: rgba(231, 76, 60, 0.1);
+    transform: rotate(90deg);
+}
+
+/* ==================== TABLE ZEBRA STRIPING ==================== */
+.squad-table tbody tr:nth-child(even),
+.fantasy-table tbody tr:nth-child(even),
+.match-points-table tbody tr:nth-child(even) {
+    background: rgba(102, 126, 234, 0.05);
+}
+
+.squad-table tbody tr:nth-child(odd),
+.fantasy-table tbody tr:nth-child(odd),
+.match-points-table tbody tr:nth-child(odd) {
+    background: white;
+}
+
+/* ==================== TOOLTIPS ==================== */
+.tooltip {
+    position: fixed;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    z-index: 9999;
+    pointer-events: none;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+    animation: tooltipFade 0.2s ease;
+    max-width: 250px;
+    text-align: center;
+}
+
+.tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: #16213e;
+}
+
+@keyframes tooltipFade {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ==================== BETTER EMPTY STATES ==================== */
+.empty-state {
+    text-align: center;
+    padding: 3rem 2rem;
+    color: #999;
+}
+
+.empty-state-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+    animation: floatIcon 3s ease-in-out infinite;
+}
+
+@keyframes floatIcon {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+.empty-state-text {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #666;
+    margin-bottom: 0.5rem;
+}
+
+.empty-state-hint {
+    font-size: 0.9rem;
+    color: #999;
+}
+
+/* Large Empty State (full page) */
+.empty-state-large {
+    text-align: center;
+    padding: 5rem 2rem;
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    max-width: 500px;
+    margin: 2rem auto;
+}
+
+.empty-state-large .empty-state-icon {
+    font-size: 5rem;
+}
+
+.empty-state-large .empty-state-text {
+    font-size: 1.5rem;
+}
+
+/* ==================== MOBILE ADJUSTMENTS FOR NEW FEATURES ==================== */
+@media (max-width: 900px) {
+    .budget-progress-container {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    
+    .budget-progress-bar {
+        width: 100%;
+    }
+    
+    .empty-state {
+        padding: 2rem 1rem;
+    }
+    
+    .empty-state-icon {
+        font-size: 3rem;
+    }
+    
+    .tooltip {
+        display: none !important;
+    }
+    
+    .modal-content {
+        margin: 10% auto;
+        padding: 1.5rem;
     }
 }

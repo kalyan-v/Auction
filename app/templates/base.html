@@ -4,9 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>{% block title %}{% if current_league %}{{ current_league.display_name }}{% else %}Player Auction{% endif %}{% endblock %}</title>
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏏</text></svg>">
+    <!-- Google Fonts - Poppins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Canvas Confetti for celebrations -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body>
+<body class="page-loading">
     <nav class="navbar">
         <div class="container">
             <h1 class="logo">🏏 <span class="logo-text">{% if current_league %}{{ current_league.name }}{% else %}Auction{% endif %}</span></h1>
@@ -60,6 +68,120 @@
 
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     <script>
+        // Page load animation
+        document.addEventListener('DOMContentLoaded', function() {
+            document.body.classList.remove('page-loading');
+            document.body.classList.add('page-loaded');
+            
+            // Initialize scroll reveal animations
+            initScrollReveal();
+            
+            // Initialize animated counters
+            initCounters();
+            
+            // Initialize tooltips
+            initTooltips();
+        });
+        
+        // Scroll Reveal Animation
+        function initScrollReveal() {
+            const revealElements = document.querySelectorAll('.team-card, .feature-card, .player-item, .setup-section, .award-card');
+            
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('revealed');
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+            
+            revealElements.forEach(el => {
+                el.classList.add('reveal-on-scroll');
+                observer.observe(el);
+            });
+        }
+        
+        // Animated Number Counters
+        function initCounters() {
+            const counters = document.querySelectorAll('.stat-value, .points-value, .fantasy-total');
+            
+            counters.forEach(counter => {
+                const text = counter.textContent;
+                const match = text.match(/[\d.]+/);
+                if (match) {
+                    const target = parseFloat(match[0]);
+                    const prefix = text.substring(0, text.indexOf(match[0]));
+                    const suffix = text.substring(text.indexOf(match[0]) + match[0].length);
+                    const decimals = match[0].includes('.') ? match[0].split('.')[1].length : 0;
+                    
+                    counter.dataset.target = target;
+                    counter.dataset.prefix = prefix;
+                    counter.dataset.suffix = suffix;
+                    counter.dataset.decimals = decimals;
+                    counter.textContent = prefix + '0' + suffix;
+                    
+                    animateCounter(counter);
+                }
+            });
+        }
+        
+        function animateCounter(counter) {
+            const target = parseFloat(counter.dataset.target);
+            const prefix = counter.dataset.prefix;
+            const suffix = counter.dataset.suffix;
+            const decimals = parseInt(counter.dataset.decimals);
+            const duration = 1000;
+            const startTime = performance.now();
+            
+            function update(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const easeOut = 1 - Math.pow(1 - progress, 3);
+                const current = target * easeOut;
+                
+                counter.textContent = prefix + current.toFixed(decimals) + suffix;
+                
+                if (progress < 1) {
+                    requestAnimationFrame(update);
+                } else {
+                    counter.textContent = prefix + target.toFixed(decimals) + suffix;
+                }
+            }
+            
+            requestAnimationFrame(update);
+        }
+        
+        // Tooltips
+        function initTooltips() {
+            const tooltipElements = document.querySelectorAll('[data-tooltip]');
+            
+            tooltipElements.forEach(el => {
+                el.addEventListener('mouseenter', showTooltip);
+                el.addEventListener('mouseleave', hideTooltip);
+            });
+        }
+        
+        function showTooltip(e) {
+            const tooltip = document.createElement('div');
+            tooltip.className = 'tooltip';
+            tooltip.textContent = e.target.dataset.tooltip;
+            document.body.appendChild(tooltip);
+            
+            const rect = e.target.getBoundingClientRect();
+            tooltip.style.top = (rect.top - tooltip.offsetHeight - 8) + 'px';
+            tooltip.style.left = (rect.left + rect.width / 2 - tooltip.offsetWidth / 2) + 'px';
+            
+            e.target._tooltip = tooltip;
+        }
+        
+        function hideTooltip(e) {
+            if (e.target._tooltip) {
+                e.target._tooltip.remove();
+                e.target._tooltip = null;
+            }
+        }
+        
         function switchLeague(leagueId) {
             window.location.href = '/switch-league/' + leagueId + '?next=' + encodeURIComponent(window.location.pathname);
         }

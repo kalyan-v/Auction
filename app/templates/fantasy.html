@@ -124,7 +124,8 @@
     {% for team in teams %}
     {% set team_players = team.players | selectattr('status', 'equalto', 'sold') | list %}
     {% if team_players %}
-    <div class="team-card fantasy-card" data-team-id="{{ team.id }}">
+    {% set team_class = team.name | lower | replace(' ', '-') %}
+    <div class="team-card fantasy-card team-{{ team_class }}" data-team-id="{{ team.id }}">
         <div class="team-header">
             <h3>{{ team.name }}</h3>
             <div class="team-stats">
@@ -166,7 +167,15 @@
                         data-original-team="{{ player.original_team or '' }}"
                         data-points="{{ player.fantasy_points }}"
                         onclick="showPointsModalFromRow(this)">
-                        <td>{{ player.name }}</td>
+                        <td class="player-name-cell">
+                            {% if player.image_url %}
+                            <img src="{{ player.image_url }}" alt="" class="player-thumbnail" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                            <span class="player-thumbnail-placeholder" style="display:none;">🏏</span>
+                            {% else %}
+                            <span class="player-thumbnail-placeholder">🏏</span>
+                            {% endif %}
+                            <span class="player-name-text">{{ player.name }}</span>
+                        </td>
                         <td class="points-cell">
                             <span class="points-value" id="points-{{ player.id }}">{{ player.fantasy_points }}</span>
                         </td>
@@ -185,8 +194,11 @@
 
 {% set has_sold_players = teams | map(attribute='players') | sum(start=[]) | selectattr('status', 'equalto', 'sold') | list | length > 0 %}
 {% if not teams or not has_sold_players %}
-<div class="no-data-message">
-    <p>No players have been sold yet. Complete the auction first to manage fantasy points.</p>
+<div class="empty-state-large">
+    <div class="empty-state-icon">⭐</div>
+    <p class="empty-state-text">No Fantasy Points Yet</p>
+    <p class="empty-state-hint">Complete the auction first to start tracking fantasy points</p>
+    <a href="{{ url_for('auction.auction_room') }}" class="btn btn-primary" style="margin-top: 1rem;">🔨 Go to Auction</a>
 </div>
 {% endif %}
 

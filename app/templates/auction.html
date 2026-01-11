@@ -57,8 +57,8 @@
         </div>
         
         <div class="auction-controls">
-            <button class="btn btn-success" id="soldBtn" onclick="markSold()">✅ SOLD!</button>
-            <button class="btn btn-danger" id="unsoldBtn" onclick="markUnsold()">❌ UNSOLD</button>
+            <button class="btn btn-success" id="soldBtn" onclick="markSold()" data-tooltip="Finalize sale to the leading bidder">✅ SOLD!</button>
+            <button class="btn btn-danger" id="unsoldBtn" onclick="markUnsold()" data-tooltip="Mark player as unsold and move to next">❌ UNSOLD</button>
         </div>
     </div>
 
@@ -117,6 +117,12 @@
         <div id="playersList" class="players-grid">
             {% for player in players %}
             <div class="player-item" data-player-id="{{ player.id }}">
+                {% if player.image_url %}
+                <img src="{{ player.image_url }}" alt="{{ player.name }}" class="player-photo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div class="player-photo-placeholder" style="display:none;">🏏</div>
+                {% else %}
+                <div class="player-photo-placeholder">🏏</div>
+                {% endif %}
                 <h4>{{ player.name }}</h4>
                 <p>{{ player.position }} {% if player.country == 'Overseas' %}<span class="country-emoji">✈️</span>{% else %}<span class="flag-india"></span>{% endif %}</p>
                 <p>Base: ₹{{ '{:.0f}'.format(player.base_price / 100000) }} L</p>
@@ -134,15 +140,25 @@
         <div id="unsoldPlayersList" class="players-grid unsold-grid">
             {% for player in unsold_players %}
             <div class="player-item unsold-item" data-player-id="{{ player.id }}">
+                {% if player.image_url %}
+                <img src="{{ player.image_url }}" alt="{{ player.name }}" class="player-photo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div class="player-photo-placeholder" style="display:none;">🏏</div>
+                {% else %}
+                <div class="player-photo-placeholder">🏏</div>
+                {% endif %}
                 <h4>{{ player.name }}</h4>
                 <p>{{ player.position }} {% if player.country == 'Overseas' %}<span class="country-emoji">✈️</span>{% else %}<span class="flag-india"></span>{% endif %}</p>
                 <p>Base: ₹{{ '{:.0f}'.format(player.base_price / 100000) }} L</p>
                 {% if admin_mode %}
-                <button class="btn btn-small btn-retry" onclick="startAuction({{ player.id }})">🔄 Retry</button>
+                <button class="btn btn-small btn-retry" onclick="startAuction({{ player.id }})" data-tooltip="Start auction for this player again">🔄 Retry</button>
                 {% endif %}
             </div>
             {% else %}
-            <p class="no-unsold">No unsold players yet</p>
+            <div class="empty-state">
+                <div class="empty-state-icon">✅</div>
+                <p class="empty-state-text">No unsold players</p>
+                <p class="empty-state-hint">All players have been sold!</p>
+            </div>
             {% endfor %}
         </div>
     </div>

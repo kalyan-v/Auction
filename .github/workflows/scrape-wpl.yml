@@ -4,10 +4,9 @@ on:
   # Manual trigger from GitHub Actions tab
   workflow_dispatch:
 
-  # Scheduled: Run daily at 7 PM and 8 PM UTC
+  # Scheduled: Run daily at 6:30 PM UTC
   schedule:
-    - cron: '0 19 * * *'
-    - cron: '0 20 * * *'
+    - cron: '30 18 * * *'
 
 jobs:
   scrape:

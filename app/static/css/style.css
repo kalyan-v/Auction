@@ -73,8 +73,7 @@ body {
 }
 
 .nav-links a:hover {
-    color: #ffd700;
-    background: rgba(255, 215, 0, 0.1);
+    opacity: 0.8;
 }
 
 .nav-links .nav-divider {
@@ -1460,29 +1459,32 @@ input:checked + .toggle-slider:before {
 
 .stat {
     text-align: center;
-    background: rgba(255, 255, 255, 0.1);
-    padding: 0.5rem 1rem;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 0.75rem 1rem;
     border-radius: 8px;
+    backdrop-filter: blur(4px);
 }
 
 .stat-label {
     display: block;
     font-size: 0.75rem;
-    color: #bdc3c7;
+    color: #fff;
     text-transform: uppercase;
+    margin-bottom: 4px;
 }
 
 .stat-value {
     font-size: 1.2rem;
     font-weight: bold;
+    color: #fff;
 }
 
 .stat-value.purse {
-    color: #2ecc71;
+    color: #fff;
 }
 
 .stat-value.spent {
-    color: #e74c3c;
+    color: #fff;
 }
 
 .players-list {
@@ -1979,6 +1981,12 @@ input:checked + .toggle-slider:before {
 .match-points-table .points-cell {
     font-weight: bold;
     color: #27ae60;
+}
+
+.match-actual {
+    font-size: 0.8em;
+    color: #999;
+    font-weight: normal;
 }
 
 .no-matches {

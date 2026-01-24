@@ -5,3 +5,4 @@ python-socketio==5.11.0
 Werkzeug==3.0.1
 tzdata
 requests>=2.31.0
+beautifulsoup4>=4.12.0

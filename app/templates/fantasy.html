@@ -16,7 +16,7 @@
     <h3>🏆 Special Awards</h3>
     {% if admin_mode %}
     <div class="awards-actions">
-        <button class="btn btn-small btn-secondary" onclick="fetchAllAwardImages()">🔄 Fetch Award Images</button>
+        <button class="btn btn-small btn-primary" onclick="fetchAllData()" id="fetchAllBtn">📡 Fetch WPL Data</button>
     </div>
     {% endif %}
     <div class="awards-container">
@@ -222,8 +222,8 @@
             <h4>➕ Add Match Points</h4>
             <div class="add-points-form">
                 <div class="form-group">
-                    <label for="matchNumber">Match #</label>
-                    <input type="number" id="matchNumber" min="1" placeholder="Match">
+                    <label for="matchNumber">WPL Match #</label>
+                    <input type="number" id="matchNumber" min="1" placeholder="WPL Match #">
                 </div>
                 <div class="form-group">
                     <label for="matchPoints">Points</label>
@@ -244,31 +244,66 @@ let currentPlayerId = null;
 let currentTeamId = null;
 const isAdmin = {{ 'true' if admin_mode else 'false' }};
 
-// Fetch images for award winners
-async function fetchAllAwardImages() {
-    const selects = ['mvp-select', 'orange-cap-select', 'purple-cap-select'];
-    let fetchCount = 0;
-    
-    for (const selectId of selects) {
-        const select = document.getElementById(selectId);
-        if (select && select.value) {
-            try {
-                const response = await fetch(`/api/players/${select.value}/fetch-image`, { method: 'POST' });
-                const data = await response.json();
-                if (data.success) {
-                    fetchCount++;
+// Fetch all WPL data (awards + fantasy points)
+async function fetchAllData() {
+    const btn = document.getElementById('fetchAllBtn');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+
+    try {
+        // Step 1: Fetch fantasy points from match scorecards
+        btn.innerHTML = '⏳ Fetching match data...';
+        const pointsResponse = await fetch('/api/fantasy/fetch-match-points', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const pointsData = await pointsResponse.json();
+
+        let statusMsg = '';
+        if (pointsData.success) {
+            statusMsg += `Matches: ${pointsData.matches_scraped}, Players: ${pointsData.players_updated}`;
+        }
+
+        // Step 2: Fetch awards
+        btn.innerHTML = '⏳ Fetching awards...';
+        const awardsResponse = await fetch('/api/fantasy/fetch-awards', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const awardsData = await awardsResponse.json();
+
+        // Step 3: Fetch images for award winners
+        if (awardsData.results) {
+            btn.innerHTML = '⏳ Fetching images...';
+            const playerIds = [];
+            if (awardsData.results.orange_cap) playerIds.push(awardsData.results.orange_cap.player_id);
+            if (awardsData.results.purple_cap) playerIds.push(awardsData.results.purple_cap.player_id);
+            if (awardsData.results.mvp) playerIds.push(awardsData.results.mvp.player_id);
+
+            for (const playerId of playerIds) {
+                if (playerId) {
+                    try {
+                        await fetch(`/api/players/${playerId}/fetch-image`, { method: 'POST' });
+                    } catch (e) {
+                        console.error('Error fetching image:', e);
+                    }
                 }
-            } catch (e) {
-                console.error('Error fetching image:', e);
             }
         }
-    }
-    
-    if (fetchCount > 0) {
-        showNotification(`Fetched ${fetchCount} award winner image(s). Refreshing...`, 'success');
+
+        // Show summary and reload
+        let finalMsg = 'WPL data updated!\n';
+        if (statusMsg) finalMsg += statusMsg + '\n';
+        if (awardsData.results) finalMsg += 'Awards fetched';
+
+        showNotification(finalMsg, 'success');
         setTimeout(() => location.reload(), 1500);
-    } else {
-        showNotification('No images found or no award winners selected', 'info');
+
+    } catch (error) {
+        showNotification('Error fetching data: ' + error.message, 'error');
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
     }
 }
 
@@ -378,10 +413,10 @@ async function showPointsModal(playerId, playerName, teamId) {
                         <tbody>
                 `;
                 
-                data.entries.forEach(entry => {
+                data.entries.forEach((entry, index) => {
                     html += `
                         <tr>
-                            <td>Match ${entry.match_number}</td>
+                            <td>Match ${index + 1} <span class="match-actual">(#${entry.match_number})</span></td>
                             <td class="points-cell">${entry.points}</td>
                             ${isAdmin ? `<td><button class="btn btn-small btn-danger" onclick="deleteMatchPoints(${entry.id})">🗑️</button></td>` : ''}
                         </tr>
@@ -394,10 +429,10 @@ async function showPointsModal(playerId, playerName, teamId) {
                 containerEl.innerHTML = '<p class="no-matches">No match points recorded yet.</p>';
             }
             
-            // Reset add form
+            // Reset add form - suggest next WPL match number
             if (isAdmin) {
-                const nextMatch = data.entries.length > 0 
-                    ? Math.max(...data.entries.map(e => e.match_number)) + 1 
+                const nextMatch = data.entries.length > 0
+                    ? Math.max(...data.entries.map(e => e.match_number)) + 1
                     : 1;
                 document.getElementById('matchNumber').value = nextMatch;
                 document.getElementById('matchPoints').value = '';

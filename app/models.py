@@ -1,10 +1,14 @@
-from datetime import datetime
-from zoneinfo import ZoneInfo
-from app import db
+"""
+Database models for the WPL Auction application.
 
-def get_pacific_time():
-    """Get current time in Pacific timezone"""
-    return datetime.now(ZoneInfo('America/Los_Angeles'))
+Contains all SQLAlchemy models for leagues, teams, players, bids,
+fantasy points, and auction state.
+"""
+
+from typing import Optional
+
+from app import db
+from app.utils import get_pacific_time
 
 
 class League(db.Model):
@@ -87,16 +91,18 @@ class FantasyPointEntry(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=False, index=True)
     match_number = db.Column(db.Integer, nullable=False)
+    game_id = db.Column(db.String(50), nullable=True, index=True)  # Unique match identifier from source
     points = db.Column(db.Float, default=0)
     league_id = db.Column(db.Integer, db.ForeignKey('league.id'), nullable=True, index=True)
     timestamp = db.Column(db.DateTime, default=get_pacific_time)
-    
+
     player = db.relationship('Player', backref='point_entries')
     league = db.relationship('League', backref='point_entries')
-    
-    # Composite index for common query pattern
+
+    # Unique constraint: use game_id as primary deduplication key (more reliable than match_number)
     __table_args__ = (
-        db.Index('idx_player_league_match', 'player_id', 'league_id', 'match_number'),
+        db.UniqueConstraint('player_id', 'league_id', 'game_id', name='unique_player_game_entry'),
+        db.Index('idx_player_league_game', 'player_id', 'league_id', 'game_id'),
     )
     
     def __repr__(self):

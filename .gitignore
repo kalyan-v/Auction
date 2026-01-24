@@ -10,13 +10,12 @@ ENV/
 .venv
 
 # Flask
-instance/
 .webassets-cache
 
-# Database
-*.db
+# Database (but track auction.db for automated updates)
 *.sqlite
 *.sqlite3
+!instance/auction.db
 
 # IDE
 .vscode/

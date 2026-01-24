@@ -1,270 +1,243 @@
-# 🏏 Player Auction System
+# WPL Fantasy Auction System
 
-A complete web-based player auction system built with Flask, perfect for managing sports team auctions (cricket, football, etc.). This is a beginner-friendly project with real-time bidding capabilities.
+A web-based fantasy cricket auction and points tracking system for the Women's Premier League (WPL). Features live auction capabilities, automated fantasy point scraping from the official WPL website, and team management.
 
-## 📋 Features
+**Live Demo**: [trevorhawk7.pythonanywhere.com](https://trevorhawk7.pythonanywhere.com)
 
-- **Multi-League Support**: Create and manage multiple leagues (WPL, IPL, etc.) with separate teams, players, and settings
-- **Team Management**: Add and track multiple teams with budgets
-- **Player Database**: Manage player information, positions, base prices, and original teams
-- **Live Auction**: Real-time bidding interface with countdown timer
-- **Budget Tracking**: Automatic budget updates after successful bids
-- **Fantasy Points**: Track player fantasy points across matches with MVP, Orange Cap, and Purple Cap awards
-- **Bid History**: Track all bids placed during auctions
-- **Session-Based League Switching**: Switch between leagues from any page
-- **Responsive Design**: Works on desktop and mobile devices
+## Features
 
-## 🛠️ Technology Stack
+### Auction System
+- **Live Bidding**: Real-time auction interface with countdown timer
+- **Multi-League Support**: Manage multiple leagues with separate teams, players, and settings
+- **Team Management**: Track team budgets, player rosters, and spending
+- **Player Database**: Manage player info, positions, base prices, and original teams
+- **Bid History**: Complete audit trail of all bids
 
-- **Backend**: Python 3.x, Flask
-- **Database**: SQLite with SQLAlchemy ORM
+### Fantasy Points
+- **Automated Scraping**: Fetches fantasy points directly from wplt20.com
+- **Match-by-Match Tracking**: Individual match scores with game_id deduplication
+- **Awards**: Orange Cap (most runs), Purple Cap (most wickets), MVP tracking
+- **Team Standings**: Aggregate fantasy points by team
+- **Player Headshots**: Auto-fetched from WPL website
+
+### Automation
+- **GitHub Actions**: Scheduled scraping at 6:30 PM UTC daily
+- **Auto-commit**: Database updates pushed to repository automatically
+- **PythonAnywhere Deployment**: Production hosting with git pull sync
+
+## Tech Stack
+
+- **Backend**: Python 3.11, Flask, SQLAlchemy
+- **Database**: SQLite
 - **Frontend**: HTML5, CSS3, JavaScript
-- **Real-time**: Flask-SocketIO (prepared for future real-time features)
+- **Scraping**: Requests, BeautifulSoup
+- **CI/CD**: GitHub Actions
+- **Hosting**: PythonAnywhere
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 Auction/
 ├── app/
-│   ├── __init__.py          # Application factory
-│   ├── models.py            # Database models
-│   ├── routes.py            # Application routes and API endpoints
+│   ├── __init__.py           # App factory
+│   ├── models.py             # Database models
+│   ├── constants.py          # App constants
+│   ├── dataclasses.py        # Data structures
+│   ├── enums.py              # Enumerations
+│   ├── fantasy_calculator.py # Fantasy points logic
+│   ├── player_data.py        # Player mappings & bowler list
+│   ├── utils.py              # Utility functions
+│   ├── logger.py             # Logging setup
+│   ├── routes/
+│   │   ├── __init__.py       # Blueprint registration
+│   │   ├── main.py           # Main routes (pages)
+│   │   ├── auction.py        # Auction page routes
+│   │   └── api/
+│   │       ├── auction.py    # Auction API
+│   │       ├── cricket.py    # Cricket data API
+│   │       ├── fantasy.py    # Fantasy points API
+│   │       ├── leagues.py    # League management API
+│   │       └── players.py    # Player management API
+│   ├── scrapers/
+│   │   ├── __init__.py       # Scraper factory
+│   │   ├── base.py           # Base scraper class
+│   │   └── wpl.py            # WPL website scraper
 │   ├── static/
-│   │   ├── css/
-│   │   │   └── style.css    # Styling
-│   │   └── js/
-│   │       ├── main.js      # Core JavaScript functions
-│   │       ├── setup.js     # Setup page functionality
-│   │       └── auction.js   # Auction page functionality
+│   │   ├── css/style.css     # Styles
+│   │   ├── js/               # Frontend JavaScript
+│   │   └── images/           # Player headshots, logos
 │   └── templates/
-│       ├── base.html        # Base template
-│       ├── index.html       # Home page
-│       ├── setup.html       # Team/Player setup
-│       └── auction.html     # Auction interface
-├── config.py                # Configuration settings
-├── run.py                   # Application entry point
-├── requirements.txt         # Python dependencies
-├── .gitignore              # Git ignore file
-└── README.md               # This file
+│       ├── base.html         # Base template
+│       ├── index.html        # Home page
+│       ├── setup.html        # Team/Player setup
+│       ├── auction.html      # Auction room
+│       ├── squads.html       # Team rosters
+│       ├── fantasy.html      # Fantasy points
+│       └── login.html        # Admin login
+├── scripts/
+│   └── scrape_fantasy.py     # GitHub Actions scraper
+├── .github/workflows/
+│   └── scrape-wpl.yml        # Automated scraping workflow
+├── instance/
+│   └── auction.db            # SQLite database
+├── config.py                 # Configuration
+├── run.py                    # Development server
+├── wsgi.py                   # Production WSGI entry
+└── requirements.txt          # Dependencies
 ```
 
-## 🚀 Getting Started
+## Quick Start
 
 ### Prerequisites
+- Python 3.10+
 
-You need to install Python first. Here's how:
+### Installation
 
-1. **Download Python**:
-   - Visit https://www.python.org/downloads/
-   - Download Python 3.10 or higher
-   - **IMPORTANT**: During installation, check "Add Python to PATH"
+```bash
+# Clone repository
+git clone https://github.com/kalyan-v/Auction.git
+cd Auction
 
-2. **Verify Installation**:
-   Open a new PowerShell terminal and run:
-   ```powershell
-   python --version
-   ```
-   You should see something like `Python 3.10.x`
+# Create virtual environment
+python -m venv venv
 
-### Installation Steps
+# Activate (Windows PowerShell)
+.\venv\Scripts\Activate.ps1
 
-1. **Open the Project in VS Code**:
-   - The project is already open at `C:\Users\kvaliveti\Downloads\Auction`
+# Activate (Linux/Mac)
+source venv/bin/activate
 
-2. **Create a Virtual Environment**:
-   ```powershell
-   python -m venv venv
-   ```
+# Install dependencies
+pip install -r requirements.txt
 
-3. **Activate the Virtual Environment**:
-   ```powershell
-   .\venv\Scripts\Activate.ps1
-   ```
-   You should see `(venv)` appear in your terminal prompt.
-
-4. **Install Dependencies**:
-   ```powershell
-   pip install -r requirements.txt
-   ```
-
-5. **Initialize the Database**:
-   ```powershell
-   python run.py
-   ```
-   The database will be created automatically when you first run the app.
-
-### Running the Application
-
-1. Make sure your virtual environment is activated (you should see `(venv)` in terminal)
-2. Run the application:
-   ```powershell
-   python run.py
-   ```
-3. Open your web browser and go to:
-   ```
-   http://localhost:5000
-   ```
-
-## 📖 How to Use
-
-### Step 0: Login as Admin (Required for Making Changes)
-
-1. Click the **🔐 Login** link in the navigation bar
-2. Enter the admin credentials:
-   - Username: `admin`
-   - Password: `wpl2026`
-3. Once logged in, you'll see **👤 Admin** badge in the navbar
-
-### Step 1: Create a League
-
-1. Navigate to **Setup** page
-2. In the **Leagues** section:
-   - Enter a League ID (e.g., `wpl2026`, `ipl2026`)
-   - Enter Display Name (e.g., `WPL 2026`, `IPL 2026`)
-   - Set the default purse for teams (in Crores)
-   - Click "Create League"
-3. The new league will be selected automatically
-
-### Step 2: Setup Teams and Players
-
-1. Navigate to **Setup** page
-2. **Add Teams**:
-   - Enter team name
-   - Set budget (default: from league settings)
-   - Click "Add Team"
-3. **Add Players**:
-   - Enter player name
-   - Select position (Batter, Bowler, Allrounder, Keeper)
-   - Select country (Indian/Overseas)
-   - Set base price (in Lakhs)
-   - Optionally set Original Team (e.g., "MI", "CSK")
-   - Click "Add Player"
-
-### Step 3: Run the Auction
-
-1. Navigate to **Auction Room** page
-2. Click "Start Auction" on any available player
-3. **Place Bids**:
-   - Select your team from dropdown
-   - Enter bid amount (must be higher than current price)
-   - Click "Place Bid"
-4. Click "End Current Auction" when done
-
-### Step 3: View Results
-
-- Check which team won the player
-- View updated team budgets
-- See bid history for each auction
-### Step 5: Manage Fantasy Points
-
-1. Navigate to **Fantasy Points** page
-2. View player standings with total points
-3. Click on a player to add/view match-by-match points
-4. Set awards (MVP, Orange Cap, Purple Cap) for top performers
-
-### Switching Between Leagues
-
-- Use the league dropdown in the navbar to switch between different leagues
-- Each league has its own teams, players, and fantasy awards
-- League selection is saved in your browser session
-## ⚙️ Configuration
-
-Edit `config.py` to customize:
-
-```python
-DEFAULT_AUCTION_TIME = 300      # Auction duration (seconds)
-MIN_BID_INCREMENT = 100000      # Minimum bid increase
-STARTING_BUDGET = 10000000      # Default team budget
+# Run
+python run.py
 ```
 
-## 🐛 Troubleshooting
+Open http://localhost:5000
 
-**Problem**: Python not found
-- **Solution**: Install Python from python.org and ensure "Add to PATH" is checked
+### Admin Login
+- Username: `admin`
+- Password: `wpl2026`
 
-**Problem**: `pip` command not found
-- **Solution**: Run `python -m pip install -r requirements.txt` instead
+## Usage
 
-**Problem**: Virtual environment won't activate
-- **Solution**: Run PowerShell as Administrator and execute:
-  ```powershell
-  Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-  ```
+### 1. Create a League
+1. Login as admin
+2. Go to **Setup** > Create League
+3. Set league ID, name, and default purse
 
-**Problem**: Database errors
-- **Solution**: Delete `auction.db` file and restart the application
+### 2. Add Teams & Players
+1. Add teams with budgets
+2. Add players with positions and base prices
 
-**Problem**: Port 5000 already in use
-- **Solution**: Change port in `run.py`: `socketio.run(app, port=5001)`
+### 3. Run Auction
+1. Go to **Auction Room**
+2. Start auction on a player
+3. Teams place bids
+4. End auction to finalize sale
 
-## 🎯 Next Steps for Learning
+### 4. Track Fantasy Points
+1. Go to **Fantasy Points**
+2. Click "Fetch Match Points" to scrape from WPL
+3. View standings, match breakdowns, awards
 
-1. **Add More Features**:
-   - Add player statistics and ratings
-   - Implement real-time updates with SocketIO
-   - Add user authentication for teams
-   - Export results to PDF/Excel
+## API Endpoints
 
-2. **Improve the Design**:
-   - Customize colors and fonts in `style.css`
-   - Add animations and transitions
-   - Make it more responsive
-
-3. **Learn More**:
-   - Flask Documentation: https://flask.palletsprojects.com/
-   - SQLAlchemy Tutorial: https://docs.sqlalchemy.org/
-   - JavaScript MDN: https://developer.mozilla.org/en-US/docs/Web/JavaScript
-
-## 📝 API Endpoints
-
-### League Management
-- `GET /api/leagues` - Get all leagues
-- `POST /api/leagues` - Create a new league
-- `PUT /api/leagues/<league_id>` - Update a league
-- `DELETE /api/leagues/<league_id>` - Soft-delete a league
+### Leagues
+- `GET /api/leagues` - List leagues
+- `POST /api/leagues` - Create league
+- `DELETE /api/leagues/<id>` - Delete league
 
 ### Teams
-- `GET /api/teams` - Get all teams (filtered by current league)
-- `POST /api/teams` - Create a new team
+- `GET /api/teams` - List teams
+- `POST /api/teams` - Create team
+- `PUT /api/teams/<id>` - Update team
 
 ### Players
-- `GET /api/players` - Get all players (filtered by current league)
-- `POST /api/players` - Create a new player
-- `PUT /api/players/<player_id>` - Update a player
-- `DELETE /api/players/<player_id>` - Soft-delete a player
+- `GET /api/players` - List players
+- `POST /api/players` - Create player
+- `PUT /api/players/<id>` - Update player
+- `DELETE /api/players/<id>` - Delete player
 
 ### Auction
-- `POST /api/bid` - Place a bid
-- `POST /api/auction/start/<player_id>` - Start auction for player
-- `POST /api/auction/end` - End current auction
+- `POST /api/auction/start/<player_id>` - Start auction
+- `POST /api/bid` - Place bid
+- `POST /api/auction/end` - End auction
 
-### Fantasy Points
-- `GET /api/fantasy/players` - Get all sold players with fantasy points
-- `POST /api/fantasy/points/add` - Add match points for a player
-- `GET /api/fantasy/points/<player_id>` - Get match-by-match points
-- `POST /api/fantasy/award` - Set an award (MVP, Orange Cap, Purple Cap)
-- `GET /api/fantasy/awards` - Get all awards
+### Fantasy
+- `GET /api/fantasy/players` - Get players with points
+- `POST /api/fantasy/fetch-match-points` - Scrape from WPL
+- `POST /api/fantasy/fetch-awards` - Fetch awards
+- `GET /api/fantasy/points/<player_id>` - Get match points
+- `POST /api/fantasy/award` - Set award
 
-## 🤝 Contributing
+## Deployment
 
-This is your learning project! Feel free to:
-- Modify any code
-- Add new features
-- Experiment with designs
-- Break things and fix them (that's how you learn!)
+### PythonAnywhere
 
-## 📧 Need Help?
+1. Clone repo to PythonAnywhere
+2. Set up virtual environment
+3. Configure WSGI file to point to `wsgi.py`
+4. Set up scheduled task for `git pull` at 6:45 PM UTC
 
-If you're stuck:
-1. Check the error message in the terminal
-2. Read the code comments
-3. Search for the error on Google or Stack Overflow
-4. Ask in programming communities
+### GitHub Actions
 
-## 📄 License
+The workflow runs daily at 6:30 PM UTC:
+1. Scrapes all WPL match scorecards
+2. Calculates fantasy points
+3. Updates Orange Cap, Purple Cap, MVP
+4. Commits database to repository
 
-This is a learning project - use it however you want!
 
----
+## Fantasy Points Calculation
 
-**Happy Coding! 🎉**
+Based on official WPL fantasy scoring:
+
+| Category | Points |
+|----------|--------|
+| Run scored | 1 |
+| Boundary bonus (4) | +1 |
+| Boundary bonus (6) | +2 |
+| 30 runs | +4 |
+| Half-century | +8 |
+| Century | +16 |
+| Duck (batters only) | -5 |
+| Wicket | 25 |
+| 3 wickets | +4 |
+| 4 wickets | +8 |
+| 5 wickets | +16 |
+| Maiden over | +12 |
+| Catch | 8 |
+| Stumping | 12 |
+| Direct run out | 12 |
+| Indirect run out | 6 |
+
+Strike rate and economy bonuses/penalties apply for qualifying balls.
+
+## Project Stats
+
+| Type | Lines |
+|------|-------|
+| Python | 4,657 |
+| CSS | 2,827 |
+| HTML | 1,625 |
+| JavaScript | 862 |
+| **Total** | **~10,000** |
+
+## Troubleshooting
+
+**Python not found**: Install from python.org, check "Add to PATH"
+
+**Virtual environment won't activate**: Run as Administrator:
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+**Database errors**: Delete `instance/auction.db` and restart
+
+**Port 5000 in use**: Change port in `run.py`
+
+## License
+
+MIT

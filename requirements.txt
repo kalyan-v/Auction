@@ -2,7 +2,7 @@ Flask==3.0.0
 Flask-SQLAlchemy==3.1.1
 Flask-SocketIO==5.3.6
 python-socketio==5.11.0
-Werkzeug==3.0.1
+Werkzeug==3.1.5
 tzdata
 requests>=2.31.0
 beautifulsoup4>=4.12.0

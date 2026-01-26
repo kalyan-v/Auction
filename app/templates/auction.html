@@ -51,7 +51,7 @@
             <p class="bid-hint">💡 Click team = +₹25L (first click = base price)</p>
             
             <div class="reset-price">
-                <input type="number" id="resetPriceInput" placeholder="Reset to (in Lakhs)" step="25">
+                <input type="number" id="resetPriceInput" placeholder="Reset to (in Lakhs)" step="25" min="1">
                 <button class="btn btn-warning" onclick="resetPrice()">Reset Price</button>
             </div>
         </div>
@@ -67,7 +67,7 @@
         <h2>Place Your Bid</h2>
         <form id="bidForm">
             <select id="teamSelect" required>
-                <option value="">Select Team</option>
+                <option value="" disabled selected>Select Team</option>
                 {% for team in teams %}
                 <option value="{{ team.id }}" data-budget="{{ team.budget }}">
                     {{ team.name }} (Budget: ₹{{ '{:.2f}'.format(team.budget / 10000000) }} Cr)

@@ -27,6 +27,8 @@ function showNotification(message, type = 'info') {
     const notification = document.createElement('div');
     notification.className = `notification ${type}`;
     notification.textContent = message;
+    notification.setAttribute('role', 'alert');
+    notification.setAttribute('aria-live', 'polite');
     notification.style.cssText = `
         position: fixed;
         top: 20px;
@@ -36,12 +38,12 @@ function showNotification(message, type = 'info') {
         color: white;
         border-radius: 5px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-        z-index: 1000;
+        z-index: 10000;
         animation: slideIn 0.3s ease;
     `;
-    
+
     document.body.appendChild(notification);
-    
+
     setTimeout(() => {
         notification.style.animation = 'slideOut 0.3s ease';
         setTimeout(() => notification.remove(), 300);

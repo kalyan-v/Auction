@@ -77,7 +77,7 @@ Auction/
 ├── scripts/
 │   └── scrape_fantasy.py     # GitHub Actions scraper
 ├── .github/workflows/
-│   └── scrape-wpl.yml        # Automated scraping workflow
+│   └── scrape_wpl.yml        # Automated scraping workflow
 ├── instance/
 │   └── auction.db            # SQLite database
 ├── config.py                 # Configuration

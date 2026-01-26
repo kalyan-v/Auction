@@ -17,7 +17,7 @@
     {% set team_class = team.name | lower | replace(' ', '-') | replace("'", '') %}
     {% set spent = (team.initial_budget or 500000000) - team.budget %}
     {% set initial = team.initial_budget or 500000000 %}
-    {% set spent_percent = ((spent / initial) * 100) | round(1) %}
+    {% set spent_percent = [((spent / initial) * 100) | round(1), 100] | min %}
     <div class="team-card team-{{ team_class }}">
         <div class="team-header">
             <div class="team-logo">{{ team.name[:2] | upper }}</div>

@@ -21,7 +21,7 @@ A web-based fantasy cricket auction and points tracking system for the Women's P
 - **Player Headshots**: Auto-fetched from WPL website
 
 ### Automation
-- **GitHub Actions**: Scheduled scraping at 6:30 PM UTC daily
+- **GitHub Actions**: Scheduled scraping every 5 minutes
 - **Auto-commit**: Database updates pushed to repository automatically
 - **PythonAnywhere Deployment**: Production hosting with git pull sync
 

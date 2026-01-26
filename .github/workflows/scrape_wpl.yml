@@ -7,7 +7,7 @@ on:
     branches:
       - main  # Keeps workflow active and re-registers schedule
   schedule:
-    - cron: '30 18 * * *'  # Daily at 6:30 PM UTC  
+    - cron: '*/5 * * * *'  # Every 5 minutes UTC  
 
 permissions:
   contents: write

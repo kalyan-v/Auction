@@ -238,6 +238,8 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 **Port 5000 in use**: Change port in `run.py`
 
+**Scheduled workflow not running**: GitHub Actions scheduled workflows only run on the default branch (`main`). Manual triggers work from any branch, but cron schedules require the workflow file to be on `main`. See [WORKFLOW_TROUBLESHOOTING.md](WORKFLOW_TROUBLESHOOTING.md) for details.
+
 ## License
 
 MIT

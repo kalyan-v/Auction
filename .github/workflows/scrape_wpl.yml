@@ -1,11 +1,13 @@
 name: Scrape WPL Fantasy Points
 
-# Triggers: manual + schedule
+# Triggers: manual + schedule + push
 on:
   workflow_dispatch: {}  # Manual trigger
+  push:
+    branches:
+      - main  # Keeps workflow active and re-registers schedule
   schedule:
     - cron: '*/5 * * * *'  # Every 5 minutes UTC  
-    - cron: '30 18 * * *'  
 
 permissions:
   contents: write

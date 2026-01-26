@@ -4,8 +4,7 @@ name: Scrape WPL Fantasy Points
 on:
   workflow_dispatch: {}  # Manual trigger
   schedule:
-    - cron: '*/5 * * * *'  # Every 5 minutes UTC  
-    - cron: '30 18 * * *'  
+    - cron: '30 18 * * *'  # Daily at 6:30 PM UTC  
 
 permissions:
   contents: write
@@ -48,5 +47,9 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add instance/auction.db
-          git diff --staged --quiet || git commit -m "Auto-update fantasy points $(date +'%Y-%m-%d %H:%M UTC')"
-          git push
+          if ! git diff --staged --quiet; then
+            git commit -m "Auto-update fantasy points $(date +'%Y-%m-%d %H:%M UTC')"
+            git push
+          else
+            echo "No changes to commit"
+          fi

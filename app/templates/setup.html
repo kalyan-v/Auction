@@ -47,7 +47,7 @@
         {% if admin_mode %}
         <form id="teamForm" class="form-inline">
             <input type="text" id="teamName" placeholder="Team Name" required>
-            <input type="number" id="teamBudget" placeholder="Budget (in Cr)" value="50" step="1">
+            <input type="number" id="teamBudget" placeholder="Budget (in Cr)" value="50" step="1" min="1">
             <button type="submit" class="btn btn-primary">Add Team</button>
         </form>
         {% endif %}
@@ -79,7 +79,7 @@
                 <option value="Indian">Indian</option>
                 <option value="Overseas">Overseas</option>
             </select>
-            <input type="number" id="playerBasePrice" placeholder="Base Price (in Lakhs)" value="50" step="10">
+            <input type="number" id="playerBasePrice" placeholder="Base Price (in Lakhs)" value="50" step="10" min="1">
             <input type="text" id="playerOriginalTeam" placeholder="Original Team (optional)">
             <button type="submit" class="btn btn-primary">Add Player</button>
         </form>
@@ -139,7 +139,7 @@
             </div>
             <div class="form-group">
                 <label>Base Price (Lakhs)</label>
-                <input type="number" id="editPlayerBasePrice" step="10" required>
+                <input type="number" id="editPlayerBasePrice" step="10" min="1" required>
             </div>
             <div class="form-group">
                 <label>Original Team</label>

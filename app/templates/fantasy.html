@@ -309,9 +309,9 @@ async function fetchAllData() {
 
 // Helper to show modal using data attributes (safe for special characters in names)
 function showPointsModalFromRow(row) {
-    const playerId = parseInt(row.dataset.playerId);
+    const playerId = parseInt(row.dataset.playerId, 10);
     const playerName = row.dataset.playerName;
-    const teamId = parseInt(row.dataset.teamId);
+    const teamId = parseInt(row.dataset.teamId, 10);
     showPointsModal(playerId, playerName, teamId);
 }
 
@@ -459,10 +459,17 @@ window.onclick = function(event) {
     }
 }
 
+// Close modal on ESC key
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        closeModal();
+    }
+});
+
 async function addMatchPoints() {
     if (!currentPlayerId) return;
     
-    const matchNumber = parseInt(document.getElementById('matchNumber').value);
+    const matchNumber = parseInt(document.getElementById('matchNumber').value, 10);
     const points = parseFloat(document.getElementById('matchPoints').value);
     
     if (!matchNumber || matchNumber < 1) {
@@ -668,7 +675,7 @@ document.addEventListener('DOMContentLoaded', function() {
     teamCards.forEach(card => {
         const teamId = card.dataset.teamId;
         if (teamId) {
-            sortTable(parseInt(teamId), 'points');
+            sortTable(parseInt(teamId, 10), 'points');
         }
     });
 });

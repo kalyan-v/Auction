@@ -109,13 +109,13 @@
 <script>
 // Helper functions using data attributes (safe for special characters in names)
 function showBidHistoryFromRow(row) {
-    const playerId = parseInt(row.dataset.playerId);
+    const playerId = parseInt(row.dataset.playerId, 10);
     const playerName = row.dataset.playerName;
     showBidHistory(playerId, playerName);
 }
 
 function releasePlayerFromData(btn, event) {
-    const playerId = parseInt(btn.dataset.playerId);
+    const playerId = parseInt(btn.dataset.playerId, 10);
     const playerName = btn.dataset.playerName;
     releasePlayer(playerId, playerName, event);
 }
@@ -214,5 +214,12 @@ window.onclick = function(event) {
         modal.style.display = 'none';
     }
 }
+
+// Close modal on ESC key
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        closeModal();
+    }
+});
 </script>
 {% endblock %}

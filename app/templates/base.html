@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{% if current_league %}{{ current_league.display_name }}{% else %}Player Auction{% endif %}{% endblock %}</title>
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏏</text></svg>">
@@ -130,7 +130,7 @@
             const target = parseFloat(counter.dataset.target);
             const prefix = counter.dataset.prefix;
             const suffix = counter.dataset.suffix;
-            const decimals = parseInt(counter.dataset.decimals);
+            const decimals = parseInt(counter.dataset.decimals, 10);
             const duration = 1000;
             const startTime = performance.now();
             
@@ -201,6 +201,16 @@
                 navLinks.classList.remove('mobile-open');
                 menuBtn.classList.remove('active');
             }
+        });
+
+        // Close mobile menu when clicking a nav link
+        document.querySelectorAll('.nav-links a').forEach(link => {
+            link.addEventListener('click', function() {
+                const navLinks = document.getElementById('navLinks');
+                const menuBtn = document.querySelector('.mobile-menu-btn');
+                navLinks.classList.remove('mobile-open');
+                menuBtn.classList.remove('active');
+            });
         });
     </script>
     {% block scripts %}{% endblock %}

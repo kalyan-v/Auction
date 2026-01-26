@@ -29,7 +29,7 @@ function initAuctioneerPanel() {
     // Get current player ID from the page if auction is active
     const playerCard = document.getElementById('currentPlayer');
     if (playerCard && playerCard.dataset.playerId) {
-        currentPlayerId = parseInt(playerCard.dataset.playerId);
+        currentPlayerId = parseInt(playerCard.dataset.playerId, 10);
     }
     
     // Get initial price from page if auction is active
@@ -47,7 +47,7 @@ const BID_INCREMENT = 25;
 
 // Helper to select team from data attributes (safe for special characters)
 function selectTeamFromData(btn) {
-    const teamId = parseInt(btn.dataset.teamId);
+    const teamId = parseInt(btn.dataset.teamId, 10);
     const teamName = btn.dataset.teamName;
     selectTeam(teamId, teamName);
 }
@@ -433,7 +433,7 @@ async function selectFinalPlayer(position, resultDiv, btn) {
                 <div class="confetti">🎉</div>
                 <h3>${escapeHtml(player.name)}</h3>
                 <p>${escapeHtml(player.position)} | Base Price: ₹${player.base_price / 100000} L</p>
-                <button class="btn btn-primary pulse" onclick="startAuction(${parseInt(player.id)})">Start Auction for ${escapeHtml(player.name)}</button>
+                <button class="btn btn-primary pulse" onclick="startAuction(${parseInt(player.id, 10)})">Start Auction for ${escapeHtml(player.name)}</button>
             </div>
         `;
     } else {
@@ -487,7 +487,7 @@ document.getElementById('bidForm')?.addEventListener('submit', async (e) => {
             },
             body: JSON.stringify({
                 player_id: currentPlayerId,
-                team_id: parseInt(teamId),
+                team_id: parseInt(teamId, 10),
                 amount: amount
             })
         });
@@ -543,7 +543,7 @@ document.getElementById('endAuctionBtn')?.addEventListener('click', async () => 
 });
 
 // Timer countdown (simple client-side version)
-let timeRemaining = parseInt(document.getElementById('timer')?.textContent) || 0;
+let timeRemaining = parseInt(document.getElementById('timer')?.textContent, 10) || 0;
 if (timeRemaining > 0) {
     timerInterval = setInterval(() => {
         timeRemaining--;

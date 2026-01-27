@@ -32,11 +32,19 @@
         <div class="current-bid-display">
             <div class="bid-info">
                 <label>Current Price</label>
-                <div class="big-price" id="bigCurrentPrice">₹50 L</div>
+                <div class="big-price" id="bigCurrentPrice">
+                    {% if auction_state and auction_state.is_active and auction_state.current_player %}
+                        ₹{{ '{:.0f}'.format(auction_state.current_player.current_price / 100000) }} L
+                    {% else %}
+                        ₹50 L
+                    {% endif %}
+                </div>
             </div>
             <div class="bid-info">
                 <label>Leading Team</label>
-                <div class="leading-team" id="leadingTeam">-</div>
+                <div class="leading-team" id="leadingTeam" data-initial-team="{{ highest_bid.team.name if highest_bid and highest_bid.team else '' }}">
+                    {{ highest_bid.team.name if highest_bid and highest_bid.team else '-' }}
+                </div>
             </div>
         </div>
         

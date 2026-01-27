@@ -112,11 +112,11 @@ class FantasyPointEntry(db.Model):
 class Bid(db.Model):
     """Bid history model"""
     id = db.Column(db.Integer, primary_key=True)
-    player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=False)
-    team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
+    player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=False, index=True)
+    team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False, index=True)
     amount = db.Column(db.Float, nullable=False)
     timestamp = db.Column(db.DateTime, default=get_pacific_time)
-    
+
     player = db.relationship('Player', backref='bids')
     team = db.relationship('Team', backref='bids')
     

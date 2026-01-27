@@ -154,7 +154,8 @@ def delete_match_points(entry_id: int):
     ).scalar() or 0
 
     player = Player.query.get(player_id)
-    player.fantasy_points = total_points
+    if player:
+        player.fantasy_points = total_points
 
     db.session.commit()
 
@@ -329,7 +330,13 @@ def fetch_and_update_awards():
         'errors': []
     }
 
-    with get_scraper(ScraperType.WPL) as scraper:
+    try:
+        scraper = get_scraper(ScraperType.WPL)
+    except Exception as e:
+        logger.error(f"Error creating scraper: {e}")
+        return error_response(f'Failed to initialize scraper: {str(e)}', 500)
+
+    with scraper:
         # Fetch Orange Cap
         orange_result = scraper.get_orange_cap()
         if orange_result.success and orange_result.leader:
@@ -430,8 +437,12 @@ def fetch_match_fantasy_points():
     if not current_league:
         return error_response('No league selected')
 
-    with get_scraper(ScraperType.WPL) as scraper:
-        result = scraper.scrape_all_matches()
+    try:
+        with get_scraper(ScraperType.WPL) as scraper:
+            result = scraper.scrape_all_matches()
+    except Exception as e:
+        logger.error(f"Error scraping matches: {e}")
+        return error_response(f'Failed to fetch match data: {str(e)}', 500)
 
     if not result.get('success'):
         return jsonify(result)

@@ -320,6 +320,9 @@ class WPLScraper(BaseScraper):
         """Scrape detailed scorecard from a WPL match page."""
         if not self._is_absolute_url(match_url):
             match_url = self.base_url + match_url
+        elif not match_url.startswith(self.base_url):
+            # Security: Only allow URLs from the official WPL website
+            return ScorecardResult(success=False, error="Invalid match URL domain")
 
         response = self._make_request(match_url)
         if not response:
@@ -386,19 +389,21 @@ class WPLScraper(BaseScraper):
                 player_stats[name] = self.create_empty_player_stats(name)
 
             stats = player_stats[name]
-            stats.runs = safe_int(batsman.get("Runs", 0))
-            stats.balls_faced = safe_int(batsman.get("Balls", 0))
-            stats.fours = safe_int(batsman.get("Fours", 0))
-            stats.sixes = safe_int(batsman.get("Sixes", 0))
+            # Accumulate stats (player may bat in multiple innings, e.g., super over)
+            stats.runs += safe_int(batsman.get("Runs", 0))
+            stats.balls_faced += safe_int(batsman.get("Balls", 0))
+            stats.fours += safe_int(batsman.get("Fours", 0))
+            stats.sixes += safe_int(batsman.get("Sixes", 0))
 
-            # Determine if out
+            # Determine if out (if out in any innings, mark as out)
             howout = batsman.get("Howout", "")
             is_not_out = (
                 not howout or
                 "not out" in howout.lower() or
                 howout.lower() == "batting"
             )
-            stats.is_out = not is_not_out
+            if not is_not_out:
+                stats.is_out = True
 
             # Check for LBW/Bowled (for bowler bonus)
             howout_lower = howout.lower()
@@ -430,11 +435,12 @@ class WPLScraper(BaseScraper):
                 player_stats[name] = self.create_empty_player_stats(name)
 
             stats = player_stats[name]
-            stats.wickets = safe_int(bowler.get("Wickets", 0))
-            stats.overs = safe_float(bowler.get("Overs", 0))
-            stats.runs_conceded = safe_int(bowler.get("Runs", 0))
-            stats.maidens = safe_int(bowler.get("Maidens", 0))
-            stats.dot_balls = safe_int(bowler.get("Dots", 0))
+            # Accumulate stats (player may bowl in multiple innings, e.g., super over)
+            stats.wickets += safe_int(bowler.get("Wickets", 0))
+            stats.overs += safe_float(bowler.get("Overs", 0))
+            stats.runs_conceded += safe_int(bowler.get("Runs", 0))
+            stats.maidens += safe_int(bowler.get("Maidens", 0))
+            stats.dot_balls += safe_int(bowler.get("Dots", 0))
 
     def _is_valid_fielder(self, fielder_name: str) -> bool:
         """Check if fielder name is valid (not a substitute placeholder)."""

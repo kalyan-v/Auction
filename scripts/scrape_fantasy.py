@@ -31,8 +31,18 @@ def scrape_and_update():
         print(f"Scraping for league: {league.name}")
 
         # Scrape all matches and awards
-        with get_scraper(ScraperType.WPL) as scraper:
-            result = scraper.scrape_all_matches()
+        try:
+            scraper = get_scraper(ScraperType.WPL)
+        except Exception as e:
+            print(f"Failed to initialize scraper: {e}")
+            return False
+
+        with scraper:
+            try:
+                result = scraper.scrape_all_matches()
+            except Exception as e:
+                print(f"Exception during scraping: {e}")
+                return False
 
             if not result.get('success'):
                 print(f"Scraping failed: {result.get('error')}")

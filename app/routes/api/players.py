@@ -56,11 +56,20 @@ def manage_players():
         if not data or 'name' not in data:
             return error_response('Player name is required')
 
+        # Validate base_price if provided
+        base_price = data.get('base_price', 100000)
+        try:
+            base_price = float(base_price)
+            if base_price < 0:
+                return error_response('Base price cannot be negative')
+        except (TypeError, ValueError):
+            return error_response('Invalid base price value')
+
         player = Player(
             name=data['name'],
             position=data.get('position', ''),
             country=data.get('country', 'Indian'),
-            base_price=data.get('base_price', 100000),
+            base_price=base_price,
             original_team=data.get('original_team', ''),
             league_id=current_league.id
         )
@@ -109,10 +118,22 @@ def update_player(player_id: int):
         return jsonify({'success': True})
 
     data = request.get_json()
+    if not data:
+        return error_response('Request body is required')
+
+    # Validate base_price if provided
+    if 'base_price' in data:
+        try:
+            base_price = float(data['base_price'])
+            if base_price < 0:
+                return error_response('Base price cannot be negative')
+            player.base_price = base_price
+        except (TypeError, ValueError):
+            return error_response('Invalid base price value')
+
     player.name = data.get('name', player.name)
     player.position = data.get('position', player.position)
     player.country = data.get('country', player.country)
-    player.base_price = data.get('base_price', player.base_price)
     player.original_team = data.get('original_team', player.original_team)
     db.session.commit()
     return jsonify({'success': True})

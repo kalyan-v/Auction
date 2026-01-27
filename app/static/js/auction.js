@@ -34,15 +34,22 @@ function initAuctioneerPanel() {
     if (playerCard && playerCard.dataset.playerId) {
         currentPlayerId = parseInt(playerCard.dataset.playerId, 10);
     }
-    
+
     // Get initial price from page if auction is active
     const priceEl = document.getElementById('currentPrice');
     if (priceEl && priceEl.textContent) {
         currentBidPrice = parseFloat(priceEl.textContent) || 50;
-        updateBidDisplay();
     }
-    
-    console.log('Auctioneer Panel initialized. Current Player ID:', currentPlayerId, 'Current Price:', currentBidPrice);
+
+    // Get initial leading team from server data (fixes bug where page reload loses leading team)
+    const leadingTeamEl = document.getElementById('leadingTeam');
+    if (leadingTeamEl && leadingTeamEl.dataset.initialTeam) {
+        leadingTeamName = leadingTeamEl.dataset.initialTeam;
+    }
+
+    updateBidDisplay();
+
+    console.log('Auctioneer Panel initialized. Current Player ID:', currentPlayerId, 'Current Price:', currentBidPrice, 'Leading Team:', leadingTeamName);
 }
 
 // Fixed bid increment in Lakhs
@@ -669,11 +676,21 @@ if (timeRemaining > 0) {
         const timerEl = document.getElementById('timer');
         if (timerEl) {
             timerEl.textContent = timeRemaining;
-            
+
             if (timeRemaining <= 0) {
                 clearInterval(timerInterval);
                 showNotification('Time is up!', 'info');
             }
+        } else {
+            // Timer element was removed from DOM, clean up interval
+            clearInterval(timerInterval);
         }
     }, 1000);
 }
+
+// Clean up timer on page unload to prevent memory leaks
+window.addEventListener('beforeunload', () => {
+    if (timerInterval) {
+        clearInterval(timerInterval);
+    }
+});

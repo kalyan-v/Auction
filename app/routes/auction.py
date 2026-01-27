@@ -6,7 +6,7 @@ Handles the main auction room interface.
 
 from flask import render_template
 
-from app.models import AuctionState, League, Player, Team
+from app.models import AuctionState, Bid, League, Player, Team
 from app.routes import auction_bp
 from app.routes.main import get_current_league
 from app.utils import is_admin
@@ -35,12 +35,23 @@ def auction_room():
 
     auction_state = AuctionState.query.first()
 
+    # Get highest bid for current player (if auction is active)
+    highest_bid = None
+    if auction_state and auction_state.is_active and auction_state.current_player_id:
+        highest_bid = (
+            Bid.query
+            .filter_by(player_id=auction_state.current_player_id)
+            .order_by(Bid.amount.desc())
+            .first()
+        )
+
     return render_template(
         'auction.html',
         teams=teams,
         players=players,
         unsold_players=unsold_players,
         auction_state=auction_state,
+        highest_bid=highest_bid,
         admin_mode=is_admin(),
         current_league=current_league,
         all_leagues=all_leagues

@@ -29,6 +29,14 @@ def place_bid():
     if not all([player_id, team_id, amount]):
         return error_response('player_id, team_id, and amount are required')
 
+    # Validate amount is a positive number
+    try:
+        amount = float(amount)
+        if amount <= 0:
+            return error_response('Bid amount must be positive')
+    except (TypeError, ValueError):
+        return error_response('Invalid bid amount')
+
     player = Player.query.get(player_id)
     team = Team.query.get(team_id)
 
@@ -113,6 +121,8 @@ def end_auction():
     if highest_bid:
         # Assign player to team
         team = Team.query.get(highest_bid.team_id)
+        if not team:
+            return error_response('Team not found')
         team.budget -= highest_bid.amount
         player.team_id = team.id
         player.status = 'sold'
@@ -136,6 +146,9 @@ def mark_unsold():
         return error_response('No active auction')
 
     player = Player.query.get(auction_state.current_player_id)
+    if not player:
+        return error_response('Player not found', 404)
+
     player.status = 'unsold'
     player.current_price = 0
 
@@ -156,10 +169,16 @@ def reset_price():
         return error_response('No active auction')
 
     data = request.get_json()
-    new_price = data.get('price', 0)
+    if not data:
+        return error_response('Request body is required')
 
-    if new_price <= 0:
-        return error_response('Invalid price')
+    # Validate price is a positive number
+    try:
+        new_price = float(data.get('price', 0))
+        if new_price <= 0:
+            return error_response('Price must be positive')
+    except (TypeError, ValueError):
+        return error_response('Invalid price value')
 
     player = Player.query.get(auction_state.current_player_id)
     if not player:

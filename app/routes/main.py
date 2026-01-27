@@ -16,11 +16,8 @@ from flask import (
     current_app, redirect, render_template, request, session, url_for
 )
 
-from app import db
 from app.enums import AwardType
-from app.models import (
-    FantasyAward, League, Player, Team, AuctionState
-)
+from app.models import FantasyAward, League, Player, Team
 from app.routes import main_bp
 from app.utils import is_admin
 

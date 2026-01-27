@@ -156,7 +156,6 @@ KNOWN_BOWLERS: Final[FrozenSet[str]] = frozenset({
     'titas sadhu',
     'arundhati reddy',
     'shikha pandey',
-    'radha yadav',
     'rajeshwari gayakwad',
     'poonam khemnar',
     'prathyoosha kumar',

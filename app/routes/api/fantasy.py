@@ -268,7 +268,7 @@ def find_player_by_name(name: str, league_id: int) -> Optional[Player]:
     # Try exact match with mapped name
     player = Player.query.filter(
         Player.league_id == league_id,
-        Player.is_deleted == False,
+        Player.is_deleted.is_(False),
         db.func.lower(Player.name) == mapped_name
     ).first()
 
@@ -278,7 +278,7 @@ def find_player_by_name(name: str, league_id: int) -> Optional[Player]:
     # Try exact match with original name
     player = Player.query.filter(
         Player.league_id == league_id,
-        Player.is_deleted == False,
+        Player.is_deleted.is_(False),
         db.func.lower(Player.name) == search_name
     ).first()
 
@@ -289,7 +289,7 @@ def find_player_by_name(name: str, league_id: int) -> Optional[Player]:
     normalized_search = normalize_player_name(search_name)
     players = Player.query.filter(
         Player.league_id == league_id,
-        Player.is_deleted == False
+        Player.is_deleted.is_(False)
     ).all()
 
     for p in players:

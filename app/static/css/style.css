@@ -1725,20 +1725,7 @@ input:checked + .toggle-slider:before {
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
 }
 
-.btn-secondary {
-    background: #6c757d;
-    color: white;
-    border: none;
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    transition: background 0.3s;
-}
-
-.btn-secondary:hover {
-    background: #5a6268;
-}
+/* btn-secondary is already defined above with gradient style */
 
 /* Original Team Badge in Fantasy */
 .original-team-badge {
@@ -2739,6 +2726,59 @@ textarea:focus {
     color: #e74c3c;
     background: rgba(231, 76, 60, 0.1);
     transform: rotate(90deg);
+}
+
+/* ==================== FORM GROUPS ==================== */
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+    outline: none;
+}
+
+/* ==================== MODAL BUTTONS ==================== */
+.modal-buttons {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    justify-content: flex-end;
+}
+
+.modal-buttons .btn {
+    min-width: 120px;
+}
+
+@media (max-width: 480px) {
+    .modal-buttons {
+        flex-direction: column;
+    }
+
+    .modal-buttons .btn {
+        width: 100%;
+    }
 }
 
 /* ==================== TABLE ZEBRA STRIPING ==================== */

@@ -21,14 +21,15 @@ class FantasyPointsCalculator:
     DUCK_PENALTY: int = -2  # Excluding bowlers
 
     # Strike Rate bonuses/penalties (min 20 runs OR 10 balls)
+    # Using exclusive upper bound approach: min <= value < max (except for last threshold)
     STRIKE_RATE_THRESHOLDS: List[Tuple[float, float, int]] = [
         (170, float('inf'), 6),    # 170+ : +6
-        (150, 169.99, 4),          # 150-169.99 : +4
-        (130, 149.99, 2),          # 130-149.99 : +2
-        (70, 129.99, 0),           # 70-129.99 : 0
-        (60, 69.99, -2),           # 60-69.99 : -2
-        (50, 59.99, -4),           # 50-59.99 : -4
-        (0, 49.99, -6),            # <50 : -6
+        (150, 170, 4),             # 150-169.99 : +4
+        (130, 150, 2),             # 130-149.99 : +2
+        (70, 130, 0),              # 70-129.99 : 0
+        (60, 70, -2),              # 60-69.99 : -2
+        (50, 60, -4),              # 50-59.99 : -4
+        (0, 50, -6),               # <50 : -6
     ]
 
     # ==================== BOWLING POINTS ====================
@@ -41,13 +42,14 @@ class FantasyPointsCalculator:
     WICKET_5_HAUL_BONUS: int = 12
 
     # Economy Rate bonuses/penalties (min 2 overs)
+    # Using exclusive upper bound approach: min <= value < max (except for last threshold)
     ECONOMY_RATE_THRESHOLDS: List[Tuple[float, float, int]] = [
-        (0, 4.99, 6),              # <5 : +6
-        (5, 5.99, 4),              # 5-5.99 : +4
-        (6, 6.99, 2),              # 6-6.99 : +2
-        (7, 9.99, 0),              # 7-9.99 : 0
-        (10, 10.99, -2),           # 10-10.99 : -2
-        (11, 11.99, -4),           # 11-11.99 : -4
+        (0, 5, 6),                 # <5 : +6
+        (5, 6, 4),                 # 5-5.99 : +4
+        (6, 7, 2),                 # 6-6.99 : +2
+        (7, 10, 0),                # 7-9.99 : 0
+        (10, 11, -2),              # 10-10.99 : -2
+        (11, 12, -4),              # 11-11.99 : -4
         (12, float('inf'), -6),    # 12+ : -6
     ]
 
@@ -311,14 +313,22 @@ class FantasyPointsCalculator:
     def _get_strike_rate_points(self, strike_rate: float) -> int:
         """Get points for strike rate."""
         for min_sr, max_sr, points in self.STRIKE_RATE_THRESHOLDS:
-            if min_sr <= strike_rate <= max_sr:
+            # Use exclusive upper bound (min <= value < max) except for infinity
+            if max_sr == float('inf'):
+                if strike_rate >= min_sr:
+                    return points
+            elif min_sr <= strike_rate < max_sr:
                 return points
         return 0
 
     def _get_economy_rate_points(self, economy: float) -> int:
         """Get points for economy rate."""
         for min_econ, max_econ, points in self.ECONOMY_RATE_THRESHOLDS:
-            if min_econ <= economy <= max_econ:
+            # Use exclusive upper bound (min <= value < max) except for infinity
+            if max_econ == float('inf'):
+                if economy >= min_econ:
+                    return points
+            elif min_econ <= economy < max_econ:
                 return points
         return 0
 

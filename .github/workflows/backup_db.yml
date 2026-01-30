@@ -1,0 +1,66 @@
+name: Daily Database Backup
+
+# Triggers: manual + daily schedule
+on:
+  workflow_dispatch: {}  # Manual trigger
+  schedule:
+    - cron: '0 19 * * *'  # Every day at 7:00 PM UTC
+
+permissions:
+  contents: write
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Create backup directory if it doesn't exist
+      - name: Create backup directory
+        run: mkdir -p db_archive
+
+      # Create timestamped backup
+      - name: Backup database
+        run: |
+          TIMESTAMP=$(date +'%Y-%m-%d_%H-%M-%S')
+          BACKUP_FILE="db_archive/auction_${TIMESTAMP}.db"
+
+          if [ -f "instance/auction.db" ]; then
+            cp instance/auction.db "$BACKUP_FILE"
+            echo "Created backup: $BACKUP_FILE"
+            echo "BACKUP_CREATED=true" >> $GITHUB_ENV
+            echo "BACKUP_FILE=$BACKUP_FILE" >> $GITHUB_ENV
+          else
+            echo "No database file found at instance/auction.db"
+            echo "BACKUP_CREATED=false" >> $GITHUB_ENV
+          fi
+
+      # Clean up old backups (keep last 30 days)
+      - name: Clean up old backups
+        if: env.BACKUP_CREATED == 'true'
+        run: |
+          cd db_archive
+          # Count total backups
+          TOTAL_BACKUPS=$(ls -1 auction_*.db 2>/dev/null | wc -l)
+          echo "Total backups: $TOTAL_BACKUPS"
+
+          # Keep only the 30 most recent backups
+          if [ "$TOTAL_BACKUPS" -gt 30 ]; then
+            ls -1t auction_*.db | tail -n +31 | xargs -r rm -f
+            DELETED=$((TOTAL_BACKUPS - 30))
+            echo "Deleted $DELETED old backup(s)"
+          fi
+
+      # Commit & push changes if backup was created
+      - name: Commit and push backup
+        if: env.BACKUP_CREATED == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add db_archive/
+          git diff --staged --quiet || git commit -m "Daily DB backup $(date +'%Y-%m-%d %H:%M UTC')"
+          git push

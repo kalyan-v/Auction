@@ -184,7 +184,7 @@ def get_random_player():
     if include_unsold:
         query = Player.query.filter(
             Player.league_id == current_league.id,
-            Player.is_deleted == False,
+            Player.is_deleted.is_(False),
             Player.status.in_(['available', 'unsold'])
         )
     else:
@@ -228,7 +228,7 @@ def get_available_players():
     if include_unsold:
         query = Player.query.filter(
             Player.league_id == current_league.id,
-            Player.is_deleted == False,
+            Player.is_deleted.is_(False),
             Player.status.in_(['available', 'unsold'])
         )
     else:
@@ -475,7 +475,7 @@ def fetch_all_player_images():
     # Get players without images
     players = Player.query.filter(
         Player.league_id == current_league.id,
-        Player.is_deleted == False,
+        Player.is_deleted.is_(False),
         (Player.image_url == None) | (Player.image_url == '')
     ).all()
 

@@ -48,8 +48,6 @@ function initAuctioneerPanel() {
     }
 
     updateBidDisplay();
-
-    console.log('Auctioneer Panel initialized. Current Player ID:', currentPlayerId, 'Current Price:', currentBidPrice, 'Leading Team:', leadingTeamName);
 }
 
 // Fixed bid increment in Lakhs

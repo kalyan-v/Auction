@@ -136,13 +136,13 @@ async function releasePlayer(playerId, playerName, event) {
         const data = await response.json();
         
         if (data.success) {
-            alert(data.message);
-            location.reload();
+            showNotification(data.message, 'success');
+            setTimeout(() => location.reload(), 1500);
         } else {
-            alert('Error: ' + data.error);
+            showNotification('Error: ' + data.error, 'error');
         }
     } catch (error) {
-        alert('Error releasing player: ' + error.message);
+        showNotification('Error releasing player: ' + error.message, 'error');
     }
 }
 

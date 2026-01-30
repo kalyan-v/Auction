@@ -9,17 +9,17 @@
         <p>Enter admin credentials to manage auction</p>
         
         {% if error %}
-        <div class="error-message">{{ error }}</div>
+        <div class="error-message" role="alert" id="login-error">{{ error }}</div>
         {% endif %}
-        
-        <form method="POST" class="login-form">
+
+        <form method="POST" class="login-form" {% if error %}aria-describedby="login-error"{% endif %}>
             <div class="form-group">
                 <label for="username">Username</label>
-                <input type="text" id="username" name="username" required autofocus>
+                <input type="text" id="username" name="username" required autofocus autocomplete="username">
             </div>
             <div class="form-group">
                 <label for="password">Password</label>
-                <input type="password" id="password" name="password" required>
+                <input type="password" id="password" name="password" required autocomplete="current-password">
             </div>
             <button type="submit" class="btn btn-primary btn-block">Login</button>
         </form>

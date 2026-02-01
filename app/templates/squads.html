@@ -96,9 +96,9 @@
 </div>
 
 <!-- Bid History Modal -->
-<div id="bidModal" class="modal">
+<div id="bidModal" class="modal" role="dialog" aria-labelledby="modalPlayerName" aria-modal="true">
     <div class="modal-content">
-        <span class="close-btn" onclick="closeModal()">&times;</span>
+        <button class="close-btn" onclick="closeModal()" aria-label="Close modal">&times;</button>
         <h3 id="modalPlayerName">Player Name</h3>
         <div id="modalBidHistory"></div>
     </div>
@@ -128,7 +128,7 @@ async function releasePlayer(playerId, playerName, event) {
     }
     
     try {
-        const response = await fetch(`/api/players/${playerId}/release`, {
+        const response = await secureFetch(`/api/players/${playerId}/release`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         });

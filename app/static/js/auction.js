@@ -104,7 +104,7 @@ async function selectTeam(teamId, teamName) {
     const bidAmount = newBidPrice * 100000;
     
     try {
-        const response = await fetch('/api/bid', {
+        const response = await secureFetch('/api/bid', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -135,57 +135,6 @@ async function selectTeam(teamId, teamName) {
         showNotification('Error placing bid', 'error');
     } finally {
         isProcessingBid = false;
-    }
-}
-
-// Quick bid with preset amount
-function quickBid(amountInLakhs) {
-    if (!selectedTeamId) {
-        showNotification('Please select a team first!', 'error');
-        return;
-    }
-    
-    if (!currentPlayerId) {
-        showNotification('No active auction!', 'error');
-        return;
-    }
-    
-    // Calculate new bid (current + increment)
-    const newBid = currentBidPrice + amountInLakhs;
-    const newBidRaw = newBid * 100000;
-    
-    // Place the bid
-    placeBidFromPanel(selectedTeamId, newBidRaw, selectedTeamName, newBid);
-}
-
-async function placeBidFromPanel(teamId, amount, teamName, amountInLakhs) {
-    try {
-        const response = await fetch('/api/bid', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                player_id: currentPlayerId,
-                team_id: teamId,
-                amount: amount
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            currentBidPrice = amountInLakhs;
-            leadingTeamName = teamName;
-            updateBidDisplay();
-            showNotification(`${teamName} bids ₹${amountInLakhs} L!`, 'success');
-            
-            // Add to bid history
-            addToBidHistory(teamName, amountInLakhs);
-        } else {
-            showNotification(data.error || 'Bid failed', 'error');
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        showNotification('Error placing bid', 'error');
     }
 }
 
@@ -245,7 +194,7 @@ function resetPrice() {
     }
 
     // Call API to persist price reset
-    fetch('/api/auction/reset-price', {
+    secureFetch('/api/auction/reset-price', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ price: newPrice * 100000 })
@@ -302,7 +251,7 @@ async function markSold() {
     }
 
     try {
-        const response = await fetch('/api/auction/end', { method: 'POST' });
+        const response = await secureFetch('/api/auction/end', { method: 'POST' });
         const data = await response.json();
 
         if (data.success) {
@@ -383,7 +332,7 @@ async function markUnsold() {
     }
 
     try {
-        const response = await fetch('/api/auction/unsold', { method: 'POST' });
+        const response = await secureFetch('/api/auction/unsold', { method: 'POST' });
         const data = await response.json();
 
         if (data.success) {
@@ -529,7 +478,7 @@ async function startAuction(playerId) {
     }
 
     try {
-        const response = await fetch(`/api/auction/start/${playerId}`, {
+        const response = await secureFetch(`/api/auction/start/${playerId}`, {
             method: 'POST'
         });
 
@@ -588,7 +537,7 @@ document.getElementById('bidForm')?.addEventListener('submit', async (e) => {
     }
 
     try {
-        const response = await fetch('/api/bid', {
+        const response = await secureFetch('/api/bid', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -644,7 +593,7 @@ document.getElementById('endAuctionBtn')?.addEventListener('click', async functi
     btn.textContent = '⏳ Ending...';
 
     try {
-        const response = await fetch('/api/auction/end', {
+        const response = await secureFetch('/api/auction/end', {
             method: 'POST'
         });
 
@@ -667,28 +616,47 @@ document.getElementById('endAuctionBtn')?.addEventListener('click', async functi
 });
 
 // Timer countdown (simple client-side version)
-let timeRemaining = parseInt(document.getElementById('timer')?.textContent, 10) || 0;
-if (timeRemaining > 0) {
+function initTimer() {
+    const timerEl = document.getElementById('timer');
+    if (!timerEl) return;
+
+    let timeRemaining = parseInt(timerEl.textContent, 10) || 0;
+    if (timeRemaining <= 0) return;
+
+    // Clear any existing interval
+    if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
+
     timerInterval = setInterval(() => {
         timeRemaining--;
-        const timerEl = document.getElementById('timer');
-        if (timerEl) {
-            timerEl.textContent = timeRemaining;
+        const el = document.getElementById('timer');
 
-            if (timeRemaining <= 0) {
-                clearInterval(timerInterval);
-                showNotification('Time is up!', 'info');
-            }
-        } else {
+        if (!el) {
             // Timer element was removed from DOM, clean up interval
             clearInterval(timerInterval);
+            timerInterval = null;
+            return;
+        }
+
+        el.textContent = timeRemaining;
+
+        if (timeRemaining <= 0) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            showNotification('Time is up!', 'info');
         }
     }, 1000);
 }
+
+// Initialize timer on page load
+initTimer();
 
 // Clean up timer on page unload to prevent memory leaks
 window.addEventListener('beforeunload', () => {
     if (timerInterval) {
         clearInterval(timerInterval);
+        timerInterval = null;
     }
 });

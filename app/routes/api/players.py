@@ -2,6 +2,7 @@
 Player management API endpoints.
 
 Handles CRUD operations for players and player image management.
+Includes transaction handling and pessimistic locking for data integrity.
 """
 
 import os
@@ -10,6 +11,8 @@ from typing import Optional
 
 import requests
 from flask import current_app, jsonify, request
+from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import joinedload
 
 from app import db
@@ -142,31 +145,60 @@ def update_player(player_id: int):
 @api_bp.route('/players/<int:player_id>/release', methods=['POST'])
 @admin_required
 def release_player(player_id: int):
-    """Release a player from their team back to auction pool."""
-    player = Player.query.get_or_404(player_id)
+    """Release a player from their team back to auction pool.
 
-    if player.status != 'sold':
-        return error_response('Player is not currently sold to a team')
+    Uses pessimistic locking to prevent race conditions when
+    modifying team budget.
+    """
+    from app.models import Team
 
-    # Get the team to refund the budget
-    team = player.team
-    if team:
-        team.budget += player.current_price
+    try:
+        # Lock player row for update
+        player = db.session.execute(
+            select(Player).where(Player.id == player_id).with_for_update()
+        ).scalar_one_or_none()
 
-    # Reset player to available status
-    player.status = 'available'
-    player.team_id = None
-    player.current_price = player.base_price
+        if not player:
+            return error_response('Player not found', 404)
 
-    # Delete all bids for this player
-    Bid.query.filter_by(player_id=player_id).delete()
+        if player.status != 'sold':
+            db.session.rollback()
+            return error_response('Player is not currently sold to a team')
 
-    db.session.commit()
+        # Lock team row before modifying budget
+        if player.team_id:
+            team = db.session.execute(
+                select(Team).where(Team.id == player.team_id).with_for_update()
+            ).scalar_one_or_none()
 
-    return jsonify({
-        'success': True,
-        'message': f'{player.name} has been released back to auction'
-    })
+            if team:
+                team.budget += player.current_price
+
+        player_name = player.name
+
+        # Reset player to available status
+        player.status = 'available'
+        player.team_id = None
+        player.current_price = player.base_price
+
+        # Delete all bids for this player
+        Bid.query.filter_by(player_id=player_id).delete()
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'{player_name} has been released back to auction'
+        })
+
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        logger.error(f"Database error releasing player: {e}", exc_info=True)
+        return error_response('Failed to release player', 500)
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Unexpected error releasing player: {e}", exc_info=True)
+        return error_response('Failed to release player', 500)
 
 
 # ==================== PLAYER QUERIES ====================
@@ -311,32 +343,59 @@ def download_and_save_image(
     player_id: int,
     player_name: str
 ) -> Optional[str]:
-    """Download image from URL and save locally."""
+    """Download image from URL and save locally with path traversal protection."""
     try:
         response = requests.get(
             image_url,
             headers=WIKI_HEADERS,
             timeout=IMAGE_REQUEST_TIMEOUT
         )
-        if response.status_code == 200:
-            # Ensure directory exists
-            image_dir = get_player_image_path()
-            os.makedirs(image_dir, exist_ok=True)
+        if response.status_code != 200:
+            return None
 
-            # Create safe filename from player name
-            safe_name = create_safe_filename(player_name)
-            filename = f"{player_id}_{safe_name}.jpg"
-            filepath = os.path.join(image_dir, filename)
+        # Validate content type is an image
+        content_type = response.headers.get('Content-Type', '')
+        if not content_type.startswith('image/'):
+            logger.warning(f"Invalid content type for {player_name}: {content_type}")
+            return None
 
-            # Save image
-            with open(filepath, 'wb') as f:
-                f.write(response.content)
+        # Validate file size (max 5MB)
+        max_size = 5 * 1024 * 1024
+        if len(response.content) > max_size:
+            logger.warning(f"Image too large for {player_name}: {len(response.content)} bytes")
+            return None
 
-            # Return the URL path for the static file
-            return f"/static/images/players/{filename}"
+        # Ensure directory exists
+        image_dir = get_player_image_path()
+        os.makedirs(image_dir, exist_ok=True)
+
+        # Create safe filename from player name
+        safe_name = create_safe_filename(player_name)
+        filename = f"{player_id}_{safe_name}.jpg"
+        filepath = os.path.join(image_dir, filename)
+
+        # SECURITY: Validate path stays within image directory (prevent path traversal)
+        real_filepath = os.path.realpath(filepath)
+        real_image_dir = os.path.realpath(image_dir)
+        if not real_filepath.startswith(real_image_dir + os.sep):
+            logger.error(f"Path traversal attempt detected: {filepath}")
+            return None
+
+        # Save image
+        with open(filepath, 'wb') as f:
+            f.write(response.content)
+
+        # Return the URL path for the static file
+        return f"/static/images/players/{filename}"
+
+    except requests.RequestException as e:
+        logger.error(f"Network error downloading image for {player_name}: {e}")
+        return None
+    except IOError as e:
+        logger.error(f"File error saving image for {player_name}: {e}")
         return None
     except Exception as e:
-        logger.error(f"Error downloading image for {player_name}: {e}")
+        logger.error(f"Unexpected error downloading image for {player_name}: {e}", exc_info=True)
         return None
 
 
@@ -344,7 +403,10 @@ def search_and_download_player_image(
     player_id: int,
     player_name: str
 ) -> Optional[str]:
-    """Search for player image and download it locally - tries WPL first."""
+    """Search for player image and download it locally - tries WPL first.
+
+    Includes path traversal protection and proper error handling.
+    """
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
     }
@@ -364,21 +426,39 @@ def search_and_download_player_image(
             )
             if (response.status_code == 200 and
                     len(response.content) > MIN_VALID_IMAGE_SIZE):
-                # Ensure directory exists
-                image_dir = get_player_image_path()
-                os.makedirs(image_dir, exist_ok=True)
+                # Validate file size (max 5MB)
+                max_size = 5 * 1024 * 1024
+                if len(response.content) > max_size:
+                    logger.warning(f"WPL image too large for {player_name}")
+                    # Continue to Wikipedia fallback
+                else:
+                    # Ensure directory exists
+                    image_dir = get_player_image_path()
+                    os.makedirs(image_dir, exist_ok=True)
 
-                # Create safe filename
-                safe_name = create_safe_filename(player_name)
-                filename = f"{player_id}_{safe_name}.png"
-                filepath = os.path.join(image_dir, filename)
+                    # Create safe filename
+                    safe_name = create_safe_filename(player_name)
+                    filename = f"{player_id}_{safe_name}.png"
+                    filepath = os.path.join(image_dir, filename)
 
-                with open(filepath, 'wb') as f:
-                    f.write(response.content)
+                    # SECURITY: Validate path stays within image directory
+                    real_filepath = os.path.realpath(filepath)
+                    real_image_dir = os.path.realpath(image_dir)
+                    if not real_filepath.startswith(real_image_dir + os.sep):
+                        logger.error(f"Path traversal attempt detected: {filepath}")
+                        return None
 
-                return f"/static/images/players/{filename}"
+                    with open(filepath, 'wb') as f:
+                        f.write(response.content)
+
+                    return f"/static/images/players/{filename}"
+
+        except requests.RequestException as e:
+            logger.error(f"WPL network error for {player_name}: {e}")
+        except IOError as e:
+            logger.error(f"WPL file error for {player_name}: {e}")
         except Exception as e:
-            logger.error(f"WPL image fetch error for {player_name}: {e}")
+            logger.error(f"WPL unexpected error for {player_name}: {e}", exc_info=True)
 
     # Fallback to Wikipedia for players not in WPL
     try:
@@ -408,8 +488,11 @@ def search_and_download_player_image(
                         )
                         if local_path:
                             return local_path
+
+    except requests.RequestException as e:
+        logger.error(f"Wikipedia network error for {player_name}: {e}")
     except Exception as e:
-        logger.error(f"Wikipedia search error for {player_name}: {e}")
+        logger.error(f"Wikipedia unexpected error for {player_name}: {e}", exc_info=True)
 
     return None
 
@@ -476,7 +559,7 @@ def fetch_all_player_images():
     players = Player.query.filter(
         Player.league_id == current_league.id,
         Player.is_deleted.is_(False),
-        (Player.image_url == None) | (Player.image_url == '')
+        Player.image_url.is_(None) | (Player.image_url == '')
     ).all()
 
     results = {'found': 0, 'not_found': 0, 'players': []}

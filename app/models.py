@@ -64,7 +64,13 @@ class Player(db.Model):
     fantasy_points = db.Column(db.Float, default=0)  # Total fantasy points
     image_url = db.Column(db.String(500), nullable=True)  # Player image URL
     is_deleted = db.Column(db.Boolean, default=False, index=True)  # Soft delete
-    
+
+    # Composite indexes for common query patterns
+    __table_args__ = (
+        db.Index('idx_player_league_status', 'league_id', 'status', 'is_deleted'),
+        db.Index('idx_player_team_status', 'team_id', 'status'),
+    )
+
     def __repr__(self):
         return f'<Player {self.name}>'
 
@@ -119,7 +125,12 @@ class Bid(db.Model):
 
     player = db.relationship('Player', backref='bids')
     team = db.relationship('Team', backref='bids')
-    
+
+    # Composite index for finding highest bid quickly
+    __table_args__ = (
+        db.Index('idx_bid_player_amount', 'player_id', 'amount'),
+    )
+
     def __repr__(self):
         return f'<Bid {self.amount} by Team {self.team_id}>'
 

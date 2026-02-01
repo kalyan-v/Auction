@@ -26,7 +26,7 @@ document.getElementById('leagueForm')?.addEventListener('submit', async (e) => {
     }
 
     try {
-        const response = await fetch('/api/leagues', {
+        const response = await secureFetch('/api/leagues', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -81,7 +81,7 @@ document.getElementById('teamForm')?.addEventListener('submit', async (e) => {
     }
 
     try {
-        const response = await fetch('/api/teams', {
+        const response = await secureFetch('/api/teams', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -155,7 +155,7 @@ document.getElementById('playerForm')?.addEventListener('submit', async (e) => {
     }
 
     try {
-        const response = await fetch('/api/players', {
+        const response = await secureFetch('/api/players', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -289,7 +289,7 @@ document.getElementById('editPlayerForm')?.addEventListener('submit', async (e) 
     }
 
     try {
-        const response = await fetch(`/api/players/${id}`, {
+        const response = await secureFetch(`/api/players/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, position, country, base_price: basePrice, original_team: originalTeam })
@@ -337,7 +337,7 @@ async function deletePlayer() {
     }
 
     try {
-        const response = await fetch(`/api/players/${id}`, { method: 'DELETE' });
+        const response = await secureFetch(`/api/players/${id}`, { method: 'DELETE' });
         const data = await response.json();
 
         if (data.success) {

@@ -27,8 +27,23 @@ logger = get_logger(__name__)
 def update_fantasy_points():
     """Update fantasy points for a player."""
     data = request.get_json()
+    if not data:
+        return error_response('Request body is required')
+
     player_id = data.get('player_id')
     points = data.get('points', 0)
+
+    # Validate player_id
+    try:
+        player_id = int(player_id)
+    except (TypeError, ValueError):
+        return error_response('Invalid player_id')
+
+    # Validate points
+    try:
+        points = float(points)
+    except (TypeError, ValueError):
+        return error_response('Invalid points value')
 
     player = Player.query.get(player_id)
     if not player:
@@ -53,12 +68,28 @@ def add_match_points():
         return error_response('No league selected')
 
     data = request.get_json()
+    if not data:
+        return error_response('Request body is required')
+
     player_id = data.get('player_id')
     match_number = data.get('match_number')
     points = data.get('points', 0)
 
     if not player_id or not match_number:
         return error_response('Player ID and match number required')
+
+    # Validate player_id and match_number
+    try:
+        player_id = int(player_id)
+        match_number = int(match_number)
+    except (TypeError, ValueError):
+        return error_response('Invalid player_id or match_number')
+
+    # Validate points
+    try:
+        points = float(points)
+    except (TypeError, ValueError):
+        return error_response('Invalid points value')
 
     player = Player.query.get(player_id)
     if not player:

@@ -159,14 +159,18 @@
                 </thead>
                 <tbody>
                     {% for player in team_players %}
-                    <tr class="player-row clickable-row" 
-                        data-player-id="{{ player.id }}" 
+                    <tr class="player-row clickable-row"
+                        tabindex="0"
+                        role="button"
+                        aria-label="View fantasy points for {{ player.name }}"
+                        data-player-id="{{ player.id }}"
                         data-player-name="{{ player.name }}"
                         data-team-id="{{ team.id }}"
                         data-position="{{ player.position }}"
                         data-original-team="{{ player.original_team or '' }}"
                         data-points="{{ player.fantasy_points }}"
-                        onclick="showPointsModalFromRow(this)">
+                        onclick="showPointsModalFromRow(this)"
+                        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showPointsModalFromRow(this);}">
                         <td class="player-name-cell">
                             {% if player.image_url %}
                             <img src="{{ player.image_url }}" alt="" class="player-thumbnail" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
@@ -203,9 +207,9 @@
 {% endif %}
 
 <!-- Fantasy Points Modal -->
-<div id="fantasyModal" class="modal">
+<div id="fantasyModal" class="modal" role="dialog" aria-labelledby="modalPlayerName" aria-modal="true">
     <div class="modal-content fantasy-modal-content">
-        <span class="close-btn" onclick="closeModal()">&times;</span>
+        <button class="close-btn" onclick="closeModal()" aria-label="Close modal">&times;</button>
         <h3 id="modalPlayerName">Player Name - Fantasy Points</h3>
         
         <div class="modal-total-points">
@@ -253,7 +257,7 @@ async function fetchAllData() {
     try {
         // Step 1: Fetch fantasy points from match scorecards
         btn.innerHTML = '⏳ Fetching match data...';
-        const pointsResponse = await fetch('/api/fantasy/fetch-match-points', {
+        const pointsResponse = await secureFetch('/api/fantasy/fetch-match-points', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         });
@@ -266,7 +270,7 @@ async function fetchAllData() {
 
         // Step 2: Fetch awards
         btn.innerHTML = '⏳ Fetching awards...';
-        const awardsResponse = await fetch('/api/fantasy/fetch-awards', {
+        const awardsResponse = await secureFetch('/api/fantasy/fetch-awards', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         });
@@ -283,7 +287,7 @@ async function fetchAllData() {
             for (const playerId of playerIds) {
                 if (playerId) {
                     try {
-                        await fetch(`/api/players/${playerId}/fetch-image`, { method: 'POST' });
+                        await secureFetch(`/api/players/${playerId}/fetch-image`, { method: 'POST' });
                     } catch (e) {
                         console.error('Error fetching image:', e);
                     }
@@ -496,7 +500,7 @@ async function addMatchPoints() {
     }
 
     try {
-        const response = await fetch('/api/fantasy/points/add', {
+        const response = await secureFetch('/api/fantasy/points/add', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -546,7 +550,7 @@ async function deleteMatchPoints(entryId) {
     }
 
     try {
-        const response = await fetch(`/api/fantasy/points/delete/${entryId}`, {
+        const response = await secureFetch(`/api/fantasy/points/delete/${entryId}`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' }
         });
@@ -596,7 +600,7 @@ async function setAward(awardType, playerId) {
     if (select) select.disabled = true;
 
     try {
-        const response = await fetch('/api/fantasy/award', {
+        const response = await secureFetch('/api/fantasy/award', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ award_type: awardType, player_id: playerId || null })

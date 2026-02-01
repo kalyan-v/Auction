@@ -197,27 +197,48 @@ def validate_positive_float(
 
 def validate_url(url: str) -> bool:
     """
-    Validate URL format.
+    Validate URL format for safe image sources.
+
+    SECURITY: Validates URLs to prevent SSRF attacks by:
+    - Only allowing local static paths
+    - Only allowing external URLs from trusted domains
 
     Accepts:
-    - HTTP/HTTPS URLs
-    - Local paths starting with /
+    - Local static paths starting with /static/
+    - HTTPS URLs from trusted image sources
 
     Args:
         url: URL string to validate
 
     Returns:
-        True if valid, False otherwise
+        True if valid and safe, False otherwise
     """
     if not url:
         return False
     url = url.strip()
-    # Allow local paths and HTTP(S) URLs
-    return (
-        url.startswith('http://') or
-        url.startswith('https://') or
-        url.startswith('/')  # Local path
-    )
+
+    # Allow local static paths only (not arbitrary paths)
+    if url.startswith('/static/'):
+        return True
+
+    # Validate external URLs against allowlist
+    if url.startswith('https://'):
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+
+        # Allowlist of trusted domains for player images
+        TRUSTED_DOMAINS = {
+            'upload.wikimedia.org',
+            'documents.iplt20.com',
+            'scores.iplt20.com',
+            'www.wplt20.com',
+            'bcciplayerimages.s3.ap-south-1.amazonaws.com',
+        }
+
+        return parsed.netloc in TRUSTED_DOMAINS
+
+    # Reject http:// (insecure) and other schemes
+    return False
 
 
 def safe_int(value: Any, default: int = 0) -> int:

@@ -1,5 +1,26 @@
-// Main JavaScript file
-console.log('Player Auction System loaded');
+// Main JavaScript file - WPL Auction System
+// Utility functions shared across all pages
+
+// CSRF Protection - Get token from meta tag
+function getCSRFToken() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.getAttribute('content') : '';
+}
+
+// Secure fetch wrapper that automatically includes CSRF token for non-GET requests
+async function secureFetch(url, options = {}) {
+    const method = (options.method || 'GET').toUpperCase();
+
+    // Add CSRF token for state-changing requests
+    if (method !== 'GET' && method !== 'HEAD') {
+        options.headers = {
+            ...options.headers,
+            'X-CSRFToken': getCSRFToken()
+        };
+    }
+
+    return fetch(url, options);
+}
 
 // Utility function to escape HTML to prevent XSS
 function escapeHtml(str) {

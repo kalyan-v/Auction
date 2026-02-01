@@ -111,10 +111,10 @@
 
 {% if admin_mode %}
 <!-- Edit Player Modal -->
-<div id="editPlayerModal" class="modal">
+<div id="editPlayerModal" class="modal" role="dialog" aria-labelledby="editModalTitle" aria-modal="true">
     <div class="modal-content">
-        <span class="close-btn" onclick="closeEditModal()">&times;</span>
-        <h3>Edit Player</h3>
+        <button class="close-btn" onclick="closeEditModal()" aria-label="Close modal">&times;</button>
+        <h3 id="editModalTitle">Edit Player</h3>
         <form id="editPlayerForm">
             <input type="hidden" id="editPlayerId">
             <div class="form-group">

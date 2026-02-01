@@ -50,13 +50,13 @@
         
         <div class="quick-bid-section">
             <h4>Quick Bid - Select Team & Click Amount</h4>
-            <div class="team-buttons" id="teamButtons">
+            <div class="team-buttons" id="teamButtons" role="group" aria-label="Team selection buttons">
                 {% for team in teams %}
-                <button class="team-btn" data-team-id="{{ team.id }}" data-team-name="{{ team.name }}" onclick="selectTeamFromData(this)">{{ team.name }}</button>
+                <button class="team-btn" data-team-id="{{ team.id }}" data-team-name="{{ team.name }}" onclick="selectTeamFromData(this)" aria-label="Place bid for {{ team.name }}">{{ team.name }}</button>
                 {% endfor %}
             </div>
             <p class="selected-team-display">Selected: <strong id="selectedTeamName">None</strong></p>
-            <p class="bid-hint">💡 Click team = +₹25L (first click = base price)</p>
+            <p class="bid-hint" aria-live="polite">💡 Click team = +₹25L (first click = base price)</p>
             
             <div class="reset-price">
                 <input type="number" id="resetPriceInput" placeholder="Reset to (in Lakhs)" step="25" min="1">

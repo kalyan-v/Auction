@@ -2,19 +2,29 @@
 Auction API endpoints.
 
 Handles bidding, auction start/end, and price management.
+Includes transaction handling and pessimistic locking to prevent race conditions.
 """
 
 from flask import jsonify, request
+from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 
 from app import db
+from app.logger import get_logger
 from app.models import AuctionState, Bid, Player, Team
 from app.routes import api_bp
 from app.utils import admin_required, error_response, is_admin
 
+logger = get_logger(__name__)
+
 
 @api_bp.route('/bid', methods=['POST'])
 def place_bid():
-    """Place a bid on the current player."""
+    """Place a bid on the current player.
+
+    Uses pessimistic locking (SELECT FOR UPDATE) to prevent race conditions
+    when multiple bids are placed concurrently.
+    """
     if not is_admin():
         return error_response('Admin login required', 403)
 
@@ -29,6 +39,13 @@ def place_bid():
     if not all([player_id, team_id, amount]):
         return error_response('player_id, team_id, and amount are required')
 
+    # Validate player_id and team_id are valid integers
+    try:
+        player_id = int(player_id)
+        team_id = int(team_id)
+    except (TypeError, ValueError):
+        return error_response('Invalid player_id or team_id')
+
     # Validate amount is a positive number
     try:
         amount = float(amount)
@@ -37,39 +54,61 @@ def place_bid():
     except (TypeError, ValueError):
         return error_response('Invalid bid amount')
 
-    player = Player.query.get(player_id)
-    team = Team.query.get(team_id)
+    try:
+        # SECURITY: Use pessimistic locking to prevent race conditions
+        # Lock player and team rows for the duration of the transaction
+        player = db.session.execute(
+            select(Player).where(Player.id == player_id).with_for_update()
+        ).scalar_one_or_none()
 
-    # Validate bid
-    if not player or not team:
-        return error_response('Invalid player or team')
+        team = db.session.execute(
+            select(Team).where(Team.id == team_id).with_for_update()
+        ).scalar_one_or_none()
 
-    # Check player is in active auction
-    if player.status != 'bidding':
-        return error_response('Player is not up for auction')
+        # Validate bid
+        if not player or not team:
+            db.session.rollback()
+            return error_response('Invalid player or team')
 
-    # Check if this is a base price bid (first bid) or a raise
-    existing_bids = Bid.query.filter_by(player_id=player_id).count()
+        # Check player is in active auction
+        if player.status != 'bidding':
+            db.session.rollback()
+            return error_response('Player is not up for auction')
 
-    if existing_bids == 0:
-        # First bid - allow base price (equal to current price)
-        if amount < player.current_price:
-            return error_response('Bid must be at least the base price')
-    else:
-        # Subsequent bids - must be higher than current
-        if amount <= player.current_price:
-            return error_response('Bid must be higher than current price')
+        # Check if this is a base price bid (first bid) or a raise
+        existing_bids = Bid.query.filter_by(player_id=player_id).count()
 
-    if amount > team.budget:
-        return error_response('Insufficient budget')
+        if existing_bids == 0:
+            # First bid - allow base price (equal to current price)
+            if amount < player.current_price:
+                db.session.rollback()
+                return error_response('Bid must be at least the base price')
+        else:
+            # Subsequent bids - must be higher than current
+            if amount <= player.current_price:
+                db.session.rollback()
+                return error_response('Bid must be higher than current price')
 
-    # Record bid
-    bid = Bid(player_id=player_id, team_id=team_id, amount=amount)
-    player.current_price = amount
-    db.session.add(bid)
-    db.session.commit()
+        if amount > team.budget:
+            db.session.rollback()
+            return error_response('Insufficient budget')
 
-    return jsonify({'success': True, 'current_price': amount})
+        # Record bid
+        bid = Bid(player_id=player_id, team_id=team_id, amount=amount)
+        player.current_price = amount
+        db.session.add(bid)
+        db.session.commit()
+
+        return jsonify({'success': True, 'current_price': amount})
+
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        logger.error(f"Database error placing bid: {e}", exc_info=True)
+        return error_response('Failed to place bid', 500)
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Unexpected error placing bid: {e}", exc_info=True)
+        return error_response('Failed to place bid', 500)
 
 
 @api_bp.route('/auction/start/<int:player_id>', methods=['POST'])
@@ -101,40 +140,71 @@ def start_auction(player_id: int):
 @api_bp.route('/auction/end', methods=['POST'])
 @admin_required
 def end_auction():
-    """End current auction and assign player to highest bidder."""
-    auction_state = AuctionState.query.first()
-    if not auction_state or not auction_state.is_active:
-        return error_response('No active auction')
+    """End current auction and assign player to highest bidder.
 
-    player = Player.query.get(auction_state.current_player_id)
-    if not player:
-        return error_response('Player not found')
+    Uses pessimistic locking to prevent race conditions when
+    modifying team budget.
+    """
+    try:
+        auction_state = AuctionState.query.first()
+        if not auction_state or not auction_state.is_active:
+            return error_response('No active auction')
 
-    # Find highest bid
-    highest_bid = (
-        Bid.query
-        .filter_by(player_id=player.id)
-        .order_by(Bid.amount.desc())
-        .first()
-    )
+        player_id = auction_state.current_player_id
 
-    if highest_bid:
-        # Assign player to team
-        team = Team.query.get(highest_bid.team_id)
-        if not team:
-            return error_response('Team not found')
-        team.budget -= highest_bid.amount
-        player.team_id = team.id
-        player.status = 'sold'
-    else:
-        player.status = 'unsold'
+        # Lock player row for update
+        player = db.session.execute(
+            select(Player).where(Player.id == player_id).with_for_update()
+        ).scalar_one_or_none()
 
-    auction_state.is_active = False
-    auction_state.current_player_id = None
+        if not player:
+            db.session.rollback()
+            return error_response('Player not found')
 
-    db.session.commit()
+        # Find highest bid
+        highest_bid = (
+            Bid.query
+            .filter_by(player_id=player.id)
+            .order_by(Bid.amount.desc())
+            .first()
+        )
 
-    return jsonify({'success': True})
+        if highest_bid:
+            # Lock team row before modifying budget
+            team = db.session.execute(
+                select(Team).where(Team.id == highest_bid.team_id).with_for_update()
+            ).scalar_one_or_none()
+
+            if not team:
+                db.session.rollback()
+                return error_response('Team not found')
+
+            # SECURITY: Verify team still has sufficient budget
+            if team.budget < highest_bid.amount:
+                db.session.rollback()
+                return error_response('Team has insufficient budget for this purchase')
+
+            team.budget -= highest_bid.amount
+            player.team_id = team.id
+            player.status = 'sold'
+        else:
+            player.status = 'unsold'
+
+        auction_state.is_active = False
+        auction_state.current_player_id = None
+
+        db.session.commit()
+
+        return jsonify({'success': True})
+
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        logger.error(f"Database error ending auction: {e}", exc_info=True)
+        return error_response('Failed to end auction', 500)
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Unexpected error ending auction: {e}", exc_info=True)
+        return error_response('Failed to end auction', 500)
 
 
 @api_bp.route('/auction/unsold', methods=['POST'])

@@ -259,6 +259,25 @@ main {
     box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.5), 0 4px 15px rgba(231, 76, 60, 0.4);
 }
 
+/* Disabled button styles */
+.btn:disabled,
+.btn[disabled] {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.btn:disabled:hover,
+.btn[disabled]:hover {
+    transform: none !important;
+}
+
+.btn:disabled::after,
+.btn[disabled]::after {
+    display: none;
+}
+
 /* Focus styles for interactive elements */
 a:focus {
     outline: 2px solid #667eea;
@@ -671,6 +690,16 @@ input:focus {
 
 .selected-team-display strong {
     color: #ffd700;
+}
+
+.bid-hint {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+    padding: 0.5rem;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
 }
 
 .quick-amounts {
@@ -1456,9 +1485,14 @@ input:checked + .toggle-slider:before {
         flex-direction: column;
         gap: 0.75rem;
     }
-    
+
     .bid-info {
         padding: 0.75rem;
+    }
+
+    .bid-hint {
+        font-size: 0.8rem;
+        padding: 0.4rem;
     }
 }
 
@@ -1873,28 +1907,7 @@ input:checked + .toggle-slider:before {
     background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
 }
 
-/* Team-specific header colors */
-.team-mumbai-indians .team-header {
-    background: linear-gradient(135deg, #004ba0 0%, #0066cc 100%);
-}
-
-.team-royal-challengers-bengaluru .team-header,
-.team-royal-challengers-bangalore .team-header,
-.team-rcb .team-header {
-    background: linear-gradient(135deg, #a50000 0%, #d4001a 100%);
-}
-
-.team-delhi-capitals .team-header {
-    background: linear-gradient(135deg, #004c93 0%, #0066b2 100%);
-}
-
-.team-gujarat-giants .team-header {
-    background: linear-gradient(135deg, #1c1c1c 0%, #333333 100%);
-}
-
-.team-up-warriorz .team-header {
-    background: linear-gradient(135deg, #5c2d91 0%, #7b3fa0 100%);
-}
+/* Team-specific header colors defined in ENHANCED VISUAL STYLES section */
 
 .fantasy-total {
     color: #ffd700 !important;
@@ -1956,6 +1969,17 @@ input:checked + .toggle-slider:before {
 .clickable-row:hover {
     background: #e8f4fd;
     transform: scale(1.01);
+}
+
+.clickable-row:focus {
+    outline: 2px solid #667eea;
+    outline-offset: -2px;
+    background: #e8f4fd;
+}
+
+.clickable-row:focus-visible {
+    outline: 3px solid #667eea;
+    outline-offset: -1px;
 }
 
 /* Fantasy Modal Styles */
@@ -2398,6 +2422,7 @@ footer {
     animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
     backdrop-filter: blur(10px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
 .notification.success {
@@ -2682,11 +2707,13 @@ textarea:focus {
 }
 
 .modal-content {
+    position: relative;
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     margin: 5% auto;
     padding: 2rem;
+    padding-top: 3rem;
     border-radius: 20px;
     max-width: 600px;
     width: 90%;
@@ -2707,7 +2734,9 @@ textarea:focus {
 }
 
 .close-btn {
-    float: right;
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
     font-size: 2rem;
     font-weight: 300;
     cursor: pointer;
@@ -2720,6 +2749,8 @@ textarea:focus {
     align-items: center;
     justify-content: center;
     border-radius: 50%;
+    background: none;
+    border: none;
 }
 
 .close-btn:hover {

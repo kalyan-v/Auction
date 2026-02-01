@@ -118,7 +118,7 @@ class FantasyService(BaseService):
             }
 
     def delete_match_points(self, entry_id: int) -> dict:
-        """Delete a specific match point entry.
+        """Soft delete a specific match point entry.
 
         Args:
             entry_id: ID of the entry to delete.
@@ -131,12 +131,12 @@ class FantasyService(BaseService):
         """
         with self.transaction():
             entry = db.session.get(FantasyPointEntry, entry_id)
-            if not entry:
+            if not entry or entry.is_deleted:
                 raise NotFoundError("Entry not found")
 
             player_id = entry.player_id
             league_id = entry.league_id
-            db.session.delete(entry)
+            entry.is_deleted = True
 
             self.flush()
             total_points = self._calculate_total_points(player_id, league_id)
@@ -171,7 +171,7 @@ class FantasyService(BaseService):
         if not player:
             raise NotFoundError("Player not found")
 
-        query = FantasyPointEntry.query.filter_by(player_id=player_id)
+        query = FantasyPointEntry.query.filter_by(player_id=player_id, is_deleted=False)
         if league_id:
             query = query.filter_by(league_id=league_id)
         entries = query.order_by(FantasyPointEntry.match_number).all()
@@ -192,12 +192,13 @@ class FantasyService(BaseService):
         }
 
     def _calculate_total_points(self, player_id: int, league_id: int) -> float:
-        """Calculate total fantasy points from entries."""
+        """Calculate total fantasy points from active entries."""
         return db.session.query(
             db.func.sum(FantasyPointEntry.points)
         ).filter_by(
             player_id=player_id,
-            league_id=league_id
+            league_id=league_id,
+            is_deleted=False
         ).scalar() or 0
 
     # ==================== FANTASY AWARDS ====================
@@ -481,10 +482,11 @@ class FantasyService(BaseService):
             player = self.find_player_by_name(wpl_name, league_id)
 
             if player:
-                # Get existing game_ids
+                # Get existing game_ids (only non-deleted entries)
                 existing_entries = FantasyPointEntry.query.filter_by(
                     player_id=player.id,
-                    league_id=league_id
+                    league_id=league_id,
+                    is_deleted=False
                 ).all()
                 existing_game_ids = {e.game_id for e in existing_entries if e.game_id}
 

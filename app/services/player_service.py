@@ -26,8 +26,9 @@ from app.constants import (
 )
 from app.db_utils import PlayerLock, get_for_update
 from app.logger import get_logger
-from app.models import AuctionState, Bid, Player, Team
+from app.models import AuctionState, Player, Team
 from app.player_data import WPL_PLAYER_IDS
+from app.repositories.bid_repository import BidRepository
 from app.services.base import BaseService, NotFoundError, ValidationError
 from app.utils import create_safe_filename
 
@@ -39,6 +40,14 @@ class PlayerService(BaseService):
 
     Handles player CRUD, team release, queries, and image management.
     """
+
+    def __init__(self, bid_repo: Optional[BidRepository] = None):
+        """Initialize service with optional repository injection.
+
+        Args:
+            bid_repo: BidRepository instance (defaults to new instance).
+        """
+        self.bid_repo = bid_repo or BidRepository()
 
     def create_player(
         self,
@@ -200,8 +209,8 @@ class PlayerService(BaseService):
                 player.team_id = None
                 player.current_price = player.base_price
 
-                # Delete all bids for this player
-                Bid.query.filter_by(player_id=player_id).delete()
+                # Soft delete all bids for this player
+                self.bid_repo.soft_delete_for_player(player_id)
 
                 logger.info(f"Released player: {player_name}")
 

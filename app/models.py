@@ -101,6 +101,7 @@ class FantasyPointEntry(db.Model):
     points = db.Column(db.Float, default=0)
     league_id = db.Column(db.Integer, db.ForeignKey('league.id'), nullable=True, index=True)
     timestamp = db.Column(db.DateTime, default=get_pacific_time)
+    is_deleted = db.Column(db.Boolean, default=False)  # Soft delete
 
     player = db.relationship('Player', backref='point_entries')
     league = db.relationship('League', backref='point_entries')
@@ -122,6 +123,7 @@ class Bid(db.Model):
     team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False, index=True)
     amount = db.Column(db.Float, nullable=False)
     timestamp = db.Column(db.DateTime, default=get_pacific_time)
+    is_deleted = db.Column(db.Boolean, default=False)  # Soft delete
 
     player = db.relationship('Player', backref='bids')
     team = db.relationship('Team', backref='bids')

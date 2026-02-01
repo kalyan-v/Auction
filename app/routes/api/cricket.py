@@ -5,19 +5,22 @@ Handles WPL website scraping for stats, points table, and match data.
 Uses the pluggable scraper architecture for league support.
 """
 
-from flask import jsonify, request
+from flask import Response, jsonify, request
 
 from app.routes import api_bp
 from app.scrapers import get_scraper, ScraperType
+from app.scrapers.base import BaseScraper
 from app.utils import error_response
 
 
-def _get_current_scraper():
-    """
-    Get the scraper for the current league context.
+def _get_current_scraper() -> BaseScraper:
+    """Get the scraper for the current league context.
 
     In the future, this could be determined by session/request context
     to support multiple leagues simultaneously.
+
+    Returns:
+        Scraper instance for the current league.
     """
     # For now, always use WPL. Later this could be:
     # league_type = session.get('league_type', ScraperType.WPL)
@@ -27,8 +30,12 @@ def _get_current_scraper():
 # ==================== WPL STATISTICS ====================
 
 @api_bp.route('/cricket/stats/orange-cap', methods=['GET'])
-def get_orange_cap_stats():
-    """Fetch Orange Cap (most runs) statistics."""
+def get_orange_cap_stats() -> tuple[Response, int] | Response:
+    """Fetch Orange Cap (most runs) statistics.
+
+    Returns:
+        JSON response with Orange Cap leader and all players.
+    """
     try:
         with _get_current_scraper() as scraper:
             result = scraper.get_orange_cap()
@@ -50,8 +57,12 @@ def get_orange_cap_stats():
 
 
 @api_bp.route('/cricket/stats/purple-cap', methods=['GET'])
-def get_purple_cap_stats():
-    """Fetch Purple Cap (most wickets) statistics."""
+def get_purple_cap_stats() -> tuple[Response, int] | Response:
+    """Fetch Purple Cap (most wickets) statistics.
+
+    Returns:
+        JSON response with Purple Cap leader and all players.
+    """
     try:
         with _get_current_scraper() as scraper:
             result = scraper.get_purple_cap()
@@ -73,8 +84,12 @@ def get_purple_cap_stats():
 
 
 @api_bp.route('/cricket/stats/mvp', methods=['GET'])
-def get_mvp_stats():
-    """Fetch MVP (most valuable player) statistics."""
+def get_mvp_stats() -> tuple[Response, int] | Response:
+    """Fetch MVP (most valuable player) statistics.
+
+    Returns:
+        JSON response with MVP leader and all players.
+    """
     try:
         with _get_current_scraper() as scraper:
             result = scraper.get_mvp()
@@ -94,11 +109,14 @@ def get_mvp_stats():
 
 
 @api_bp.route('/cricket/stats/<stat_type>', methods=['GET'])
-def get_cricket_stats(stat_type: str):
-    """
-    Fetch cricket statistics from WPL website.
+def get_cricket_stats(stat_type: str) -> tuple[Response, int] | Response:
+    """Fetch cricket statistics from WPL website.
 
-    stat_type can be: most-runs, most-wickets, mvp, most-sixes, most-fours, etc.
+    Args:
+        stat_type: Type of stat (most-runs, most-wickets, mvp, most-sixes, etc.)
+
+    Returns:
+        JSON response with requested statistics.
     """
     try:
         with _get_current_scraper() as scraper:
@@ -114,8 +132,12 @@ def get_cricket_stats(stat_type: str):
 # ==================== POINTS TABLE ====================
 
 @api_bp.route('/cricket/points-table', methods=['GET'])
-def get_points_table():
-    """Fetch league points table."""
+def get_points_table() -> tuple[Response, int] | Response:
+    """Fetch league points table.
+
+    Returns:
+        JSON response with team standings.
+    """
     try:
         with _get_current_scraper() as scraper:
             result = scraper.get_points_table()
@@ -127,8 +149,12 @@ def get_points_table():
 # ==================== MATCH DATA ====================
 
 @api_bp.route('/cricket/matches', methods=['GET'])
-def get_matches():
-    """Get all completed match URLs."""
+def get_matches() -> tuple[Response, int] | Response:
+    """Get all completed match URLs.
+
+    Returns:
+        JSON response with list of match URLs.
+    """
     try:
         with _get_current_scraper() as scraper:
             return jsonify(scraper.get_all_match_urls())
@@ -137,8 +163,12 @@ def get_matches():
 
 
 @api_bp.route('/cricket/match/scorecard', methods=['POST'])
-def get_match_scorecard_data():
-    """Get detailed scorecard for a specific match."""
+def get_match_scorecard_data() -> tuple[Response, int] | Response:
+    """Get detailed scorecard for a specific match.
+
+    Returns:
+        JSON response with match scorecard data.
+    """
     data = request.get_json()
     match_url = data.get('url') if data else None
 

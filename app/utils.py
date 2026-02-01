@@ -117,6 +117,57 @@ def admin_required(f: F) -> F:
 
 # ==================== INPUT VALIDATION ====================
 
+def get_json_body() -> Tuple[Optional[Dict[str, Any]], Optional[Tuple[Dict[str, Any], int]]]:
+    """Get and validate JSON request body.
+
+    Validates that the request contains a non-empty JSON body.
+
+    Returns:
+        Tuple of (data dict, None) on success, or (None, error_response) on failure.
+
+    Example:
+        data, error = get_json_body()
+        if error:
+            return error
+        # Use data safely here
+    """
+    data = request.get_json()
+    if not data:
+        return None, error_response('Request body is required')
+    return data, None
+
+
+def get_json_with_fields(
+    required_fields: List[str]
+) -> Tuple[Optional[Dict[str, Any]], Optional[Tuple[Dict[str, Any], int]]]:
+    """Get JSON body and validate required fields.
+
+    Validates that the request contains a non-empty JSON body with all
+    required fields present.
+
+    Args:
+        required_fields: List of field names that must be present.
+
+    Returns:
+        Tuple of (data dict, None) on success, or (None, error_response) on failure.
+
+    Example:
+        data, error = get_json_with_fields(['player_id', 'amount'])
+        if error:
+            return error
+        # Use data safely here
+    """
+    data, error = get_json_body()
+    if error:
+        return None, error
+
+    missing = [f for f in required_fields if f not in data or data[f] is None]
+    if missing:
+        return None, error_response(f"Missing required fields: {', '.join(missing)}")
+
+    return data, None
+
+
 def validate_required_fields(
     data: Dict[str, Any],
     required_fields: List[str]

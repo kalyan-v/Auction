@@ -12,6 +12,7 @@ from app.services.base import (
     ServiceError,
     ValidationError,
 )
+from app.services.league_service import LeagueService, league_service
 
 __all__ = [
     'BaseService',
@@ -19,4 +20,6 @@ __all__ = [
     'NotFoundError',
     'ValidationError',
     'AuthorizationError',
+    'LeagueService',
+    'league_service',
 ]

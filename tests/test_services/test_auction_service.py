@@ -209,9 +209,18 @@ class TestAuctionService:
             assert result['success'] is True
             assert result['new_price'] == 7_000_000
 
-            # Verify high bids were cleared
-            high_bids = Bid.query.filter(
+            # Verify high bids were soft deleted (not visible in active queries)
+            active_high_bids = Bid.query.filter(
                 Bid.player_id == setup_auction['player_id'],
-                Bid.amount > 7_000_000
+                Bid.amount > 7_000_000,
+                Bid.is_deleted.is_(False)
             ).count()
-            assert high_bids == 0
+            assert active_high_bids == 0
+
+            # Verify the bid still exists but is marked as deleted
+            deleted_high_bids = Bid.query.filter(
+                Bid.player_id == setup_auction['player_id'],
+                Bid.amount > 7_000_000,
+                Bid.is_deleted.is_(True)
+            ).count()
+            assert deleted_high_bids == 1

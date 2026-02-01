@@ -6,8 +6,7 @@ Provides specialized queries for bid entities.
 
 from typing import List, Optional
 
-from sqlalchemy import select
-from sqlalchemy.orm import joinedload
+from sqlalchemy import select, update
 
 from app import db
 from app.models import Bid
@@ -25,7 +24,7 @@ class BidRepository(BaseRepository[Bid]):
         player_id: int,
         with_team: bool = False
     ) -> List[Bid]:
-        """Get all bids for a player.
+        """Get all active bids for a player.
 
         Args:
             player_id: ID of the player.
@@ -34,14 +33,19 @@ class BidRepository(BaseRepository[Bid]):
         Returns:
             List of Bid instances ordered by amount descending.
         """
-        query = select(Bid).where(Bid.player_id == player_id)
+        from sqlalchemy.orm import joinedload
+
+        query = select(Bid).where(
+            Bid.player_id == player_id,
+            Bid.is_deleted.is_(False)
+        )
         if with_team:
             query = query.options(joinedload(Bid.team))
         query = query.order_by(Bid.amount.desc())
         return db.session.execute(query).scalars().all()
 
     def get_highest_for_player(self, player_id: int) -> Optional[Bid]:
-        """Get the highest bid for a player.
+        """Get the highest active bid for a player.
 
         Args:
             player_id: ID of the player.
@@ -51,12 +55,15 @@ class BidRepository(BaseRepository[Bid]):
         """
         return db.session.execute(
             select(Bid)
-            .where(Bid.player_id == player_id)
+            .where(
+                Bid.player_id == player_id,
+                Bid.is_deleted.is_(False)
+            )
             .order_by(Bid.amount.desc())
         ).scalars().first()
 
     def count_for_player(self, player_id: int) -> int:
-        """Count bids for a player.
+        """Count active bids for a player.
 
         Args:
             player_id: ID of the player.
@@ -64,10 +71,63 @@ class BidRepository(BaseRepository[Bid]):
         Returns:
             Number of bids.
         """
-        return self.count(player_id=player_id)
+        return self.count(player_id=player_id, is_deleted=False)
+
+    def soft_delete_for_player(self, player_id: int) -> int:
+        """Soft delete all bids for a player.
+
+        Args:
+            player_id: ID of the player.
+
+        Returns:
+            Number of soft-deleted bids.
+        """
+        result = db.session.execute(
+            update(Bid)
+            .where(Bid.player_id == player_id, Bid.is_deleted.is_(False))
+            .values(is_deleted=True)
+        )
+        return result.rowcount
+
+    def soft_delete_above_price(self, player_id: int, price: float) -> int:
+        """Soft delete bids above a certain price.
+
+        Args:
+            player_id: ID of the player.
+            price: Price threshold.
+
+        Returns:
+            Number of soft-deleted bids.
+        """
+        result = db.session.execute(
+            update(Bid)
+            .where(
+                Bid.player_id == player_id,
+                Bid.amount > price,
+                Bid.is_deleted.is_(False)
+            )
+            .values(is_deleted=True)
+        )
+        return result.rowcount
+
+    def get_by_team(self, team_id: int) -> List[Bid]:
+        """Get all active bids by a team.
+
+        Args:
+            team_id: ID of the team.
+
+        Returns:
+            List of Bid instances.
+        """
+        return self.filter_by(team_id=team_id, is_deleted=False)
+
+    # Legacy hard delete methods - kept for backwards compatibility
+    # Use soft_delete methods instead for new code
 
     def delete_for_player(self, player_id: int) -> int:
-        """Delete all bids for a player.
+        """Hard delete all bids for a player.
+
+        DEPRECATED: Use soft_delete_for_player instead.
 
         Args:
             player_id: ID of the player.
@@ -78,7 +138,9 @@ class BidRepository(BaseRepository[Bid]):
         return Bid.query.filter_by(player_id=player_id).delete()
 
     def delete_above_price(self, player_id: int, price: float) -> int:
-        """Delete bids above a certain price.
+        """Hard delete bids above a certain price.
+
+        DEPRECATED: Use soft_delete_above_price instead.
 
         Args:
             player_id: ID of the player.
@@ -91,14 +153,3 @@ class BidRepository(BaseRepository[Bid]):
             Bid.player_id == player_id,
             Bid.amount > price
         ).delete()
-
-    def get_by_team(self, team_id: int) -> List[Bid]:
-        """Get all bids by a team.
-
-        Args:
-            team_id: ID of the team.
-
-        Returns:
-            List of Bid instances.
-        """
-        return self.filter_by(team_id=team_id)

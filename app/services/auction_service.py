@@ -14,6 +14,7 @@ from app import db
 from app.db_utils import AuctionLock, BidLock, get_for_update
 from app.logger import get_logger
 from app.models import AuctionState, Bid, Player, Team
+from app.repositories.bid_repository import BidRepository
 from app.services.base import BaseService, NotFoundError, ValidationError
 
 logger = get_logger(__name__)
@@ -25,6 +26,14 @@ class AuctionService(BaseService):
     Handles bidding, auction lifecycle, and price management with proper
     locking and transaction handling.
     """
+
+    def __init__(self, bid_repo: Optional[BidRepository] = None):
+        """Initialize service with optional repository injection.
+
+        Args:
+            bid_repo: BidRepository instance (defaults to new instance).
+        """
+        self.bid_repo = bid_repo or BidRepository()
 
     def place_bid(
         self,
@@ -68,7 +77,7 @@ class AuctionService(BaseService):
                     raise ValidationError("Player is not up for auction")
 
                 # Check if this is a base price bid (first bid) or a raise
-                existing_bids = Bid.query.filter_by(player_id=player_id).count()
+                existing_bids = self.bid_repo.count_for_player(player_id)
 
                 if existing_bids == 0:
                     # First bid - allow base price (equal to current price)
@@ -150,13 +159,8 @@ class AuctionService(BaseService):
                 if not player:
                     raise NotFoundError("Player not found")
 
-                # Find highest bid
-                highest_bid = (
-                    Bid.query
-                    .filter_by(player_id=player.id)
-                    .order_by(Bid.amount.desc())
-                    .first()
-                )
+                # Find highest active bid
+                highest_bid = self.bid_repo.get_highest_for_player(player.id)
 
                 result = {'success': True}
 
@@ -247,11 +251,8 @@ class AuctionService(BaseService):
 
             player.current_price = new_price
 
-            # Clear bids for this player above the new price
-            Bid.query.filter(
-                Bid.player_id == player.id,
-                Bid.amount > new_price
-            ).delete()
+            # Soft delete bids for this player above the new price
+            self.bid_repo.soft_delete_above_price(player.id, new_price)
 
             logger.info(f"Price reset to {new_price} for player {player.name}")
 

@@ -1,4 +1,15 @@
-// Setup page functionality
+/**
+ * WPL Auction System - Setup Page
+ *
+ * Handles league, team, and player management:
+ * - Create new leagues with custom purse amounts
+ * - Add teams with individual budgets
+ * - Add/edit/delete players with positions, countries, and base prices
+ * - Modal-based player editing with XSS-safe data attributes
+ *
+ * All forms use secure fetch with CSRF protection.
+ * Currency inputs are in Lakhs (players) or Crores (teams/leagues).
+ */
 
 // Add League
 document.getElementById('leagueForm')?.addEventListener('submit', async (e) => {

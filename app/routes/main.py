@@ -11,7 +11,7 @@ Handles:
 - Health check
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import urlparse
 
@@ -24,8 +24,10 @@ from sqlalchemy.orm import joinedload
 
 from app import db
 from app.enums import AwardType
+from app.extensions import limiter
 from app.models import FantasyAward, League, Player, Team
 from app.routes import main_bp
+from app.auth import verify_password
 from app.utils import is_admin
 
 
@@ -77,14 +79,30 @@ def switch_league(league_id: int):
 
 
 @main_bp.route('/login', methods=['GET', 'POST'])
+@limiter.limit("5 per minute", methods=["POST"])
 def login():
     """Admin login page with rate limiting protection."""
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
 
-        if (username == current_app.config['ADMIN_USERNAME'] and
-                password == current_app.config['ADMIN_PASSWORD']):
+        # Check username
+        if username != current_app.config['ADMIN_USERNAME']:
+            return render_template('login.html', error='Invalid credentials')
+
+        # Verify password - supports both hashed (production) and plaintext (dev)
+        password_hash = current_app.config.get('ADMIN_PASSWORD_HASH')
+        plaintext_password = current_app.config.get('ADMIN_PASSWORD')
+
+        password_valid = False
+        if password_hash:
+            # Production: Use bcrypt verification
+            password_valid = verify_password(password, password_hash)
+        elif plaintext_password:
+            # Development fallback: Direct comparison (not recommended for production)
+            password_valid = (password == plaintext_password)
+
+        if password_valid:
             session['is_admin'] = True
             session.permanent = True  # Use PERMANENT_SESSION_LIFETIME
 
@@ -125,7 +143,7 @@ def health_check():
         return jsonify({
             'status': 'healthy',
             'database': 'connected',
-            'timestamp': datetime.utcnow().isoformat()
+            'timestamp': datetime.now(timezone.utc).isoformat()
         })
     except Exception as e:
         return jsonify({

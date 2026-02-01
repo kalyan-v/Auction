@@ -1,3 +1,14 @@
+{# Setup Page - League, Team, and Player Management
+
+   Admin-only features:
+   - Create new leagues with custom purse amounts
+   - Add teams with individual budgets
+   - Add/edit/delete players with positions, countries, base prices
+   - Modal for editing existing players
+
+   Read-only mode for non-admins shows existing data without forms.
+   Uses setup.js for form handling and modal management.
+#}
 {% extends "base.html" %}
 
 {% block title %}Setup - Player Auction System{% endblock %}

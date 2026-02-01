@@ -1,4 +1,18 @@
-// Auction page functionality
+/**
+ * WPL Auction System - Auction Page
+ *
+ * Handles all auction room functionality:
+ * - Real-time bidding with team selection
+ * - Player randomizer with slot machine animation
+ * - Auction state management (start, end, sold, unsold)
+ * - Price reset and bid history tracking
+ * - Timer countdown for auction duration
+ * - Confetti celebration on successful sales
+ * - Unsold mode toggle for re-auctioning players
+ *
+ * Bid increment: 25 Lakhs per click
+ * Base currency unit: Lakhs (1 Lakh = 100,000 INR)
+ */
 let currentPlayerId = null;
 let timerInterval = null;
 let selectedTeamId = null;

@@ -2,7 +2,8 @@
 Player management API endpoints.
 
 Handles CRUD operations for players and player image management.
-Includes transaction handling and pessimistic locking for data integrity.
+Includes transaction handling and locking for data integrity.
+Uses SQLite-compatible application-level locks.
 """
 
 import os
@@ -11,11 +12,11 @@ from typing import Optional
 
 import requests
 from flask import current_app, jsonify, request
-from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import joinedload
 
 from app import db
+from app.db_utils import PlayerLock, get_for_update
 from app.constants import (
     DEFAULT_REQUEST_TIMEOUT,
     IMAGE_REQUEST_TIMEOUT,
@@ -147,32 +148,27 @@ def update_player(player_id: int):
 def release_player(player_id: int):
     """Release a player from their team back to auction pool.
 
-    Uses pessimistic locking to prevent race conditions when
-    modifying team budget.
+    Uses application-level locking for SQLite compatibility.
     """
     from app.models import Team
 
     try:
-        # Lock player row for update
-        player = db.session.execute(
-            select(Player).where(Player.id == player_id).with_for_update()
-        ).scalar_one_or_none()
+        with PlayerLock():
+            player = get_for_update(Player, player_id)
 
-        if not player:
-            return error_response('Player not found', 404)
+            if not player:
+                return error_response('Player not found', 404)
 
-        if player.status != 'sold':
-            db.session.rollback()
-            return error_response('Player is not currently sold to a team')
+            if player.status != 'sold':
+                db.session.rollback()
+                return error_response('Player is not currently sold to a team')
 
-        # Lock team row before modifying budget
-        if player.team_id:
-            team = db.session.execute(
-                select(Team).where(Team.id == player.team_id).with_for_update()
-            ).scalar_one_or_none()
+            # Get team to refund budget
+            if player.team_id:
+                team = get_for_update(Team, player.team_id)
 
-            if team:
-                team.budget += player.current_price
+                if team:
+                    team.budget += player.current_price
 
         player_name = player.name
 

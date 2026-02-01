@@ -1,3 +1,19 @@
+/**
+ * WPL Auction Application - Main Stylesheet
+ *
+ * This stylesheet provides all visual styling for the auction application including:
+ * - Base layout and typography
+ * - Navigation and header components
+ * - Auction interface (player cards, bidding panels)
+ * - Fantasy points display and team standings
+ * - Setup page forms and modals
+ * - Responsive design for mobile/tablet
+ * - Animations and transitions
+ *
+ * Color scheme: Gradient-based dark theme with gold/purple accents
+ * Typography: Poppins font family
+ */
+
 * {
     margin: 0;
     padding: 0;

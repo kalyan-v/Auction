@@ -1,3 +1,9 @@
+{# Admin Login page
+
+   Simple login form for admin authentication.
+   Protected by rate limiting (5 attempts/minute) on the server side.
+   Includes CSRF protection and proper accessibility attributes.
+#}
 {% extends "base.html" %}
 
 {% block title %}Admin Login - Player Auction System{% endblock %}

@@ -1,5 +1,14 @@
-// Main JavaScript file - WPL Auction System
-// Utility functions shared across all pages
+/**
+ * WPL Auction System - Main JavaScript
+ *
+ * Core utility functions shared across all pages:
+ * - CSRF token handling for secure API requests
+ * - XSS-safe HTML escaping
+ * - Currency formatting for Indian Rupees (Lakhs/Crores)
+ * - Toast notification system
+ *
+ * All page-specific functionality is in separate files (auction.js, setup.js).
+ */
 
 // CSRF Protection - Get token from meta tag
 function getCSRFToken() {

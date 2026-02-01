@@ -20,11 +20,16 @@ class Config:
     # Session security
     SESSION_COOKIE_HTTPONLY: bool = True
     SESSION_COOKIE_SAMESITE: str = 'Lax'
-    PERMANENT_SESSION_LIFETIME: timedelta = timedelta(hours=8)
+    PERMANENT_SESSION_LIFETIME: timedelta = timedelta(hours=2)  # Reduced from 8 hours
+
+    # CORS settings
+    CORS_ORIGINS: list = ['http://localhost:3000', 'http://localhost:5000']
 
     # Admin credentials - MUST be set via environment variables in production!
     ADMIN_USERNAME: str = os.environ.get('ADMIN_USERNAME', 'admin')
     ADMIN_PASSWORD: str = os.environ.get('ADMIN_PASSWORD', '')
+    # Hashed password for production (bcrypt) - takes precedence over ADMIN_PASSWORD
+    ADMIN_PASSWORD_HASH: str = os.environ.get('ADMIN_PASSWORD_HASH', '')
 
     # Auction settings
     DEFAULT_AUCTION_TIME: int = 300  # 5 minutes in seconds
@@ -72,9 +77,10 @@ class ProductionConfig(Config):
                 "SECRET_KEY environment variable must be set in production. "
                 "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
             )
-        if not self.ADMIN_PASSWORD:
+        if not self.ADMIN_PASSWORD_HASH:
             raise ValueError(
-                "ADMIN_PASSWORD environment variable must be set in production."
+                "ADMIN_PASSWORD_HASH environment variable must be set in production. "
+                "Generate one with: python -c \"from app.auth import hash_password; print(hash_password('your_password'))\""
             )
         if not self.SQLALCHEMY_DATABASE_URI:
             raise ValueError(

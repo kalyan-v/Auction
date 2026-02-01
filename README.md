@@ -39,51 +39,65 @@ A web-based fantasy cricket auction and points tracking system for the Women's P
 ```
 Auction/
 ├── app/
-│   ├── __init__.py           # App factory
-│   ├── models.py             # Database models
-│   ├── constants.py          # App constants
-│   ├── dataclasses.py        # Data structures
-│   ├── enums.py              # Enumerations
-│   ├── fantasy_calculator.py # Fantasy points logic
-│   ├── player_data.py        # Player mappings & bowler list
-│   ├── utils.py              # Utility functions
-│   ├── logger.py             # Logging setup
+│   ├── __init__.py           # App factory, extensions init, request hooks
+│   ├── models.py             # Database models (League, Team, Player, Bid, etc.)
+│   ├── constants.py          # App constants, WPL config, timeouts
+│   ├── dataclasses.py        # Data structures for stats & scraping
+│   ├── db_utils.py           # SQLite-compatible locking utilities
+│   ├── enums.py              # Player positions, statuses, league types
+│   ├── extensions.py         # Flask extensions (rate limiter, CSRF)
+│   ├── fantasy_calculator.py # Fantasy points calculation engine
+│   ├── player_data.py        # Player ID mappings & bowler list
+│   ├── utils.py              # Validation, formatting, auth helpers
+│   ├── logger.py             # Centralized logging setup
 │   ├── routes/
 │   │   ├── __init__.py       # Blueprint registration
-│   │   ├── main.py           # Main routes (pages)
+│   │   ├── main.py           # Main routes (pages, login, health)
 │   │   ├── auction.py        # Auction page routes
 │   │   └── api/
-│   │       ├── auction.py    # Auction API
-│   │       ├── cricket.py    # Cricket data API
-│   │       ├── fantasy.py    # Fantasy points API
-│   │       ├── leagues.py    # League management API
-│   │       └── players.py    # Player management API
+│   │       ├── __init__.py   # API blueprint
+│   │       ├── auction.py    # Bidding & auction control API
+│   │       ├── cricket.py    # WPL data scraping API
+│   │       ├── fantasy.py    # Fantasy points management API
+│   │       ├── leagues.py    # League CRUD API
+│   │       └── players.py    # Player management & images API
 │   ├── scrapers/
-│   │   ├── __init__.py       # Scraper factory
-│   │   ├── base.py           # Base scraper class
-│   │   └── wpl.py            # WPL website scraper
+│   │   ├── __init__.py       # Scraper factory & registry
+│   │   ├── base.py           # Abstract base scraper class
+│   │   └── wpl.py            # WPL website scraper implementation
 │   ├── static/
-│   │   ├── css/style.css     # Styles
-│   │   ├── js/               # Frontend JavaScript
-│   │   └── images/           # Player headshots, logos
+│   │   ├── css/style.css     # Main stylesheet
+│   │   ├── js/
+│   │   │   ├── main.js       # Shared utilities (CSRF, XSS, formatting)
+│   │   │   ├── auction.js    # Auction room functionality
+│   │   │   └── setup.js      # Setup page forms
+│   │   └── images/players/   # Player headshots
 │   └── templates/
-│       ├── base.html         # Base template
+│       ├── base.html         # Base template with nav & animations
 │       ├── index.html        # Home page
-│       ├── setup.html        # Team/Player setup
+│       ├── login.html        # Admin login
+│       ├── setup.html        # Team/Player management
 │       ├── auction.html      # Auction room
 │       ├── squads.html       # Team rosters
-│       ├── fantasy.html      # Fantasy points
-│       └── login.html        # Admin login
+│       ├── fantasy.html      # Fantasy points & awards
+│       └── readonly.html     # Access restricted page
+├── tests/
+│   ├── __init__.py           # Test suite init
+│   ├── conftest.py           # Pytest fixtures
+│   ├── test_auth.py          # Authentication tests
+│   ├── test_bidding.py       # Auction/bidding tests
+│   └── test_models.py        # Database model tests
 ├── scripts/
 │   └── scrape_fantasy.py     # GitHub Actions scraper
 ├── .github/workflows/
-│   └── scrape_wpl.yml        # Automated scraping workflow
+│   ├── scrape_wpl.yml        # Daily scraping workflow
+│   └── backup_db.yml         # Database backup workflow
 ├── instance/
 │   └── auction.db            # SQLite database
-├── config.py                 # Configuration
-├── run.py                    # Development server
-├── wsgi.py                   # Production WSGI entry
-└── requirements.txt          # Dependencies
+├── config.py                 # Environment-based configuration
+├── run.py                    # Development server entry point
+├── wsgi.py                   # Production WSGI entry point
+└── requirements.txt          # Python dependencies
 ```
 
 ## Quick Start
@@ -192,38 +206,57 @@ The workflow runs daily at 6:30 PM UTC:
 
 ## Fantasy Points Calculation
 
-Based on official WPL fantasy scoring:
+Based on official WPL fantasy scoring (see `app/fantasy_calculator.py`):
 
+### Batting
 | Category | Points |
 |----------|--------|
 | Run scored | 1 |
-| Boundary bonus (4) | +1 |
-| Boundary bonus (6) | +2 |
-| 30 runs | +4 |
-| Half-century | +8 |
-| Century | +16 |
-| Duck (batters only) | -5 |
-| Wicket | 25 |
-| 3 wickets | +4 |
-| 4 wickets | +8 |
-| 5 wickets | +16 |
+| Boundary (4) | +4 |
+| Boundary (6) | +6 |
+| 25 runs | +4 |
+| 50 runs | +8 |
+| 75 runs | +12 |
+| 100 runs | +16 |
+| Duck (non-bowlers) | -2 |
+
+### Bowling
+| Category | Points |
+|----------|--------|
+| Wicket | 30 |
+| Dot ball | +1 |
 | Maiden over | +12 |
+| LBW/Bowled bonus | +8 |
+| 3-wicket haul | +4 |
+| 4-wicket haul | +8 |
+| 5-wicket haul | +12 |
+
+### Fielding
+| Category | Points |
+|----------|--------|
 | Catch | 8 |
+| 3+ catches bonus | +4 |
 | Stumping | 12 |
 | Direct run out | 12 |
 | Indirect run out | 6 |
 
-Strike rate and economy bonuses/penalties apply for qualifying balls.
+### Other
+| Category | Points |
+|----------|--------|
+| Playing XI bonus | +4 |
+
+Strike rate and economy bonuses/penalties apply for qualifying balls (min 20 runs/10 balls for SR, min 2 overs for economy).
 
 ## Project Stats
 
-| Type | Lines |
-|------|-------|
-| Python | 4,657 |
-| CSS | 2,827 |
-| HTML | 1,625 |
-| JavaScript | 862 |
-| **Total** | **~10,000** |
+| Type | Files | Approx Lines |
+|------|-------|--------------|
+| Python | 27 | ~6,000 |
+| CSS | 1 | ~2,950 |
+| HTML (Jinja2) | 8 | ~1,700 |
+| JavaScript | 3 | ~1,100 |
+| Tests | 5 | ~750 |
+| **Total** | **44** | **~14,000** |
 
 ## Troubleshooting
 

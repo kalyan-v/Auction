@@ -1,0 +1,234 @@
+{# Base template for WPL Auction Application
+
+   This template provides the common structure for all pages:
+   - Navigation bar with league switcher and admin controls
+   - CSRF token meta tag for secure API requests
+   - External dependencies (Poppins font, Canvas Confetti)
+   - Page loading animations and scroll reveal effects
+   - Animated number counters and tooltip system
+   - Mobile-responsive hamburger menu
+
+   Blocks available:
+   - title: Page title (defaults to league name)
+   - content: Main page content
+   - scripts: Additional page-specific JavaScript
+#}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{% block title %}{% if current_league %}{{ current_league.display_name }}{% else %}Player Auction{% endif %}{% endblock %}</title>
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏏</text></svg>">
+    <!-- Google Fonts - Poppins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Canvas Confetti for celebrations -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2026">
+</head>
+<body class="page-loading">
+    <nav class="navbar">
+        <div class="container">
+            <h1 class="logo">🏏 <span class="logo-text">{% if current_league %}{{ current_league.name }}{% else %}Auction{% endif %}</span></h1>
+            <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Toggle menu">
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+            </button>
+            <ul class="nav-links" id="navLinks">
+                {% if all_leagues and all_leagues|length > 0 %}
+                <li class="league-selector">
+                    <select id="leagueSwitcher" onchange="switchLeague(this.value)">
+                        {% for league in all_leagues %}
+                        <option value="{{ league.id }}" {% if current_league and league.id == current_league.id %}selected{% endif %}>
+                            {{ league.display_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </li>
+                <li class="nav-divider desktop-only">|</li>
+                {% endif %}
+                <li><a href="{{ url_for('main.index') }}">🏠 Home</a></li>
+                <li><a href="{{ url_for('main.setup') }}">⚙️ Setup</a></li>
+                <li><a href="{{ url_for('auction.auction_room') }}">🔨 Auction</a></li>
+                <li><a href="{{ url_for('main.squads') }}">👥 Squads</a></li>
+                <li><a href="{{ url_for('main.fantasy') }}">⭐ Fantasy</a></li>
+                <li class="nav-divider desktop-only">|</li>
+                {% if session.get('is_admin') %}
+                <li><span class="admin-badge">👤 Admin</span></li>
+                <li><a href="{{ url_for('main.logout') }}" class="logout-link">🚪 Logout</a></li>
+                {% else %}
+                <li><a href="{{ url_for('main.login') }}" class="login-link">🔐 Login</a></li>
+                {% endif %}
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        {% if not current_league and session.get('is_admin') %}
+        <div class="alert alert-warning" style="background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <strong>⚠️ No league selected.</strong> 
+            <a href="{{ url_for('main.setup') }}">Go to Setup</a> to create a league first.
+        </div>
+        {% endif %}
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+        <p>&copy; 2026 {% if current_league %}{{ current_league.display_name }}{% else %}Player Auction{% endif %}</p>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        // Page load animation
+        document.addEventListener('DOMContentLoaded', function() {
+            document.body.classList.remove('page-loading');
+            document.body.classList.add('page-loaded');
+            
+            // Initialize scroll reveal animations
+            initScrollReveal();
+            
+            // Initialize animated counters
+            initCounters();
+            
+            // Initialize tooltips
+            initTooltips();
+        });
+        
+        // Scroll Reveal Animation
+        function initScrollReveal() {
+            const revealElements = document.querySelectorAll('.team-card, .feature-card, .player-item, .setup-section, .award-card');
+            
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('revealed');
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+            
+            revealElements.forEach(el => {
+                el.classList.add('reveal-on-scroll');
+                observer.observe(el);
+            });
+        }
+        
+        // Animated Number Counters
+        function initCounters() {
+            const counters = document.querySelectorAll('.stat-value, .points-value, .fantasy-total');
+            
+            counters.forEach(counter => {
+                const text = counter.textContent;
+                const match = text.match(/[\d.]+/);
+                if (match) {
+                    const target = parseFloat(match[0]);
+                    const prefix = text.substring(0, text.indexOf(match[0]));
+                    const suffix = text.substring(text.indexOf(match[0]) + match[0].length);
+                    const decimals = match[0].includes('.') ? match[0].split('.')[1].length : 0;
+                    
+                    counter.dataset.target = target;
+                    counter.dataset.prefix = prefix;
+                    counter.dataset.suffix = suffix;
+                    counter.dataset.decimals = decimals;
+                    counter.textContent = prefix + '0' + suffix;
+                    
+                    animateCounter(counter);
+                }
+            });
+        }
+        
+        function animateCounter(counter) {
+            const target = parseFloat(counter.dataset.target);
+            const prefix = counter.dataset.prefix;
+            const suffix = counter.dataset.suffix;
+            const decimals = parseInt(counter.dataset.decimals, 10);
+            const duration = 1000;
+            const startTime = performance.now();
+            
+            function update(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const easeOut = 1 - Math.pow(1 - progress, 3);
+                const current = target * easeOut;
+                
+                counter.textContent = prefix + current.toFixed(decimals) + suffix;
+                
+                if (progress < 1) {
+                    requestAnimationFrame(update);
+                } else {
+                    counter.textContent = prefix + target.toFixed(decimals) + suffix;
+                }
+            }
+            
+            requestAnimationFrame(update);
+        }
+        
+        // Tooltips
+        function initTooltips() {
+            const tooltipElements = document.querySelectorAll('[data-tooltip]');
+            
+            tooltipElements.forEach(el => {
+                el.addEventListener('mouseenter', showTooltip);
+                el.addEventListener('mouseleave', hideTooltip);
+            });
+        }
+        
+        function showTooltip(e) {
+            const tooltip = document.createElement('div');
+            tooltip.className = 'tooltip';
+            tooltip.textContent = e.target.dataset.tooltip;
+            document.body.appendChild(tooltip);
+            
+            const rect = e.target.getBoundingClientRect();
+            tooltip.style.top = (rect.top - tooltip.offsetHeight - 8) + 'px';
+            tooltip.style.left = (rect.left + rect.width / 2 - tooltip.offsetWidth / 2) + 'px';
+            
+            e.target._tooltip = tooltip;
+        }
+        
+        function hideTooltip(e) {
+            if (e.target._tooltip) {
+                e.target._tooltip.remove();
+                e.target._tooltip = null;
+            }
+        }
+        
+        function switchLeague(leagueId) {
+            window.location.href = '/switch-league/' + leagueId + '?next=' + encodeURIComponent(window.location.pathname);
+        }
+        
+        function toggleMobileMenu() {
+            const navLinks = document.getElementById('navLinks');
+            const menuBtn = document.querySelector('.mobile-menu-btn');
+            navLinks.classList.toggle('mobile-open');
+            menuBtn.classList.toggle('active');
+        }
+        
+        // Close menu when clicking outside
+        document.addEventListener('click', function(e) {
+            const navLinks = document.getElementById('navLinks');
+            const menuBtn = document.querySelector('.mobile-menu-btn');
+            if (!navLinks.contains(e.target) && !menuBtn.contains(e.target)) {
+                navLinks.classList.remove('mobile-open');
+                menuBtn.classList.remove('active');
+            }
+        });
+
+        // Close mobile menu when clicking a nav link
+        document.querySelectorAll('.nav-links a').forEach(link => {
+            link.addEventListener('click', function() {
+                const navLinks = document.getElementById('navLinks');
+                const menuBtn = document.querySelector('.mobile-menu-btn');
+                navLinks.classList.remove('mobile-open');
+                menuBtn.classList.remove('active');
+            });
+        });
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

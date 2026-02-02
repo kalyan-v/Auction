@@ -1,0 +1,171 @@
+{# Setup Page - League, Team, and Player Management
+
+   Admin-only features:
+   - Create new leagues with custom purse amounts
+   - Add teams with individual budgets
+   - Add/edit/delete players with positions, countries, base prices
+   - Modal for editing existing players
+
+   Read-only mode for non-admins shows existing data without forms.
+   Uses setup.js for form handling and modal management.
+#}
+{% extends "base.html" %}
+
+{% block title %}Setup - Player Auction System{% endblock %}
+
+{% block content %}
+<h2>Setup Teams and Players</h2>
+
+{% if not admin_mode %}
+<div class="readonly-banner">
+    🔒 <strong>View Only Mode</strong> - Adding/editing is disabled. Contact admin for changes.
+</div>
+{% endif %}
+
+<div class="setup-container">
+    {% if admin_mode %}
+    <!-- Leagues Section -->
+    <div class="setup-section leagues-section">
+        <h3>🏆 Leagues</h3>
+        <form id="leagueForm" class="form-inline">
+            <input type="text" id="leagueName" placeholder="League ID (e.g. wpl2026)" required>
+            <input type="text" id="leagueDisplayName" placeholder="Display Name (e.g. WPL 2026)" required>
+            <input type="number" id="leaguePurse" placeholder="Default Purse (Cr)" value="50" step="1">
+            <button type="submit" class="btn btn-primary">Create League</button>
+        </form>
+        
+        <div id="leaguesList" class="list-container">
+            {% for league in all_leagues %}
+            <div class="list-item {% if current_league and league.id == current_league.id %}active-league{% endif %}">
+                <span class="league-name">{{ league.display_name }}</span>
+                <span class="league-id">({{ league.name }})</span>
+                <span class="purse">₹{{ '{:.0f}'.format(league.default_purse / 10000000) }} Cr</span>
+                <span class="squad-limits">Squad: {{ league.min_squad_size }}-{{ league.max_squad_size }}</span>
+                {% if current_league and league.id == current_league.id %}
+                <span class="badge active">Active</span>
+                {% else %}
+                <button class="btn btn-small btn-select" onclick="switchLeague({{ league.id }})">Select</button>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Teams Section -->
+    <div class="setup-section">
+        <h3>Teams (Budget in Cr)</h3>
+        {% if admin_mode %}
+        <form id="teamForm" class="form-inline">
+            <input type="text" id="teamName" placeholder="Team Name" required>
+            <input type="number" id="teamBudget" placeholder="Budget (in Cr)" value="50" step="1" min="1">
+            <button type="submit" class="btn btn-primary">Add Team</button>
+        </form>
+        {% endif %}
+        
+        <div id="teamsList" class="list-container">
+            {% for team in teams %}
+            <div class="list-item">
+                <span>{{ team.name }}</span>
+                <span class="budget">₹{{ '{:.2f}'.format(team.budget / 10000000) }} Cr</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Players Section -->
+    <div class="setup-section">
+        <h3>Players (Base Price in Lakhs)</h3>
+        {% if admin_mode %}
+        <form id="playerForm" class="form-inline">
+            <input type="text" id="playerName" placeholder="Player Name" required>
+            <select id="playerPosition" required>
+                <option value="" disabled selected>Select Position</option>
+                <option value="Batter">Batter</option>
+                <option value="Bowler">Bowler</option>
+                <option value="Allrounder">Allrounder</option>
+                <option value="Keeper">Keeper</option>
+            </select>
+            <select id="playerCountry" required>
+                <option value="Indian">Indian</option>
+                <option value="Overseas">Overseas</option>
+            </select>
+            <input type="number" id="playerBasePrice" placeholder="Base Price (in Lakhs)" value="50" step="10" min="1">
+            <input type="text" id="playerOriginalTeam" placeholder="Original Team (optional)">
+            <button type="submit" class="btn btn-primary">Add Player</button>
+        </form>
+        {% endif %}
+        
+        <div id="playersList" class="list-container">
+            {% for player in players %}
+            <div class="list-item" data-player-id="{{ player.id }}">
+                <span class="player-name">{{ player.name }}</span>
+                <span class="position">{{ player.position }}</span>
+                <span>{% if player.country == 'Overseas' %}<span class="country-emoji">✈️</span>{% else %}<span class="flag-india"></span>{% endif %}</span>
+                <span class="price">₹{{ '{:.0f}'.format(player.base_price / 100000) }} L</span>
+                {% if player.original_team %}<span class="original-team">{{ player.original_team }}</span>{% endif %}
+                {% if admin_mode %}
+                <button class="btn btn-small btn-edit" 
+                    data-player-id="{{ player.id }}"
+                    data-player-name="{{ player.name }}"
+                    data-player-position="{{ player.position }}"
+                    data-player-country="{{ player.country }}"
+                    data-player-base-price="{{ player.base_price }}"
+                    data-player-original-team="{{ player.original_team or '' }}"
+                    onclick="editPlayerFromData(this)">✏️</button>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{% if admin_mode %}
+<!-- Edit Player Modal -->
+<div id="editPlayerModal" class="modal" role="dialog" aria-labelledby="editModalTitle" aria-modal="true">
+    <div class="modal-content">
+        <button class="close-btn" onclick="closeEditModal()" aria-label="Close modal">&times;</button>
+        <h3 id="editModalTitle">Edit Player</h3>
+        <form id="editPlayerForm">
+            <input type="hidden" id="editPlayerId">
+            <div class="form-group">
+                <label>Name</label>
+                <input type="text" id="editPlayerName" required>
+            </div>
+            <div class="form-group">
+                <label>Position</label>
+                <select id="editPlayerPosition" required>
+                    <option value="Batter">Batter</option>
+                    <option value="Bowler">Bowler</option>
+                    <option value="Allrounder">Allrounder</option>
+                    <option value="Keeper">Keeper</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Country</label>
+                <select id="editPlayerCountry" required>
+                    <option value="Indian">Indian</option>
+                    <option value="Overseas">Overseas</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Base Price (Lakhs)</label>
+                <input type="number" id="editPlayerBasePrice" step="10" min="1" required>
+            </div>
+            <div class="form-group">
+                <label>Original Team</label>
+                <input type="text" id="editPlayerOriginalTeam" placeholder="Leave blank if none">
+            </div>
+            <div class="modal-buttons">
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+                <button type="button" class="btn btn-danger" onclick="deletePlayer()">Delete Player</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/setup.js') }}"></script>
+{% endblock %}

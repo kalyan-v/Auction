@@ -1,0 +1,122 @@
+{# Admin Login page
+
+   Simple login form for admin authentication.
+   Protected by rate limiting (5 attempts/minute) on the server side.
+   Includes CSRF protection and proper accessibility attributes.
+#}
+{% extends "base.html" %}
+
+{% block title %}Admin Login - Player Auction System{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="login-box">
+        <h2>🔐 Admin Login</h2>
+        <p>Enter admin credentials to manage auction</p>
+        
+        {% if error %}
+        <div class="error-message" role="alert" id="login-error">{{ error }}</div>
+        {% endif %}
+
+        <form method="POST" class="login-form" {% if error %}aria-describedby="login-error"{% endif %}>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required autofocus autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Login</button>
+        </form>
+        
+        <p class="back-link"><a href="{{ url_for('main.index') }}">← Back to Home</a></p>
+    </div>
+</div>
+
+<style>
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 60vh;
+}
+
+.login-box {
+    background: white;
+    padding: 2.5rem;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+}
+
+.login-box h2 {
+    margin-bottom: 0.5rem;
+    color: #2c3e50;
+}
+
+.login-box > p {
+    color: #666;
+    margin-bottom: 1.5rem;
+}
+
+.login-form {
+    text-align: left;
+}
+
+.login-form .form-group {
+    margin-bottom: 1rem;
+}
+
+.login-form label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #333;
+}
+
+.login-form input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 1rem;
+}
+
+.login-form input:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.btn-block {
+    width: 100%;
+    margin-top: 1rem;
+}
+
+.error-message {
+    background: #fee;
+    color: #c0392b;
+    padding: 0.75rem;
+    border-radius: 5px;
+    margin-bottom: 1rem;
+    border: 1px solid #f5c6cb;
+}
+
+.back-link {
+    margin-top: 1.5rem;
+}
+
+.back-link a {
+    color: #666;
+    text-decoration: none;
+}
+
+.back-link a:hover {
+    color: #3498db;
+}
+</style>
+{% endblock %}

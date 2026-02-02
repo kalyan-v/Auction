@@ -1,0 +1,44 @@
+{# Home page - Welcome screen and feature overview
+
+   Displays:
+   - Hero section with call-to-action buttons
+   - Feature cards highlighting main capabilities
+#}
+{% extends "base.html" %}
+
+{% block title %}Home - Player Auction System{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <h2>Welcome to the Player Auction System</h2>
+    <p>Manage your sports auction with ease</p>
+    
+    <div class="action-buttons">
+        <a href="{{ url_for('main.setup') }}" class="btn btn-primary" data-tooltip="Configure teams, players and leagues">🚀 Setup Teams & Players</a>
+        <a href="{{ url_for('auction.auction_room') }}" class="btn btn-secondary" data-tooltip="Enter the live auction room">🔨 Start Auction</a>
+    </div>
+</div>
+
+<div class="features">
+    <div class="feature-card">
+        <div class="feature-icon">📋</div>
+        <h3>Easy Setup</h3>
+        <p>Add teams and players quickly with our intuitive interface</p>
+    </div>
+    <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <h3>Real-time Bidding</h3>
+        <p>Live auction updates with instant bid tracking</p>
+    </div>
+    <div class="feature-card">
+        <div class="feature-icon">💰</div>
+        <h3>Budget Management</h3>
+        <p>Track team spending and remaining purse</p>
+    </div>
+    <div class="feature-card">
+        <div class="feature-icon">⭐</div>
+        <h3>Fantasy Points</h3>
+        <p>Track player performance and fantasy scores</p>
+    </div>
+</div>
+{% endblock %}

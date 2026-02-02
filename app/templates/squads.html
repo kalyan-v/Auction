@@ -1,0 +1,254 @@
+{# Squads Page - Team roster display
+
+   Shows all teams with their:
+   - Remaining purse and spending percentage
+   - Squad count and sold players list
+   - Player images, positions, and prices
+   - Release button (admin only) to return players to auction pool
+
+   Team cards are color-coded by team name.
+#}
+{% extends "base.html" %}
+
+{% block title %}Squads - Player Auction System{% endblock %}
+
+{% block content %}
+<h2>Team Squads</h2>
+
+{% if not admin_mode %}
+<div class="readonly-banner">
+    🔒 <strong>View Only Mode</strong> - <a href="{{ url_for('main.login') }}">Login as admin</a> to release players back to auction
+</div>
+{% endif %}
+
+<div class="squads-container">
+    {% for team in teams %}
+    {% set sold_players = team.players | selectattr('status', 'equalto', 'sold') | rejectattr('is_deleted', 'equalto', true) | list %}
+    {% set team_class = team.name | lower | replace(' ', '-') | replace("'", '') %}
+    {% set spent = (team.initial_budget or 500000000) - team.budget %}
+    {% set initial = team.initial_budget or 500000000 %}
+    {% set spent_percent = [((spent / initial) * 100) | round(1), 100] | min %}
+    <div class="team-card team-{{ team_class }}">
+        <div class="team-header">
+            <div class="team-logo">{{ team.name[:2] | upper }}</div>
+            <div class="team-info">
+                <h3>{{ team.name }}</h3>
+                <div class="team-stats">
+                    <div class="stat">
+                        <span class="stat-label">Purse Left</span>
+                        <span class="stat-value purse">₹{{ '{:.2f}'.format(team.budget / 10000000) }} Cr</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Players</span>
+                        <span class="stat-value">{{ sold_players | length }}</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Spent</span>
+                        <span class="stat-value spent">₹{{ '{:.2f}'.format(spent / 10000000) }} Cr</span>
+                    </div>
+                </div>
+                <!-- Budget Progress Bar -->
+                <div class="budget-progress-container">
+                    <div class="budget-progress-bar">
+                        <div class="budget-progress-fill" style="width: {{ spent_percent }}%"></div>
+                    </div>
+                    <span class="budget-progress-label">{{ spent_percent }}% spent</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="players-list">
+            {% if sold_players %}
+                <div class="table-responsive">
+                <table class="squad-table">
+                    <thead>
+                        <tr>
+                            <th>Player</th>
+                            <th>Position</th>
+                            <th>Price</th>
+                            {% if admin_mode %}<th>Action</th>{% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for player in sold_players %}
+                        <tr class="player-row" data-player-id="{{ player.id }}" data-player-name="{{ player.name }}">
+                            <td onclick="showBidHistoryFromRow(this.parentElement)" class="player-name-cell">
+                                {% if player.image_url %}
+                                <img src="{{ player.image_url }}" alt="" class="player-thumbnail" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <span class="player-thumbnail-placeholder" style="display:none;">🏏</span>
+                                {% else %}
+                                <span class="player-thumbnail-placeholder">🏏</span>
+                                {% endif %}
+                                <span class="player-name-text">{{ player.name }}</span>
+                            </td>
+                            <td onclick="showBidHistoryFromRow(this.parentElement)"><span class="position-badge {{ player.position | lower }}">{{ player.position }}</span></td>
+                            <td class="price" onclick="showBidHistoryFromRow(this.parentElement)">₹{{ '{:.0f}'.format(player.current_price / 100000) }} L</td>
+                            {% if admin_mode %}
+                            <td>
+                                <button class="btn btn-small btn-danger release-btn" data-player-id="{{ player.id }}" data-player-name="{{ player.name }}" onclick="releasePlayerFromData(this, event)" data-tooltip="Release player back to auction pool">🔄 Release</button>
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-state-icon">👥</div>
+                    <p class="empty-state-text">No players yet</p>
+                    <p class="empty-state-hint">Players will appear here after auction</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Bid History Modal -->
+<div id="bidModal" class="modal" role="dialog" aria-labelledby="modalPlayerName" aria-modal="true">
+    <div class="modal-content">
+        <button class="close-btn" onclick="closeModal()" aria-label="Close modal">&times;</button>
+        <h3 id="modalPlayerName">Player Name</h3>
+        <div id="modalBidHistory"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Helper functions using data attributes (safe for special characters in names)
+function showBidHistoryFromRow(row) {
+    const playerId = parseInt(row.dataset.playerId, 10);
+    const playerName = row.dataset.playerName;
+    showBidHistory(playerId, playerName);
+}
+
+function releasePlayerFromData(btn, event) {
+    const playerId = parseInt(btn.dataset.playerId, 10);
+    const playerName = btn.dataset.playerName;
+    releasePlayer(playerId, playerName, event);
+}
+
+async function releasePlayer(playerId, playerName, event) {
+    event.stopPropagation(); // Prevent triggering bid history modal
+    
+    if (!confirm(`Are you sure you want to release ${playerName} back to auction?\n\nThis will:\n• Remove them from the team\n• Refund the purchase price to the team\n• Reset them to available status\n• Delete all bid history`)) {
+        return;
+    }
+    
+    try {
+        const response = await secureFetch(`/api/players/${playerId}/release`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showNotification(data.message, 'success');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showNotification('Error: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showNotification('Error releasing player: ' + error.message, 'error');
+    }
+}
+
+async function showBidHistory(playerId, playerName) {
+    const modal = document.getElementById('bidModal');
+    const playerNameEl = document.getElementById('modalPlayerName');
+    const bidHistoryEl = document.getElementById('modalBidHistory');
+    
+    playerNameEl.textContent = playerName + ' - Bid History';
+    bidHistoryEl.innerHTML = '<p>Loading...</p>';
+    modal.style.display = 'flex';
+    
+    try {
+        const response = await secureFetch(`/api/players/${playerId}/bids`);
+        const data = await response.json();
+        
+        if (data.success) {
+            if (data.bids.length > 0) {
+                let html = `
+                    <div class="final-price">
+                        <strong>Final Price:</strong> ₹${(data.player.final_price / 100000).toFixed(0)} L
+                    </div>
+                    <div class="table-responsive">
+                    <table class="bid-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Team</th>
+                                <th>Amount</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                data.bids.forEach((bid, index) => {
+                    const isWinning = index === 0;
+                    html += `
+                        <tr class="${isWinning ? 'winning-bid' : ''}">
+                            <td>${data.bids.length - index}</td>
+                            <td>${escapeHtml(bid.team_name)}</td>
+                            <td>₹${(bid.amount / 100000).toFixed(0)} L</td>
+                            <td>${escapeHtml(bid.timestamp)}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table></div>';
+                bidHistoryEl.innerHTML = html;
+            } else {
+                bidHistoryEl.innerHTML = '<p class="no-bids">No bid history available</p>';
+            }
+        } else {
+            bidHistoryEl.innerHTML = '<p class="error">Error loading bid history</p>';
+        }
+    } catch (error) {
+        bidHistoryEl.innerHTML = '<p class="error">Error loading bid history</p>';
+    }
+}
+
+function closeModal() {
+    document.getElementById('bidModal').style.display = 'none';
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('bidModal');
+    if (event.target === modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Close modal on ESC key and trap focus
+document.addEventListener('keydown', function(event) {
+    const modal = document.getElementById('bidModal');
+    if (modal.style.display === 'flex') {
+        if (event.key === 'Escape') {
+            closeModal();
+        }
+        // Trap focus within modal
+        if (event.key === 'Tab') {
+            const focusableElements = modal.querySelectorAll(
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+            );
+            const firstElement = focusableElements[0];
+            const lastElement = focusableElements[focusableElements.length - 1];
+
+            if (event.shiftKey && document.activeElement === firstElement) {
+                event.preventDefault();
+                lastElement.focus();
+            } else if (!event.shiftKey && document.activeElement === lastElement) {
+                event.preventDefault();
+                firstElement.focus();
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,72 @@
+name: Scrape WPL Fantasy Points
+
+# Triggers: manual + schedule + push
+on:
+  workflow_dispatch: {}  # Manual trigger
+  push:
+    branches:
+      - main  # Keeps workflow active and re-registers schedule
+  schedule:
+    - cron: '*/15 * * * *'  # Every 15 minutes UTC  
+
+permissions:
+  contents: write
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Set up Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Install dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Debug step to confirm trigger type
+      - name: Show trigger source
+        run: |
+          echo "Event name: ${{ github.event_name }}"
+          echo "Ref: ${{ github.ref }}"
+
+      # Run the scraper
+      - name: Run scraper
+        run: python scripts/scrape_fantasy.py
+
+      # Commit & push changes if any
+      # Only amend if the last commit was an auto-update commit (to avoid cluttering history)
+      # Otherwise create a new commit (to preserve user commits)
+      - name: Commit and push if changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add instance/auction.db
+
+          # Check if there are staged changes
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          # Check if last commit was an auto-update commit (safe to amend)
+          LAST_MSG=$(git log -1 --pretty=%s)
+          if [[ "$LAST_MSG" == Auto-update\ fantasy\ points* ]]; then
+            echo "Amending previous auto-update commit"
+            git commit --amend -m "Auto-update fantasy points $(date +'%Y-%m-%d %H:%M UTC')"
+            git push --force-with-lease
+          else
+            echo "Creating new commit (preserving user commit)"
+            git commit -m "Auto-update fantasy points $(date +'%Y-%m-%d %H:%M UTC')"
+            git push
+          fi

@@ -1,0 +1,983 @@
+{# Fantasy Points Page - Player performance tracking
+
+   Features:
+   - Special awards section (MVP, Orange Cap, Purple Cap)
+   - Fetch WPL data button (admin) to auto-populate from website
+   - Team standings with total fantasy points
+   - Player rankings sorted by fantasy points
+   - Add/edit match points per player (admin)
+   - Detailed points breakdown modal with match history
+
+   Uses inline JavaScript for award selection and data fetching.
+#}
+{% extends "base.html" %}
+
+{% block title %}Fantasy Points - Player Auction System{% endblock %}
+
+{% block content %}
+<h2>Fantasy Points</h2>
+
+{% if not admin_mode %}
+<div class="readonly-banner">
+    🔒 <strong>View Only Mode</strong> - <a href="{{ url_for('main.login') }}">Login as admin</a> to manage fantasy points
+</div>
+{% endif %}
+
+<!-- Special Awards Section -->
+<div class="awards-section">
+    <h3>🏆 Special Awards</h3>
+    {% if admin_mode %}
+    <div class="awards-actions">
+        <button class="btn btn-small btn-primary" onclick="fetchAllData()" id="fetchAllBtn">📡 Fetch WPL Data</button>
+    </div>
+    {% endif %}
+    <div class="awards-container">
+        <div class="award-card mvp">
+            <div class="award-image-container">
+                {% if mvp and mvp.player and mvp.player.image_url %}
+                <img src="{{ mvp.player.image_url }}" alt="{{ mvp.player.name }}" class="award-player-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div class="award-icon fallback" style="display:none;">🏅</div>
+                {% else %}
+                <div class="award-icon">🏅</div>
+                {% endif %}
+            </div>
+            <div class="award-info">
+                <h4>MVP</h4>
+                <p class="award-description">Most Valuable Player</p>
+                {% if admin_mode %}
+                <select id="mvp-select" class="award-select" onchange="setAward('mvp', this.value)">
+                    <option value="">-- Select Player --</option>
+                    {% for player in all_players %}
+                    <option value="{{ player.id }}" {% if mvp and mvp.player_id == player.id %}selected{% endif %}>
+                        {{ player.name }} ({{ player.team.name if player.team else 'No Team' }})
+                    </option>
+                    {% endfor %}
+                </select>
+                {% else %}
+                <p class="award-winner">{{ mvp.player.name if mvp and mvp.player else 'N/A' }}</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="award-card orange-cap">
+            <div class="award-image-container">
+                {% if orange_cap and orange_cap.player and orange_cap.player.image_url %}
+                <img src="{{ orange_cap.player.image_url }}" alt="{{ orange_cap.player.name }}" class="award-player-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div class="award-icon fallback" style="display:none;">🧢</div>
+                {% else %}
+                <div class="award-icon">🧢</div>
+                {% endif %}
+            </div>
+            <div class="award-info">
+                <h4>Orange Cap</h4>
+                <p class="award-description">Most Runs</p>
+                {% if admin_mode %}
+                <select id="orange-cap-select" class="award-select" onchange="setAward('orange_cap', this.value)">
+                    <option value="">-- Select Player --</option>
+                    {% for player in all_players %}
+                    <option value="{{ player.id }}" {% if orange_cap and orange_cap.player_id == player.id %}selected{% endif %}>
+                        {{ player.name }} ({{ player.team.name if player.team else 'No Team' }})
+                    </option>
+                    {% endfor %}
+                </select>
+                {% else %}
+                <p class="award-winner">{{ orange_cap.player.name if orange_cap and orange_cap.player else 'N/A' }}</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="award-card purple-cap">
+            <div class="award-image-container">
+                {% if purple_cap and purple_cap.player and purple_cap.player.image_url %}
+                <img src="{{ purple_cap.player.image_url }}" alt="{{ purple_cap.player.name }}" class="award-player-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div class="award-icon fallback" style="display:none;">🧢</div>
+                {% else %}
+                <div class="award-icon">🧢</div>
+                {% endif %}
+            </div>
+            <div class="award-info">
+                <h4>Purple Cap</h4>
+                <p class="award-description">Most Wickets</p>
+                {% if admin_mode %}
+                <select id="purple-cap-select" class="award-select" onchange="setAward('purple_cap', this.value)">
+                    <option value="">-- Select Player --</option>
+                    {% for player in all_players %}
+                    <option value="{{ player.id }}" {% if purple_cap and purple_cap.player_id == player.id %}selected{% endif %}>
+                        {{ player.name }} ({{ player.team.name if player.team else 'No Team' }})
+                    </option>
+                    {% endfor %}
+                </select>
+                {% else %}
+                <p class="award-winner">{{ purple_cap.player.name if purple_cap and purple_cap.player else 'N/A' }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter Section -->
+<div class="filter-section">
+    <div class="filter-group">
+        <!-- Player Search -->
+        <div class="search-box">
+            <input type="text" id="playerSearch" placeholder="Search players..."
+                   onkeyup="searchPlayers(this.value)" aria-label="Search players by name">
+        </div>
+        <span class="filter-divider">|</span>
+        <label>Filter by:</label>
+        <select id="filterType" onchange="updateFilterOptions()">
+            <option value="none">All Players</option>
+            <option value="team">Original Team</option>
+            <option value="position">Position</option>
+        </select>
+        <!-- Multi-select dropdown container -->
+        <div id="multiSelectContainer" class="multi-select-container" style="display: none;">
+            <button type="button" class="multi-select-btn" onclick="toggleMultiSelect()">
+                <span id="multiSelectLabel">Select...</span>
+                <span class="dropdown-arrow">▼</span>
+            </button>
+            <div id="multiSelectDropdown" class="multi-select-dropdown">
+                <!-- Options populated by JS -->
+            </div>
+        </div>
+        <button class="btn btn-secondary" onclick="clearFilter()">Clear</button>
+    </div>
+</div>
+
+<!-- Team Fantasy Points Section -->
+<div class="fantasy-container">
+    {% for team in teams %}
+    {% set team_players = team.players | selectattr('status', 'equalto', 'sold') | list %}
+    {% if team_players %}
+    {% set team_class = team.name | lower | replace(' ', '-') %}
+    <div class="team-card fantasy-card team-{{ team_class }}" data-team-id="{{ team.id }}">
+        <div class="team-header">
+            <button class="collapse-toggle" onclick="toggleTeamCollapse({{ team.id }})"
+                    aria-expanded="true" aria-label="Toggle {{ team.name }} players list">
+                ▼
+            </button>
+            <h3>{{ team.name }}</h3>
+            <div class="team-stats">
+                <div class="stat">
+                    <span class="stat-label">Players</span>
+                    <span class="stat-value">{{ team_players | length }}</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Total Points</span>
+                    <span class="stat-value fantasy-total" id="team-total-{{ team.id }}">
+                        {{ team_players | sum(attribute='fantasy_points') | round(1) }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="players-list" id="players-list-{{ team.id }}">
+            <div class="table-responsive">
+            <table class="squad-table fantasy-table" id="table-{{ team.id }}">
+                <thead>
+                    <tr>
+                        <th class="sortable" onclick="sortTable({{ team.id }}, 'name')">
+                            Player <span class="sort-icon" id="sort-name-{{ team.id }}">⇅</span>
+                        </th>
+                        <th class="sortable" onclick="sortTable({{ team.id }}, 'points')">
+                            Total Points <span class="sort-icon" id="sort-points-{{ team.id }}">⇅</span>
+                        </th>
+                        <th>Original Team</th>
+                        <th class="sortable" onclick="sortTable({{ team.id }}, 'position')">
+                            Position <span class="sort-icon" id="sort-position-{{ team.id }}">⇅</span>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for player in team_players %}
+                    <tr class="player-row clickable-row"
+                        tabindex="0"
+                        role="button"
+                        aria-label="View fantasy points for {{ player.name }}"
+                        data-player-id="{{ player.id }}"
+                        data-player-name="{{ player.name }}"
+                        data-team-id="{{ team.id }}"
+                        data-position="{{ player.position }}"
+                        data-original-team="{{ player.original_team or '' }}"
+                        data-points="{{ player.fantasy_points }}"
+                        onclick="showPointsModalFromRow(this)"
+                        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showPointsModalFromRow(this);}">
+                        <td class="player-name-cell">
+                            {% if player.image_url %}
+                            <img src="{{ player.image_url }}" alt="" class="player-thumbnail" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                            <span class="player-thumbnail-placeholder" style="display:none;">🏏</span>
+                            {% else %}
+                            <span class="player-thumbnail-placeholder">🏏</span>
+                            {% endif %}
+                            <span class="player-name-text">{{ player.name }}</span>
+                        </td>
+                        <td class="points-cell">
+                            <span class="points-value" id="points-{{ player.id }}">{{ player.fantasy_points }}</span>
+                        </td>
+                        <td><span class="original-team-badge">{{ player.original_team or '-' }}</span></td>
+                        <td><span class="position-badge {{ player.position | lower }}">{{ player.position }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+</div>
+
+{% set has_sold_players = teams | map(attribute='players') | sum(start=[]) | selectattr('status', 'equalto', 'sold') | list | length > 0 %}
+{% if not teams or not has_sold_players %}
+<div class="empty-state-large">
+    <div class="empty-state-icon">⭐</div>
+    <p class="empty-state-text">No Fantasy Points Yet</p>
+    <p class="empty-state-hint">Complete the auction first to start tracking fantasy points</p>
+    <a href="{{ url_for('auction.auction_room') }}" class="btn btn-primary" style="margin-top: 1rem;">🔨 Go to Auction</a>
+</div>
+{% endif %}
+
+<!-- Fantasy Points Modal -->
+<div id="fantasyModal" class="modal" role="dialog" aria-labelledby="modalPlayerName" aria-modal="true">
+    <div class="modal-content fantasy-modal-content">
+        <button class="close-btn" onclick="closeModal()" aria-label="Close modal">&times;</button>
+        <h3 id="modalPlayerName">Player Name - Fantasy Points</h3>
+        
+        <div class="modal-total-points">
+            <span>Total Points:</span>
+            <span id="modalTotalPoints" class="total-value">0</span>
+        </div>
+        
+        <div id="matchPointsContainer">
+            <!-- Match points will be loaded here -->
+        </div>
+        
+        {% if admin_mode %}
+        <div class="add-points-section">
+            <h4>➕ Add Match Points</h4>
+            <div class="add-points-form">
+                <div class="form-group">
+                    <label for="matchNumber">WPL Match #</label>
+                    <input type="number" id="matchNumber" min="1" placeholder="WPL Match #">
+                </div>
+                <div class="form-group">
+                    <label for="matchPoints">Points</label>
+                    <input type="number" id="matchPoints" step="0.5" placeholder="Points">
+                </div>
+                <button class="btn btn-primary" onclick="addMatchPoints()">Add Points</button>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentPlayerId = null;
+let currentTeamId = null;
+const isAdmin = {{ 'true' if admin_mode else 'false' }};
+
+// Fetch all WPL data (awards + fantasy points)
+async function fetchAllData() {
+    const btn = document.getElementById('fetchAllBtn');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+
+    try {
+        // Step 1: Fetch fantasy points from match scorecards
+        btn.innerHTML = '⏳ Fetching match data...';
+        const pointsResponse = await secureFetch('/api/fantasy/fetch-match-points', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const pointsData = await pointsResponse.json();
+
+        let statusMsg = '';
+        if (pointsData.success) {
+            statusMsg += `Matches: ${pointsData.matches_scraped}, Players: ${pointsData.players_updated}`;
+        }
+
+        // Step 2: Fetch awards
+        btn.innerHTML = '⏳ Fetching awards...';
+        const awardsResponse = await secureFetch('/api/fantasy/fetch-awards', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const awardsData = await awardsResponse.json();
+
+        // Step 3: Fetch images for award winners
+        if (awardsData.results) {
+            btn.innerHTML = '⏳ Fetching images...';
+            const playerIds = [];
+            if (awardsData.results.orange_cap) playerIds.push(awardsData.results.orange_cap.player_id);
+            if (awardsData.results.purple_cap) playerIds.push(awardsData.results.purple_cap.player_id);
+            if (awardsData.results.mvp) playerIds.push(awardsData.results.mvp.player_id);
+
+            for (const playerId of playerIds) {
+                if (playerId) {
+                    try {
+                        await secureFetch(`/api/players/${playerId}/fetch-image`, { method: 'POST' });
+                    } catch (e) {
+                        console.error('Error fetching image:', e);
+                    }
+                }
+            }
+        }
+
+        // Show summary and reload
+        let finalMsg = 'WPL data updated!\n';
+        if (statusMsg) finalMsg += statusMsg + '\n';
+        if (awardsData.results) finalMsg += 'Awards fetched';
+
+        showNotification(finalMsg, 'success');
+        setTimeout(() => location.reload(), 1500);
+
+    } catch (error) {
+        showNotification('Error fetching data: ' + error.message, 'error');
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+// Helper to show modal using data attributes (safe for special characters in names)
+function showPointsModalFromRow(row) {
+    const playerId = parseInt(row.dataset.playerId, 10);
+    const playerName = row.dataset.playerName;
+    const teamId = parseInt(row.dataset.teamId, 10);
+    showPointsModal(playerId, playerName, teamId);
+}
+
+// Track sort state for each team
+const sortState = {};
+
+function sortTable(teamId, sortBy) {
+    const table = document.getElementById(`table-${teamId}`);
+    if (!table) return;
+    const tbody = table.querySelector('tbody');
+    if (!tbody) return;
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    if (rows.length === 0) return;
+
+    // Initialize sort state if not exists
+    if (!sortState[teamId]) {
+        sortState[teamId] = { column: sortBy, ascending: sortBy === 'name' || sortBy === 'position' };
+    }
+
+    // Toggle direction if same column, otherwise set new column with default direction
+    if (sortState[teamId].column === sortBy) {
+        sortState[teamId].ascending = !sortState[teamId].ascending;
+    } else {
+        sortState[teamId].column = sortBy;
+        // Default: ascending for name/position, descending for points
+        sortState[teamId].ascending = sortBy === 'name' || sortBy === 'position';
+    }
+
+    const ascending = sortState[teamId].ascending;
+
+    // Position order for sorting
+    const positionOrder = { 'Batter': 1, 'Keeper': 2, 'Allrounder': 3, 'Bowler': 4 };
+
+    rows.sort((a, b) => {
+        let valA, valB;
+
+        if (sortBy === 'name') {
+            valA = (a.dataset.playerName || '').toLowerCase();
+            valB = (b.dataset.playerName || '').toLowerCase();
+            return ascending ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        } else if (sortBy === 'position') {
+            valA = positionOrder[a.dataset.position] || 99;
+            valB = positionOrder[b.dataset.position] || 99;
+        } else if (sortBy === 'points') {
+            valA = parseFloat(a.dataset.points) || 0;
+            valB = parseFloat(b.dataset.points) || 0;
+        }
+
+        return ascending ? valA - valB : valB - valA;
+    });
+
+    // Re-append rows in sorted order
+    rows.forEach(row => tbody.appendChild(row));
+
+    // Update sort icons
+    updateSortIcons(teamId, sortBy, ascending);
+}
+
+function updateSortIcons(teamId, activeColumn, ascending) {
+    // Reset all sort icons for this team
+    ['name', 'points', 'position'].forEach(col => {
+        const icon = document.getElementById(`sort-${col}-${teamId}`);
+        if (icon) icon.textContent = '⇅';
+    });
+
+    // Set active icon with direction
+    const activeIcon = document.getElementById(`sort-${activeColumn}-${teamId}`);
+    if (activeIcon) {
+        activeIcon.textContent = ascending ? '↑' : '↓';
+    }
+}
+
+async function showPointsModal(playerId, playerName, teamId) {
+    currentPlayerId = playerId;
+    currentTeamId = teamId;
+    
+    const modal = document.getElementById('fantasyModal');
+    const playerNameEl = document.getElementById('modalPlayerName');
+    const containerEl = document.getElementById('matchPointsContainer');
+    
+    playerNameEl.textContent = playerName + ' - Fantasy Points';
+    containerEl.innerHTML = '<p>Loading...</p>';
+    modal.style.display = 'flex';
+    
+    try {
+        const response = await secureFetch(`/api/fantasy/points/${playerId}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('modalTotalPoints').textContent = data.player.total_points;
+            
+            if (data.entries.length > 0) {
+                let html = `
+                    <table class="match-points-table">
+                        <thead>
+                            <tr>
+                                <th>Match #</th>
+                                <th>Points</th>
+                                ${isAdmin ? '<th>Action</th>' : ''}
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                data.entries.forEach((entry, index) => {
+                    html += `
+                        <tr>
+                            <td>Match ${index + 1} <span class="match-actual">(#${entry.match_number})</span></td>
+                            <td class="points-cell">${entry.points}</td>
+                            ${isAdmin ? `<td><button class="btn btn-small btn-danger" onclick="deleteMatchPoints(${entry.id})">🗑️</button></td>` : ''}
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table>';
+                containerEl.innerHTML = html;
+            } else {
+                containerEl.innerHTML = '<p class="no-matches">No match points recorded yet.</p>';
+            }
+            
+            // Reset add form - suggest next WPL match number
+            if (isAdmin) {
+                const nextMatch = data.entries.length > 0
+                    ? Math.max(...data.entries.map(e => e.match_number)) + 1
+                    : 1;
+                document.getElementById('matchNumber').value = nextMatch;
+                document.getElementById('matchPoints').value = '';
+            }
+        } else {
+            containerEl.innerHTML = '<p class="error">Error loading points: ' + escapeHtml(data.error) + '</p>';
+        }
+    } catch (error) {
+        containerEl.innerHTML = '<p class="error">Error loading points: ' + escapeHtml(error.message) + '</p>';
+    }
+}
+
+function closeModal() {
+    document.getElementById('fantasyModal').style.display = 'none';
+    currentPlayerId = null;
+    currentTeamId = null;
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('fantasyModal');
+    if (event.target === modal) {
+        closeModal();
+    }
+}
+
+// Close modal on ESC key and handle focus
+document.addEventListener('keydown', function(event) {
+    const modal = document.getElementById('fantasyModal');
+    if (modal.style.display === 'flex') {
+        if (event.key === 'Escape') {
+            closeModal();
+        }
+        // Trap focus within modal
+        if (event.key === 'Tab') {
+            const focusableElements = modal.querySelectorAll(
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+            );
+            const firstElement = focusableElements[0];
+            const lastElement = focusableElements[focusableElements.length - 1];
+
+            if (event.shiftKey && document.activeElement === firstElement) {
+                event.preventDefault();
+                lastElement.focus();
+            } else if (!event.shiftKey && document.activeElement === lastElement) {
+                event.preventDefault();
+                firstElement.focus();
+            }
+        }
+    }
+});
+
+let isAddingPoints = false;
+async function addMatchPoints() {
+    if (!currentPlayerId || isAddingPoints) return;
+
+    const matchNumberEl = document.getElementById('matchNumber');
+    const matchPointsEl = document.getElementById('matchPoints');
+    const matchNumber = parseInt(matchNumberEl?.value, 10);
+    const points = parseFloat(matchPointsEl?.value);
+
+    if (!matchNumber || matchNumber < 1 || isNaN(matchNumber)) {
+        showNotification('Please enter a valid match number', 'error');
+        return;
+    }
+
+    if (isNaN(points)) {
+        showNotification('Please enter a points value', 'error');
+        return;
+    }
+
+    isAddingPoints = true;
+    const addBtn = document.querySelector('.add-points-form .btn-primary');
+    if (addBtn) {
+        addBtn.disabled = true;
+        addBtn.textContent = '⏳ Adding...';
+    }
+
+    try {
+        const response = await secureFetch('/api/fantasy/points/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                player_id: currentPlayerId,
+                match_number: matchNumber,
+                points: points
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Refresh the modal
+            const playerNameEl = document.getElementById('modalPlayerName');
+            const playerName = playerNameEl ? playerNameEl.textContent.replace(' - Fantasy Points', '') : '';
+            showPointsModal(currentPlayerId, playerName, currentTeamId);
+
+            // Update the main table
+            const pointsEl = document.getElementById(`points-${currentPlayerId}`);
+            if (pointsEl) pointsEl.textContent = data.total_points;
+            updateTeamTotal(currentTeamId);
+            showNotification('Points added successfully!', 'success');
+        } else {
+            showNotification('Error: ' + (data.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        showNotification('Error adding points: ' + error.message, 'error');
+    } finally {
+        isAddingPoints = false;
+        if (addBtn) {
+            addBtn.disabled = false;
+            addBtn.textContent = 'Add Points';
+        }
+    }
+}
+
+async function deleteMatchPoints(entryId) {
+    if (!confirm('Are you sure you want to delete this match entry?')) {
+        return;
+    }
+
+    // Find and disable the delete button
+    const deleteBtn = document.querySelector(`button[onclick="deleteMatchPoints(${entryId})"]`);
+    if (deleteBtn) {
+        deleteBtn.disabled = true;
+        deleteBtn.textContent = '⏳';
+    }
+
+    try {
+        const response = await secureFetch(`/api/fantasy/points/delete/${entryId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Refresh the modal
+            const playerNameEl = document.getElementById('modalPlayerName');
+            const playerName = playerNameEl ? playerNameEl.textContent.replace(' - Fantasy Points', '') : '';
+            showPointsModal(currentPlayerId, playerName, currentTeamId);
+            
+            // Update the main table
+            const pointsEl = document.getElementById(`points-${currentPlayerId}`);
+            if (pointsEl) pointsEl.textContent = data.total_points;
+            updateTeamTotal(currentTeamId);
+            showNotification('Match entry deleted', 'success');
+        } else {
+            showNotification('Error: ' + (data.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        showNotification('Error deleting entry: ' + error.message, 'error');
+    }
+}
+
+function updateTeamTotal(teamId) {
+    if (!teamId) return;
+    const rows = document.querySelectorAll(`tr[data-team-id="${teamId}"]`);
+    let total = 0;
+
+    rows.forEach(row => {
+        const playerId = row.dataset.playerId;
+        if (playerId) {
+            const pointsEl = document.getElementById(`points-${playerId}`);
+            total += parseFloat(pointsEl?.textContent) || 0;
+        }
+    });
+
+    const totalEl = document.getElementById(`team-total-${teamId}`);
+    if (totalEl) {
+        totalEl.textContent = total.toFixed(1);
+    }
+}
+
+async function setAward(awardType, playerId) {
+    const select = document.getElementById(`${awardType.replace('_', '-')}-select`);
+    if (select) select.disabled = true;
+
+    try {
+        const response = await secureFetch('/api/fantasy/award', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ award_type: awardType, player_id: playerId || null })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Show brief success feedback
+            if (select) {
+                select.style.backgroundColor = '#d4edda';
+                setTimeout(() => {
+                    select.style.backgroundColor = '';
+                }, 500);
+            }
+            showNotification('Award updated!', 'success');
+        } else {
+            showNotification('Error: ' + (data.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        showNotification('Error setting award: ' + error.message, 'error');
+    } finally {
+        if (select) select.disabled = false;
+    }
+}
+
+// Filter functionality - dynamically get values from page data
+function getUniqueValues(attribute) {
+    const values = new Set();
+    document.querySelectorAll('.player-row').forEach(row => {
+        const val = row.dataset[attribute];
+        if (val && val.trim()) values.add(val.trim());
+    });
+    return Array.from(values).sort();
+}
+
+const positions = ['Batter', 'Keeper', 'Allrounder', 'Bowler'];
+let selectedFilters = new Set();
+let isDropdownOpen = false;
+
+function updateFilterOptions() {
+    const filterType = document.getElementById('filterType').value;
+    const multiSelectContainer = document.getElementById('multiSelectContainer');
+    const dropdown = document.getElementById('multiSelectDropdown');
+
+    // Reset selections
+    selectedFilters.clear();
+    isDropdownOpen = false;
+
+    if (filterType === 'none') {
+        multiSelectContainer.style.display = 'none';
+        clearFilter();
+        return;
+    }
+
+    multiSelectContainer.style.display = 'inline-block';
+    dropdown.innerHTML = '';
+    dropdown.classList.remove('show');
+
+    // Get dynamic values from page data
+    const options = filterType === 'team' ? getUniqueValues('originalTeam') : positions;
+
+    options.forEach(opt => {
+        const label = document.createElement('label');
+        label.className = 'multi-select-option';
+        label.innerHTML = `
+            <input type="checkbox" value="${escapeHtml(opt)}" onchange="handleFilterChange(this)">
+            <span>${escapeHtml(opt)}</span>
+        `;
+        dropdown.appendChild(label);
+    });
+
+    updateMultiSelectLabel();
+}
+
+function toggleMultiSelect() {
+    const dropdown = document.getElementById('multiSelectDropdown');
+    const arrow = document.querySelector('.dropdown-arrow');
+    isDropdownOpen = !isDropdownOpen;
+    dropdown.classList.toggle('show', isDropdownOpen);
+    // Use JS for arrow rotation (CSS :has() not supported in Firefox)
+    if (arrow) {
+        arrow.style.transform = isDropdownOpen ? 'rotate(180deg)' : '';
+    }
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(event) {
+    const container = document.getElementById('multiSelectContainer');
+    if (container && !container.contains(event.target)) {
+        const dropdown = document.getElementById('multiSelectDropdown');
+        const arrow = document.querySelector('.dropdown-arrow');
+        if (dropdown) {
+            dropdown.classList.remove('show');
+            isDropdownOpen = false;
+            if (arrow) arrow.style.transform = '';
+        }
+    }
+});
+
+function handleFilterChange(checkbox) {
+    if (checkbox.checked) {
+        selectedFilters.add(checkbox.value);
+    } else {
+        selectedFilters.delete(checkbox.value);
+    }
+    updateMultiSelectLabel();
+    applyFilter();
+}
+
+function updateMultiSelectLabel() {
+    const label = document.getElementById('multiSelectLabel');
+    if (selectedFilters.size === 0) {
+        label.textContent = 'Select...';
+    } else if (selectedFilters.size === 1) {
+        label.textContent = Array.from(selectedFilters)[0];
+    } else {
+        label.textContent = `${selectedFilters.size} selected`;
+    }
+}
+
+function applyFilter() {
+    // Use combined filter that respects both search and dropdown filters
+    applyAllFilters();
+}
+
+// Player search functionality
+let currentSearchQuery = '';
+
+function searchPlayers(query) {
+    currentSearchQuery = query.toLowerCase().trim();
+    applyAllFilters();
+}
+
+function applyAllFilters() {
+    const filterType = document.getElementById('filterType').value;
+
+    document.querySelectorAll('.player-row').forEach(row => {
+        const name = (row.dataset.playerName || '').toLowerCase();
+        const matchesSearch = !currentSearchQuery || name.includes(currentSearchQuery);
+
+        let matchesFilter = true;
+        if (filterType !== 'none' && selectedFilters.size > 0) {
+            if (filterType === 'team') {
+                matchesFilter = selectedFilters.has(row.dataset.originalTeam);
+            } else if (filterType === 'position') {
+                matchesFilter = selectedFilters.has(row.dataset.position);
+            }
+        }
+
+        row.style.display = (matchesSearch && matchesFilter) ? '' : 'none';
+    });
+
+    updateTeamCardVisibility();
+}
+
+function clearFilter() {
+    // Clear search
+    const searchInput = document.getElementById('playerSearch');
+    if (searchInput) searchInput.value = '';
+    currentSearchQuery = '';
+
+    // Clear filter dropdown
+    document.getElementById('filterType').value = 'none';
+    document.getElementById('multiSelectContainer').style.display = 'none';
+    selectedFilters.clear();
+    updateMultiSelectLabel();
+
+    // Show all rows
+    document.querySelectorAll('.player-row').forEach(row => {
+        row.style.display = '';
+    });
+
+    // Show all team cards
+    document.querySelectorAll('.fantasy-card').forEach(card => {
+        card.style.display = '';
+    });
+}
+
+function updateTeamCardVisibility() {
+    document.querySelectorAll('.fantasy-card').forEach(card => {
+        // Check if all rows in this card are hidden
+        const allRows = card.querySelectorAll('.player-row');
+        const allHidden = Array.from(allRows).every(row => row.style.display === 'none');
+
+        card.style.display = allHidden ? 'none' : '';
+    });
+}
+
+// Collapsible team sections
+function toggleTeamCollapse(teamId) {
+    const card = document.querySelector(`.fantasy-card[data-team-id="${teamId}"]`);
+    if (!card) return;
+
+    const toggle = card.querySelector('.collapse-toggle');
+    const playersList = document.getElementById(`players-list-${teamId}`);
+
+    if (!playersList) return;
+
+    const isCollapsed = playersList.classList.toggle('collapsed');
+    toggle.classList.toggle('collapsed', isCollapsed);
+    toggle.setAttribute('aria-expanded', !isCollapsed);
+}
+
+// State persistence using localStorage
+const STORAGE_KEY = 'fantasyPageState';
+
+function savePageState() {
+    const state = {
+        searchQuery: currentSearchQuery,
+        filterType: document.getElementById('filterType').value,
+        selectedFilters: Array.from(selectedFilters),
+        sortState: sortState,
+        collapsedTeams: getCollapsedTeams()
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function getCollapsedTeams() {
+    const collapsed = [];
+    document.querySelectorAll('.players-list.collapsed').forEach(el => {
+        const match = el.id.match(/players-list-(\d+)/);
+        if (match) collapsed.push(parseInt(match[1], 10));
+    });
+    return collapsed;
+}
+
+function restorePageState() {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) return false;
+
+    try {
+        const state = JSON.parse(saved);
+
+        // Restore search
+        if (state.searchQuery) {
+            const searchInput = document.getElementById('playerSearch');
+            if (searchInput) {
+                searchInput.value = state.searchQuery;
+                currentSearchQuery = state.searchQuery;
+            }
+        }
+
+        // Restore filter
+        if (state.filterType && state.filterType !== 'none') {
+            document.getElementById('filterType').value = state.filterType;
+            updateFilterOptions();
+
+            // Restore selected filter values
+            if (state.selectedFilters && state.selectedFilters.length > 0) {
+                state.selectedFilters.forEach(val => selectedFilters.add(val));
+                // Check the corresponding checkboxes
+                document.querySelectorAll('#multiSelectDropdown input[type="checkbox"]').forEach(cb => {
+                    if (selectedFilters.has(cb.value)) cb.checked = true;
+                });
+                updateMultiSelectLabel();
+            }
+        }
+
+        // Restore sort state
+        if (state.sortState) {
+            Object.assign(sortState, state.sortState);
+        }
+
+        // Restore collapsed teams
+        if (state.collapsedTeams) {
+            state.collapsedTeams.forEach(teamId => {
+                const playersList = document.getElementById(`players-list-${teamId}`);
+                const toggle = document.querySelector(`.fantasy-card[data-team-id="${teamId}"] .collapse-toggle`);
+                if (playersList && toggle) {
+                    playersList.classList.add('collapsed');
+                    toggle.classList.add('collapsed');
+                    toggle.setAttribute('aria-expanded', 'false');
+                }
+            });
+        }
+
+        return true;
+    } catch (e) {
+        console.error('Error restoring page state:', e);
+        return false;
+    }
+}
+
+// Override functions to save state on change
+const originalToggleTeamCollapse = toggleTeamCollapse;
+toggleTeamCollapse = function(teamId) {
+    originalToggleTeamCollapse(teamId);
+    savePageState();
+};
+
+const originalHandleFilterChange = handleFilterChange;
+handleFilterChange = function(checkbox) {
+    originalHandleFilterChange(checkbox);
+    savePageState();
+};
+
+const originalSearchPlayers = searchPlayers;
+searchPlayers = function(query) {
+    originalSearchPlayers(query);
+    savePageState();
+};
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const hasState = restorePageState();
+
+    // Apply filters/search if restored
+    if (hasState) {
+        applyAllFilters();
+    }
+
+    // Apply sorts (use restored state or default to points)
+    const teamCards = document.querySelectorAll('.fantasy-card[data-team-id]');
+    teamCards.forEach(card => {
+        const teamId = parseInt(card.dataset.teamId, 10);
+        if (sortState[teamId]) {
+            // Re-apply saved sort
+            const { column, ascending } = sortState[teamId];
+            // Temporarily set to opposite so sortTable toggles to correct direction
+            sortState[teamId].ascending = !ascending;
+            sortTable(teamId, column);
+        } else {
+            // Default sort by points
+            sortTable(teamId, 'points');
+        }
+    });
+});
+</script>
+{% endblock %}

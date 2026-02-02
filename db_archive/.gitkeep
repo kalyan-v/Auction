@@ -1,0 +1,2 @@
+# This file ensures the db_archive folder is tracked by git
+# Database backups are stored here by the daily backup workflow

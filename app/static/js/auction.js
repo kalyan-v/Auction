@@ -88,18 +88,6 @@ async function selectTeam(teamId, teamName) {
 
     isProcessingBid = true;
 
-    selectedTeamId = teamId;
-    selectedTeamName = teamName;
-
-    // Update UI
-    document.querySelectorAll('.team-btn').forEach(btn => btn.classList.remove('selected'));
-    const selectedBtn = document.querySelector(`.team-btn[data-team-id="${teamId}"]`);
-    if (selectedBtn) {
-        selectedBtn.classList.add('selected');
-    }
-    const selectedTeamEl = document.getElementById('selectedTeamName');
-    if (selectedTeamEl) selectedTeamEl.textContent = teamName;
-    
     // Calculate bid amount:
     // - If no bids yet (leadingTeamName is '-'), bid at base price
     // - Otherwise, add 25L increment
@@ -131,10 +119,23 @@ async function selectTeam(teamId, teamName) {
         const data = await response.json();
         
         if (data.success) {
+            // Update state AFTER successful API call (prevents race condition)
+            selectedTeamId = teamId;
+            selectedTeamName = teamName;
             currentBidPrice = newBidPrice;
             leadingTeamName = teamName;
+
+            // Update UI only after success
+            document.querySelectorAll('.team-btn').forEach(btn => btn.classList.remove('selected'));
+            const selectedBtn = document.querySelector(`.team-btn[data-team-id="${teamId}"]`);
+            if (selectedBtn) {
+                selectedBtn.classList.add('selected');
+            }
+            const selectedTeamEl = document.getElementById('selectedTeamName');
+            if (selectedTeamEl) selectedTeamEl.textContent = teamName;
+
             updateBidDisplay();
-            
+
             if (isBasePriceBid) {
                 showNotification(`${teamName} bids ₹${newBidPrice} L (base price)`, 'success');
             } else {

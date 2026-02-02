@@ -369,26 +369,25 @@ class FantasyService(BaseService):
             logger.error(f"Error creating scraper: {e}")
             raise ValidationError(f'Failed to initialize scraper: {str(e)}')
 
-        with scraper:
-            # Fetch Orange Cap
-            results = self._fetch_award(
-                scraper, 'get_orange_cap', AwardType.ORANGE_CAP,
-                league_id, results, 'runs'
-            )
+        with self.transaction():
+            with scraper:
+                # Fetch Orange Cap
+                results = self._fetch_award(
+                    scraper, 'get_orange_cap', AwardType.ORANGE_CAP,
+                    league_id, results, 'runs'
+                )
 
-            # Fetch Purple Cap
-            results = self._fetch_award(
-                scraper, 'get_purple_cap', AwardType.PURPLE_CAP,
-                league_id, results, 'wickets'
-            )
+                # Fetch Purple Cap
+                results = self._fetch_award(
+                    scraper, 'get_purple_cap', AwardType.PURPLE_CAP,
+                    league_id, results, 'wickets'
+                )
 
-            # Fetch MVP
-            results = self._fetch_award(
-                scraper, 'get_mvp', AwardType.MVP,
-                league_id, results, 'points'
-            )
-
-        db.session.commit()
+                # Fetch MVP
+                results = self._fetch_award(
+                    scraper, 'get_mvp', AwardType.MVP,
+                    league_id, results, 'points'
+                )
 
         return {
             'success': len(results['errors']) == 0,
@@ -475,71 +474,70 @@ class FantasyService(BaseService):
         updated_players = []
         not_found_players = []
 
-        for wpl_name, data in all_player_stats.items():
-            total_fantasy_points = data.get('total_fantasy_points', 0)
-            matches_played = data.get('matches_played', 0)
+        with self.transaction():
+            for wpl_name, data in all_player_stats.items():
+                total_fantasy_points = data.get('total_fantasy_points', 0)
+                matches_played = data.get('matches_played', 0)
 
-            player = self.find_player_by_name(wpl_name, league_id)
+                player = self.find_player_by_name(wpl_name, league_id)
 
-            if player:
-                # Get existing game_ids (only non-deleted entries)
-                existing_entries = FantasyPointEntry.query.filter_by(
-                    player_id=player.id,
-                    league_id=league_id,
-                    is_deleted=False
-                ).all()
-                existing_game_ids = {e.game_id for e in existing_entries if e.game_id}
-
-                new_entries_added = 0
-                for match in data.get('matches', []):
-                    game_id = match.get('game_id', '')
-
-                    if game_id and game_id in existing_game_ids:
-                        continue
-
-                    match_num_str = match.get('match', '')
-                    if isinstance(match_num_str, str):
-                        match_num_str = match_num_str.replace('Match ', '').strip()
-                    try:
-                        match_number = int(match_num_str)
-                    except (ValueError, TypeError):
-                        continue
-
-                    points = match.get('fantasy_points', 0)
-
-                    entry = FantasyPointEntry(
+                if player:
+                    # Get existing game_ids (only non-deleted entries)
+                    existing_entries = FantasyPointEntry.query.filter_by(
                         player_id=player.id,
-                        match_number=match_number,
-                        game_id=game_id,
-                        points=points,
-                        league_id=league_id
-                    )
-                    db.session.add(entry)
-                    existing_game_ids.add(game_id)
-                    new_entries_added += 1
+                        league_id=league_id,
+                        is_deleted=False
+                    ).all()
+                    existing_game_ids = {e.game_id for e in existing_entries if e.game_id}
 
-                # Recalculate total
-                db.session.flush()
-                total_from_entries = self._calculate_total_points(player.id, league_id)
-                player.fantasy_points = total_from_entries
+                    new_entries_added = 0
+                    for match in data.get('matches', []):
+                        game_id = match.get('game_id', '')
 
-                updated_players.append({
-                    'name': player.name,
-                    'wpl_name': wpl_name,
-                    'total_points': total_from_entries,
-                    'matches': matches_played,
-                    'new_matches_added': new_entries_added,
-                    'total_runs': data.get('total_runs', 0),
-                    'total_wickets': data.get('total_wickets', 0),
-                })
-            else:
-                not_found_players.append({
-                    'wpl_name': wpl_name,
-                    'total_points': total_fantasy_points,
-                    'matches': matches_played,
-                })
+                        if game_id and game_id in existing_game_ids:
+                            continue
 
-        db.session.commit()
+                        match_num_str = match.get('match', '')
+                        if isinstance(match_num_str, str):
+                            match_num_str = match_num_str.replace('Match ', '').strip()
+                        try:
+                            match_number = int(match_num_str)
+                        except (ValueError, TypeError):
+                            continue
+
+                        points = match.get('fantasy_points', 0)
+
+                        entry = FantasyPointEntry(
+                            player_id=player.id,
+                            match_number=match_number,
+                            game_id=game_id,
+                            points=points,
+                            league_id=league_id
+                        )
+                        db.session.add(entry)
+                        existing_game_ids.add(game_id)
+                        new_entries_added += 1
+
+                    # Recalculate total
+                    self.flush()
+                    total_from_entries = self._calculate_total_points(player.id, league_id)
+                    player.fantasy_points = total_from_entries
+
+                    updated_players.append({
+                        'name': player.name,
+                        'wpl_name': wpl_name,
+                        'total_points': total_from_entries,
+                        'matches': matches_played,
+                        'new_matches_added': new_entries_added,
+                        'total_runs': data.get('total_runs', 0),
+                        'total_wickets': data.get('total_wickets', 0),
+                    })
+                else:
+                    not_found_players.append({
+                        'wpl_name': wpl_name,
+                        'total_points': total_fantasy_points,
+                        'matches': matches_played,
+                    })
 
         return {
             'success': True,

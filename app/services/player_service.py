@@ -540,25 +540,24 @@ class PlayerService(BaseService):
 
         results = {'found': 0, 'not_found': 0, 'players': []}
 
-        for player in players:
-            local_path = self._search_and_download_image(player.id, player.name)
+        with self.transaction():
+            for player in players:
+                local_path = self._search_and_download_image(player.id, player.name)
 
-            if local_path:
-                player.image_url = local_path
-                results['found'] += 1
-                results['players'].append({
-                    'name': player.name,
-                    'status': 'found',
-                    'image_url': local_path
-                })
-            else:
-                results['not_found'] += 1
-                results['players'].append({
-                    'name': player.name,
-                    'status': 'not_found'
-                })
-
-        db.session.commit()
+                if local_path:
+                    player.image_url = local_path
+                    results['found'] += 1
+                    results['players'].append({
+                        'name': player.name,
+                        'status': 'found',
+                        'image_url': local_path
+                    })
+                else:
+                    results['not_found'] += 1
+                    results['players'].append({
+                        'name': player.name,
+                        'status': 'not_found'
+                    })
 
         return {
             'success': True,

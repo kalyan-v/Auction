@@ -176,15 +176,15 @@
             <table class="squad-table fantasy-table" id="table-{{ team.id }}">
                 <thead>
                     <tr>
-                        <th class="sortable" onclick="sortTable({{ team.id }}, 'name')">
-                            Player <span class="sort-icon" id="sort-name-{{ team.id }}">⇅</span>
+                        <th class="sortable" tabindex="0" role="button" aria-label="Sort by player name" onclick="sortTable({{ team.id }}, 'name')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();sortTable({{ team.id }}, 'name');}">
+                            Player <span class="sort-icon" id="sort-name-{{ team.id }}" aria-hidden="true">⇅</span>
                         </th>
-                        <th class="sortable" onclick="sortTable({{ team.id }}, 'points')">
-                            Total Points <span class="sort-icon" id="sort-points-{{ team.id }}">⇅</span>
+                        <th class="sortable" tabindex="0" role="button" aria-label="Sort by total points" onclick="sortTable({{ team.id }}, 'points')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();sortTable({{ team.id }}, 'points');}">
+                            Total Points <span class="sort-icon" id="sort-points-{{ team.id }}" aria-hidden="true">⇅</span>
                         </th>
                         <th>Original Team</th>
-                        <th class="sortable" onclick="sortTable({{ team.id }}, 'position')">
-                            Position <span class="sort-icon" id="sort-position-{{ team.id }}">⇅</span>
+                        <th class="sortable" tabindex="0" role="button" aria-label="Sort by position" onclick="sortTable({{ team.id }}, 'position')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();sortTable({{ team.id }}, 'position');}">
+                            Position <span class="sort-icon" id="sort-position-{{ team.id }}" aria-hidden="true">⇅</span>
                         </th>
                     </tr>
                 </thead>
@@ -204,7 +204,7 @@
                         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showPointsModalFromRow(this);}">
                         <td class="player-name-cell">
                             {% if player.image_url %}
-                            <img src="{{ player.image_url }}" alt="" class="player-thumbnail" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                            <img src="{{ player.image_url }}" alt="{{ player.name }}" class="player-thumbnail" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                             <span class="player-thumbnail-placeholder" style="display:none;">🏏</span>
                             {% else %}
                             <span class="player-thumbnail-placeholder">🏏</span>
@@ -278,6 +278,9 @@
 let currentPlayerId = null;
 let currentTeamId = null;
 const isAdmin = {{ 'true' if admin_mode else 'false' }};
+
+// Cache for lowercase player names (performance optimization)
+const playerNameCache = new Map();
 
 // Fetch all WPL data (awards + fantasy points)
 async function fetchAllData() {
@@ -789,7 +792,8 @@ function applyAllFilters() {
     const filterType = document.getElementById('filterType').value;
 
     document.querySelectorAll('.player-row').forEach(row => {
-        const name = (row.dataset.playerName || '').toLowerCase();
+        // Use cached lowercase name for better performance
+        const name = playerNameCache.get(row) || (row.dataset.playerName || '').toLowerCase();
         const matchesSearch = !currentSearchQuery || name.includes(currentSearchQuery);
 
         let matchesFilter = true;
@@ -828,6 +832,9 @@ function clearFilter() {
     document.querySelectorAll('.fantasy-card').forEach(card => {
         card.style.display = '';
     });
+
+    // Persist cleared state
+    savePageState();
 }
 
 function updateTeamCardVisibility() {
@@ -956,6 +963,12 @@ searchPlayers = function(query) {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
+    // Pre-cache lowercase player names for search performance
+    document.querySelectorAll('.player-row').forEach(row => {
+        const name = row.dataset.playerName || '';
+        playerNameCache.set(row, name.toLowerCase());
+    });
+
     const hasState = restorePageState();
 
     // Apply filters/search if restored

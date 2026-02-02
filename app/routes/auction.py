@@ -13,7 +13,7 @@ from app.utils import is_admin
 
 
 @auction_bp.route('/')
-def auction_room():
+def auction_room() -> str:
     """Main auction interface."""
     current_league = get_current_league()
     all_leagues = League.query.filter_by(is_deleted=False).all()

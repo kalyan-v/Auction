@@ -12,12 +12,13 @@ Handles:
 """
 
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, Union
 from urllib.parse import urlparse
 
 from flask import (
-    current_app, jsonify, redirect, render_template, request, session, url_for
+    Response, current_app, jsonify, redirect, render_template, request, session, url_for
 )
+from werkzeug.wrappers import Response as WerkzeugResponse
 from sqlalchemy import text
 
 from sqlalchemy.orm import joinedload
@@ -46,7 +47,7 @@ def get_current_league() -> Optional[League]:
 
 
 @main_bp.route('/')
-def index():
+def index() -> WerkzeugResponse:
     """Home page - redirects to Fantasy Points."""
     return redirect(url_for('main.fantasy'))
 
@@ -65,7 +66,7 @@ def is_safe_redirect_url(url: str) -> bool:
 
 
 @main_bp.route('/switch-league/<int:league_id>')
-def switch_league(league_id: int):
+def switch_league(league_id: int) -> WerkzeugResponse:
     """Switch to a different league."""
     league = League.query.filter_by(id=league_id, is_deleted=False).first()
     if league:
@@ -80,7 +81,7 @@ def switch_league(league_id: int):
 
 @main_bp.route('/login', methods=['GET', 'POST'])
 @limiter.limit("5 per minute", methods=["POST"])
-def login():
+def login() -> Union[str, WerkzeugResponse]:
     """Admin login page with rate limiting protection."""
     if request.method == 'POST':
         username = request.form.get('username')
@@ -118,7 +119,7 @@ def login():
 
 
 @main_bp.route('/logout')
-def logout():
+def logout() -> WerkzeugResponse:
     """Logout admin and redirect safely."""
     session.pop('is_admin', None)
     session.pop('current_league_id', None)
@@ -131,7 +132,7 @@ def logout():
 
 
 @main_bp.route('/health')
-def health_check():
+def health_check() -> tuple[Response, int] | Response:
     """Health check endpoint for load balancers and orchestration.
 
     Returns:
@@ -154,7 +155,7 @@ def health_check():
 
 
 @main_bp.route('/setup')
-def setup():
+def setup() -> str:
     """Setup page for adding teams and players - view only if not admin."""
     current_league = get_current_league()
     all_leagues = League.query.filter_by(is_deleted=False).all()
@@ -181,7 +182,7 @@ def setup():
 
 
 @main_bp.route('/squads')
-def squads():
+def squads() -> str:
     """View all team squads with players and budgets."""
     current_league = get_current_league()
     all_leagues = League.query.filter_by(is_deleted=False).all()
@@ -203,7 +204,7 @@ def squads():
 
 
 @main_bp.route('/fantasy')
-def fantasy():
+def fantasy() -> str:
     """Fantasy points page for viewing and managing player points.
 
     Uses eager loading to prevent N+1 queries when iterating over teams.

@@ -74,7 +74,7 @@
                         <tr class="player-row" data-player-id="{{ player.id }}" data-player-name="{{ player.name }}">
                             <td onclick="showBidHistoryFromRow(this.parentElement)" class="player-name-cell">
                                 {% if player.image_url %}
-                                <img src="{{ player.image_url }}" alt="" class="player-thumbnail" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <img src="{{ player.image_url }}" alt="{{ player.name }}" class="player-thumbnail" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                                 <span class="player-thumbnail-placeholder" style="display:none;">🏏</span>
                                 {% else %}
                                 <span class="player-thumbnail-placeholder">🏏</span>

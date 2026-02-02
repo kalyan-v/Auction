@@ -5,12 +5,45 @@ Handles WPL website scraping for stats, points table, and match data.
 Uses the pluggable scraper architecture for league support.
 """
 
+from urllib.parse import urlparse
+
 from flask import Response, jsonify, request
 
+from app.logger import get_logger
 from app.routes import api_bp
 from app.scrapers import get_scraper, ScraperType
 from app.scrapers.base import BaseScraper
 from app.utils import error_response
+
+logger = get_logger(__name__)
+
+# Trusted domains for match URL validation (SSRF prevention)
+TRUSTED_MATCH_DOMAINS = {
+    'www.wplt20.com',
+    'wplt20.com',
+}
+
+
+def _validate_match_url(url: str) -> bool:
+    """Validate that a match URL is from a trusted WPL domain.
+
+    SECURITY: Prevents SSRF attacks by only allowing URLs from trusted domains.
+
+    Args:
+        url: URL to validate.
+
+    Returns:
+        True if URL is from a trusted domain, False otherwise.
+    """
+    if not url or not isinstance(url, str):
+        return False
+
+    try:
+        parsed = urlparse(url.strip())
+        # Must be HTTPS and from trusted domain
+        return parsed.scheme == 'https' and parsed.netloc in TRUSTED_MATCH_DOMAINS
+    except Exception:
+        return False
 
 
 def _get_current_scraper() -> BaseScraper:
@@ -53,7 +86,8 @@ def get_orange_cap_stats() -> tuple[Response, int] | Response:
                 })
             return jsonify(result.to_dict())
     except Exception as e:
-        return error_response(str(e), 500)
+        logger.error(f"Error fetching cricket data: {e}", exc_info=True)
+        return error_response('Failed to fetch cricket data', 500)
 
 
 @api_bp.route('/cricket/stats/purple-cap', methods=['GET'])
@@ -80,7 +114,8 @@ def get_purple_cap_stats() -> tuple[Response, int] | Response:
                 })
             return jsonify(result.to_dict())
     except Exception as e:
-        return error_response(str(e), 500)
+        logger.error(f"Error fetching cricket data: {e}", exc_info=True)
+        return error_response('Failed to fetch cricket data', 500)
 
 
 @api_bp.route('/cricket/stats/mvp', methods=['GET'])
@@ -105,7 +140,8 @@ def get_mvp_stats() -> tuple[Response, int] | Response:
                 })
             return jsonify(result.to_dict())
     except Exception as e:
-        return error_response(str(e), 500)
+        logger.error(f"Error fetching cricket data: {e}", exc_info=True)
+        return error_response('Failed to fetch cricket data', 500)
 
 
 @api_bp.route('/cricket/stats/<stat_type>', methods=['GET'])
@@ -126,7 +162,8 @@ def get_cricket_stats(stat_type: str) -> tuple[Response, int] | Response:
                 return jsonify(result.to_dict())
             return error_response(f"Stat type '{stat_type}' not supported", 400)
     except Exception as e:
-        return error_response(str(e), 500)
+        logger.error(f"Error fetching cricket data: {e}", exc_info=True)
+        return error_response('Failed to fetch cricket data', 500)
 
 
 # ==================== POINTS TABLE ====================
@@ -143,7 +180,8 @@ def get_points_table() -> tuple[Response, int] | Response:
             result = scraper.get_points_table()
             return jsonify(result)
     except Exception as e:
-        return error_response(str(e), 500)
+        logger.error(f"Error fetching cricket data: {e}", exc_info=True)
+        return error_response('Failed to fetch cricket data', 500)
 
 
 # ==================== MATCH DATA ====================
@@ -159,7 +197,8 @@ def get_matches() -> tuple[Response, int] | Response:
         with _get_current_scraper() as scraper:
             return jsonify(scraper.get_all_match_urls())
     except Exception as e:
-        return error_response(str(e), 500)
+        logger.error(f"Error fetching cricket data: {e}", exc_info=True)
+        return error_response('Failed to fetch cricket data', 500)
 
 
 @api_bp.route('/cricket/match/scorecard', methods=['POST'])
@@ -175,9 +214,14 @@ def get_match_scorecard_data() -> tuple[Response, int] | Response:
     if not match_url:
         return error_response('Match URL required')
 
+    # SECURITY: Validate URL is from trusted WPL domain (SSRF prevention)
+    if not _validate_match_url(match_url):
+        return error_response('Invalid match URL - must be from wplt20.com')
+
     try:
         with _get_current_scraper() as scraper:
             result = scraper.scrape_match_scorecard(match_url)
             return jsonify(result.to_dict())
     except Exception as e:
-        return error_response(str(e), 500)
+        logger.error(f"Error fetching cricket data: {e}", exc_info=True)
+        return error_response('Failed to fetch cricket data', 500)

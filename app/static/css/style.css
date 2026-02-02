@@ -606,14 +606,7 @@ input:focus {
     font-weight: bold;
 }
 
-/* Auctioneer Panel */
-.auctioneer-panel {
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-    padding: 1.5rem;
-    border-radius: 10px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-    color: white;
-}
+/* Auctioneer Panel - see enhanced styles in ENHANCED VISUAL STYLES section */
 
 .auctioneer-panel h2 {
     text-align: center;
@@ -686,9 +679,15 @@ input:focus {
     transition: all 0.3s;
 }
 
-.team-btn:hover {
+.team-btn:hover,
+.team-btn:focus {
     border-color: #ffd700;
     background: rgba(255,215,0,0.1);
+    outline: none;
+}
+
+.team-btn:focus-visible {
+    box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.4);
 }
 
 .team-btn.selected {
@@ -2247,8 +2246,14 @@ input:checked + .toggle-slider:before {
     transition: background 0.2s;
 }
 
-.sortable:hover {
+.sortable:hover,
+.sortable:focus {
     background: #e8f4fd;
+    outline: none;
+}
+
+.sortable:focus-visible {
+    box-shadow: inset 0 0 0 2px #3498db;
 }
 
 .sort-icon {

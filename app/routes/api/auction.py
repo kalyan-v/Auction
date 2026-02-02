@@ -7,17 +7,21 @@ Business logic is delegated to AuctionService.
 
 from flask import Response, jsonify, request
 
+from app.extensions import limiter
 from app.logger import get_logger
 from app.routes import api_bp
 from app.services import ServiceError, ValidationError
 from app.services.auction_service import auction_service
 from app.services.team_service import team_service
-from app.utils import admin_required, error_response, is_admin
+from app.utils import (
+    admin_required, error_response, get_json_body, is_admin, validate_positive_float
+)
 
 logger = get_logger(__name__)
 
 
 @api_bp.route('/bid', methods=['POST'])
+@limiter.limit("30 per minute")
 def place_bid() -> tuple[Response, int] | Response:
     """Place a bid on the current player.
 
@@ -47,6 +51,7 @@ def place_bid() -> tuple[Response, int] | Response:
 
 
 @api_bp.route('/auction/start/<int:player_id>', methods=['POST'])
+@limiter.limit("10 per minute")
 @admin_required
 def start_auction(player_id: int) -> tuple[Response, int] | Response:
     """Start auction for a specific player.
@@ -65,6 +70,7 @@ def start_auction(player_id: int) -> tuple[Response, int] | Response:
 
 
 @api_bp.route('/auction/end', methods=['POST'])
+@limiter.limit("10 per minute")
 @admin_required
 def end_auction() -> tuple[Response, int] | Response:
     """End current auction and assign player to highest bidder.
@@ -80,6 +86,7 @@ def end_auction() -> tuple[Response, int] | Response:
 
 
 @api_bp.route('/auction/unsold', methods=['POST'])
+@limiter.limit("10 per minute")
 @admin_required
 def mark_unsold() -> tuple[Response, int] | Response:
     """Mark current player as unsold.
@@ -95,6 +102,7 @@ def mark_unsold() -> tuple[Response, int] | Response:
 
 
 @api_bp.route('/auction/reset-price', methods=['POST'])
+@limiter.limit("20 per minute")
 @admin_required
 def reset_price() -> tuple[Response, int] | Response:
     """Reset the current player's price to a specific amount.
@@ -102,14 +110,13 @@ def reset_price() -> tuple[Response, int] | Response:
     Returns:
         JSON response with price reset result.
     """
-    data = request.get_json()
-    if not data:
-        return error_response('Request body is required')
+    data, error = get_json_body()
+    if error:
+        return error
 
-    try:
-        new_price = float(data.get('price', 0))
-    except (TypeError, ValueError):
-        return error_response('Invalid price value')
+    new_price, price_error = validate_positive_float(data.get('price'), 'price')
+    if price_error:
+        return error_response(price_error)
 
     try:
         result = auction_service.reset_price(new_price)

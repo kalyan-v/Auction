@@ -86,7 +86,8 @@
     <div class="bidding-section">
         <h2>Place Your Bid</h2>
         <form id="bidForm">
-            <select id="teamSelect" required>
+            <label for="teamSelect" class="visually-hidden">Select Team</label>
+            <select id="teamSelect" required aria-label="Select team for bidding">
                 <option value="" disabled selected>Select Team</option>
                 {% for team in teams %}
                 <option value="{{ team.id }}" data-budget="{{ team.budget }}">
@@ -94,8 +95,9 @@
                 </option>
                 {% endfor %}
             </select>
-            
-            <input type="number" id="bidAmount" placeholder="Bid Amount (in Lakhs)" step="10" min="1" required>
+
+            <label for="bidAmount" class="visually-hidden">Bid Amount in Lakhs</label>
+            <input type="number" id="bidAmount" placeholder="Bid Amount (in Lakhs)" step="10" min="1" required aria-label="Bid amount in Lakhs">
             <button type="submit" class="btn btn-primary" id="bidButton">Place Bid</button>
         </form>
         
@@ -139,9 +141,9 @@
             <div class="player-item" data-player-id="{{ player.id }}">
                 {% if player.image_url %}
                 <img src="{{ player.image_url }}" alt="{{ player.name }}" class="player-photo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                <div class="player-photo-placeholder" style="display:none;">🏏</div>
+                <div class="player-photo-placeholder" style="display:none;" role="img" aria-label="Player photo not available">🏏</div>
                 {% else %}
-                <div class="player-photo-placeholder">🏏</div>
+                <div class="player-photo-placeholder" role="img" aria-label="Player photo not available">🏏</div>
                 {% endif %}
                 <h4>{{ player.name }}</h4>
                 <p>{{ player.position }} {% if player.country == 'Overseas' %}<span class="country-emoji">✈️</span>{% else %}<span class="flag-india"></span>{% endif %}</p>
@@ -162,9 +164,9 @@
             <div class="player-item unsold-item" data-player-id="{{ player.id }}">
                 {% if player.image_url %}
                 <img src="{{ player.image_url }}" alt="{{ player.name }}" class="player-photo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                <div class="player-photo-placeholder" style="display:none;">🏏</div>
+                <div class="player-photo-placeholder" style="display:none;" role="img" aria-label="Player photo not available">🏏</div>
                 {% else %}
-                <div class="player-photo-placeholder">🏏</div>
+                <div class="player-photo-placeholder" role="img" aria-label="Player photo not available">🏏</div>
                 {% endif %}
                 <h4>{{ player.name }}</h4>
                 <p>{{ player.position }} {% if player.country == 'Overseas' %}<span class="country-emoji">✈️</span>{% else %}<span class="flag-india"></span>{% endif %}</p>

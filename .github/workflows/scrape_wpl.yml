@@ -2,7 +2,7 @@ name: Scrape WPL Fantasy Points
 
 # Triggers: manual + schedule + push
 on:
-  workflow_dispatch: {}  # Manual trigger
+  workflow_dispatch:  # Manual trigger
   push:
     branches:
       - main  # Keeps workflow active and re-registers schedule
@@ -21,6 +21,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 2  # Need history for commit message check and amend
 
       # Set up Python
       - name: Set up Python
@@ -51,6 +52,13 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
+
+          # Check if the database file exists
+          if [ ! -f "instance/auction.db" ]; then
+            echo "No database file found, nothing to commit"
+            exit 0
+          fi
+
           git add instance/auction.db
 
           # Check if there are staged changes
@@ -59,14 +67,35 @@ jobs:
             exit 0
           fi
 
+          # Pull latest changes to avoid conflicts (rebase to keep clean history)
+          git pull --rebase origin main || true
+
           # Check if last commit was an auto-update commit (safe to amend)
-          LAST_MSG=$(git log -1 --pretty=%s)
+          LAST_MSG=$(git log -1 --pretty=%s 2>/dev/null || echo "")
           if [[ "$LAST_MSG" == Auto-update\ fantasy\ points* ]]; then
             echo "Amending previous auto-update commit"
             git commit --amend -m "Auto-update fantasy points $(date +'%Y-%m-%d %H:%M UTC')"
-            git push --force-with-lease
+            # Retry push up to 3 times in case of concurrent updates
+            for i in 1 2 3; do
+              if git push --force-with-lease; then
+                echo "Push successful"
+                break
+              fi
+              echo "Push failed, retrying ($i/3)..."
+              sleep 2
+              git pull --rebase origin main || true
+            done
           else
             echo "Creating new commit (preserving user commit)"
             git commit -m "Auto-update fantasy points $(date +'%Y-%m-%d %H:%M UTC')"
-            git push
+            # Retry push up to 3 times in case of concurrent updates
+            for i in 1 2 3; do
+              if git push; then
+                echo "Push successful"
+                break
+              fi
+              echo "Push failed, retrying ($i/3)..."
+              sleep 2
+              git pull --rebase origin main || true
+            done
           fi

@@ -37,88 +37,37 @@ def scrape_and_update():
             print(f"Failed to initialize scraper: {e}")
             return False
 
+        # Use the service function instead of duplicating logic (DRY principle)
+        try:
+            result = fantasy_service.fetch_match_fantasy_points(league.id)
+        except Exception as e:
+            print(f"Exception during scraping: {e}")
+            return False
+
+        if not result.get('success'):
+            print(f"Scraping failed: {result.get('error')}")
+            return False
+
+        matches_scraped = result.get('matches_scraped', 0)
+        players_updated = result.get('players_updated', 0)
+        updated_players = result.get('updated', [])
+
+        print(f"Scraped {matches_scraped} matches")
+
+        # Count new entries
+        new_entries_count = sum(p.get('new_matches_added', 0) for p in updated_players)
+        players_with_new = [p for p in updated_players if p.get('new_matches_added', 0) > 0]
+
+        for p in players_with_new:
+            print(f"  Updated {p['name']}: +{p['new_matches_added']} matches, total={p['total_points']}")
+
+        print(f"\nFantasy Points Summary:")
+        print(f"  Players updated: {len(players_with_new)}")
+        print(f"  New match entries: {new_entries_count}")
+
+        # Fetch and update awards
+        print("\nFetching awards...")
         with scraper:
-            try:
-                result = scraper.scrape_all_matches()
-            except Exception as e:
-                print(f"Exception during scraping: {e}")
-                return False
-
-            if not result.get('success'):
-                print(f"Scraping failed: {result.get('error')}")
-                return False
-
-            all_player_stats = result.get('player_stats', {})
-            matches_processed = result.get('matches_processed', [])
-
-            print(f"Scraped {len(matches_processed)} matches")
-
-            updated_count = 0
-            new_entries_count = 0
-
-            for wpl_name, data in all_player_stats.items():
-                player = fantasy_service.find_player_by_name(wpl_name, league.id)
-
-                if not player:
-                    continue
-
-                # Get existing game_ids
-                existing_entries = FantasyPointEntry.query.filter_by(
-                    player_id=player.id,
-                    league_id=league.id
-                ).all()
-                existing_game_ids = {e.game_id for e in existing_entries if e.game_id}
-
-                player_new_entries = 0
-                for match in data.get('matches', []):
-                    game_id = match.get('game_id', '')
-
-                    if game_id and game_id in existing_game_ids:
-                        continue
-
-                    match_num_str = match.get('match', '')
-                    if isinstance(match_num_str, str):
-                        match_num_str = match_num_str.replace('Match ', '').strip()
-                    try:
-                        match_number = int(match_num_str)
-                    except (ValueError, TypeError):
-                        continue
-
-                    points = match.get('fantasy_points', 0)
-
-                    entry = FantasyPointEntry(
-                        player_id=player.id,
-                        match_number=match_number,
-                        game_id=game_id,
-                        points=points,
-                        league_id=league.id
-                    )
-                    db.session.add(entry)
-                    existing_game_ids.add(game_id)
-                    player_new_entries += 1
-
-                if player_new_entries > 0:
-                    # Recalculate total
-                    db.session.flush()
-                    total_from_entries = db.session.query(
-                        db.func.sum(FantasyPointEntry.points)
-                    ).filter_by(
-                        player_id=player.id,
-                        league_id=league.id
-                    ).scalar() or 0
-                    player.fantasy_points = total_from_entries
-                    updated_count += 1
-                    new_entries_count += player_new_entries
-                    print(f"  Updated {player.name}: +{player_new_entries} matches, total={total_from_entries}")
-
-            db.session.commit()
-
-            print(f"\nFantasy Points Summary:")
-            print(f"  Players updated: {updated_count}")
-            print(f"  New match entries: {new_entries_count}")
-
-            # Fetch and update awards (inside scraper context)
-            print("\nFetching awards...")
             update_awards(scraper, league.id)
 
         return True

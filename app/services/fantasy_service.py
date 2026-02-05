@@ -11,6 +11,7 @@ Encapsulates all business logic related to:
 from typing import Dict, List, Optional
 
 from app import db
+from app.constants import PLAYOFF_MATCH_NUMBERS
 from app.enums import AwardType
 from app.logger import get_logger
 from app.models import FantasyAward, FantasyPointEntry, Player
@@ -500,10 +501,18 @@ class FantasyService(BaseService):
                         match_num_str = match.get('match', '')
                         if isinstance(match_num_str, str):
                             match_num_str = match_num_str.replace('Match ', '').strip()
-                        try:
-                            match_number = int(match_num_str)
-                        except (ValueError, TypeError):
-                            continue
+
+                        # Handle playoff matches with special numbers (from constants)
+                        match_number = PLAYOFF_MATCH_NUMBERS.get(match_num_str.lower())
+                        if match_number is None:
+                            try:
+                                match_number = int(match_num_str)
+                            except (ValueError, TypeError):
+                                logger.warning(
+                                    f"Could not parse match number: {match_num_str} "
+                                    f"for player {player.name}"
+                                )
+                                continue
 
                         points = match.get('fantasy_points', 0)
 

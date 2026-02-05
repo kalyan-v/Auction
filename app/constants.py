@@ -91,6 +91,18 @@ POSITION_SORT_ORDER: Final[dict] = {
 # ==================== FANTASY AWARD TYPES ====================
 FANTASY_AWARD_TYPES: Final[list] = ['mvp', 'orange_cap', 'purple_cap']
 
+# ==================== PLAYOFF MATCH NUMBERS ====================
+# Playoff matches use special match numbers to distinguish from league matches
+# These high numbers ensure no collision with regular league matches (1-70+)
+PLAYOFF_MATCH_NUMBERS: Final[dict] = {
+    'eliminator': 100,
+    'qualifier 1': 101,
+    'qualifier1': 101,
+    'qualifier 2': 102,
+    'qualifier2': 102,
+    'final': 200,
+}
+
 # ==================== PLAYER STATUS ====================
 PLAYER_STATUS_AVAILABLE: Final[str] = 'available'
 PLAYER_STATUS_SOLD: Final[str] = 'sold'

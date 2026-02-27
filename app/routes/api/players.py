@@ -5,9 +5,13 @@ Handles CRUD operations for players and player image management.
 Business logic is delegated to PlayerService.
 """
 
-from flask import Response, jsonify, request
+import csv
+import io
+
+from flask import Response, jsonify, request, make_response
 
 from app.logger import get_logger
+from app.models import Player
 from app.routes import api_bp
 from app.routes.main import get_current_league
 from app.services.player_service import player_service
@@ -23,6 +27,40 @@ logger = get_logger(__name__)
 
 
 # ==================== PLAYER CRUD ====================
+
+
+@api_bp.route('/players/export', methods=['GET'])
+def export_players_csv() -> Response:
+    """Export all players for the current league as a CSV file.
+
+    CSV columns: Player Name, Role, Original Team.
+
+    Returns:
+        CSV file download response.
+    """
+    current_league = get_current_league()
+    if not current_league:
+        return error_response('No league selected')
+
+    players = Player.query.filter_by(
+        league_id=current_league.id, is_deleted=False
+    ).order_by(Player.auction_category, Player.original_team).all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Player Name', 'Auction Category', 'Original Team'])
+    for player in players:
+        writer.writerow([
+            player.name,
+            player.auction_category or '',
+            player.original_team or ''
+        ])
+
+    response = make_response(output.getvalue())
+    filename = f"{current_league.name}_players.csv"
+    response.headers['Content-Type'] = 'text/csv; charset=utf-8'
+    response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
 
 @api_bp.route('/players', methods=['GET', 'POST'])
 def manage_players() -> tuple[Response, int] | Response:

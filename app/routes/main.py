@@ -33,17 +33,35 @@ from app.utils import is_admin
 
 
 def get_current_league() -> Optional[League]:
-    """Get the currently selected league from session."""
-    league_id = session.get('current_league_id')
-    if league_id:
-        league = League.query.filter_by(id=league_id, is_deleted=False).first()
+    """Get the currently selected league.
+
+    For admins: uses session-based league selection.
+    For non-admins: always returns the admin-selected active league.
+
+    Returns:
+        The current League instance, or None if no leagues exist.
+    """
+    if is_admin():
+        # Admins can freely switch between leagues via session
+        league_id = session.get('current_league_id')
+        if league_id:
+            league = League.query.filter_by(id=league_id, is_deleted=False).first()
+            if league:
+                return league
+        # No session preference — default to the globally active league
+        league = League.query.filter_by(is_active=True, is_deleted=False).first()
+        if not league:
+            league = League.query.filter_by(is_deleted=False).first()
+        if league:
+            session['current_league_id'] = league.id
+        return league
+    else:
+        # Non-admins always see the admin-selected active league
+        league = League.query.filter_by(is_active=True, is_deleted=False).first()
         if league:
             return league
-    # Default to first non-deleted league
-    league = League.query.filter_by(is_deleted=False).first()
-    if league:
-        session['current_league_id'] = league.id
-    return league
+        # Fallback to first league if none marked active
+        return League.query.filter_by(is_deleted=False).first()
 
 
 @main_bp.route('/')
@@ -67,10 +85,19 @@ def is_safe_redirect_url(url: str) -> bool:
 
 @main_bp.route('/switch-league/<int:league_id>')
 def switch_league(league_id: int) -> WerkzeugResponse:
-    """Switch to a different league."""
+    """Switch to a different league.
+
+    For admins: also sets this league as the globally active league
+    so non-admin users will see it across all tabs.
+    """
     league = League.query.filter_by(id=league_id, is_deleted=False).first()
     if league:
         session['current_league_id'] = league.id
+        if is_admin():
+            # Set this league as the globally active one for non-admin users
+            League.query.filter_by(is_active=True).update({'is_active': False})
+            league.is_active = True
+            db.session.commit()
 
     # SECURITY: Validate referrer to prevent open redirect
     referrer = request.referrer
@@ -155,8 +182,10 @@ def health_check() -> tuple[Response, int] | Response:
 
 
 @main_bp.route('/setup')
-def setup() -> str:
-    """Setup page for adding teams and players - view only if not admin."""
+def setup() -> Union[str, WerkzeugResponse]:
+    """Setup page for adding teams and players - admin only."""
+    if not is_admin():
+        return redirect(url_for('main.fantasy'))
     current_league = get_current_league()
     all_leagues = League.query.filter_by(is_deleted=False).all()
 

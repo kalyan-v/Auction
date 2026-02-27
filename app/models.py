@@ -23,6 +23,7 @@ class League(db.Model):
     min_squad_size = db.Column(db.Integer, default=16)  # Minimum players per team
     bid_increment_tiers = db.Column(db.Text, default='[{"threshold": 0, "increment": 2500000}]')  # JSON: [{threshold, increment}] sorted by threshold
     max_rtm = db.Column(db.Integer, default=0)  # Max RTMs allowed per team (0 = disabled)
+    is_active = db.Column(db.Boolean, default=False)  # Admin-selected active league shown to non-admin users
     is_deleted = db.Column(db.Boolean, default=False)  # Soft delete
     created_at = db.Column(db.DateTime, default=get_pacific_time)
 

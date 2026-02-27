@@ -41,6 +41,7 @@
             </button>
             <ul class="nav-links" id="navLinks">
                 {% if all_leagues and all_leagues|length > 0 %}
+                {% if admin_mode %}
                 <li class="league-selector">
                     <select id="leagueSwitcher" onchange="switchLeague(this.value)">
                         {% for league in all_leagues %}
@@ -52,8 +53,11 @@
                 </li>
                 <li class="nav-divider desktop-only">|</li>
                 {% endif %}
+                {% endif %}
                 <li><a href="{{ url_for('main.index') }}">🏠 Home</a></li>
+                {% if admin_mode %}
                 <li><a href="{{ url_for('main.setup') }}">⚙️ Setup</a></li>
+                {% endif %}
                 <li><a href="{{ url_for('auction.auction_room') }}">🔨 Auction</a></li>
                 <li><a href="{{ url_for('main.squads') }}">👥 Squads</a></li>
                 <li><a href="{{ url_for('main.fantasy') }}">⭐ Fantasy</a></li>

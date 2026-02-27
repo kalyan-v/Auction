@@ -212,6 +212,9 @@ class LeagueService(BaseService):
             raise ValidationError('A league with this name already exists')
 
         with self.transaction():
+            # If this is the first league, mark it as active
+            existing_active = League.query.filter_by(is_active=True, is_deleted=False).first()
+
             league = League(
                 name=name,
                 display_name=display_name,
@@ -220,7 +223,8 @@ class LeagueService(BaseService):
                 min_squad_size=min_squad_size,
                 bid_increment_tiers=bid_increment_tiers_json,
                 max_rtm=max_rtm,
-                league_type=league_type
+                league_type=league_type,
+                is_active=not existing_active  # First league auto-activates
             )
             db.session.add(league)
             self.flush()

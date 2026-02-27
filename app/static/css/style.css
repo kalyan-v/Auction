@@ -29,9 +29,9 @@ body {
 }
 
 .container {
-    max-width: 1200px;
+    max-width: 1600px;
     margin: 0 auto;
-    padding: 0 20px;
+    padding: 0 30px;
 }
 
 /* Read-only Banner */
@@ -2368,7 +2368,7 @@ input:checked + .toggle-slider:before {
 /* Squads Page */
 .squads-container {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
     gap: 2rem;
 }
 

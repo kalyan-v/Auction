@@ -10,10 +10,8 @@ Provides a foundation for all repository classes with:
 from typing import Generic, List, Optional, Type, TypeVar
 
 from sqlalchemy import select
-from sqlalchemy.orm import Query
 
 from app import db
-from app.db_utils import is_sqlite
 
 T = TypeVar('T')
 
@@ -56,12 +54,8 @@ class BaseRepository(Generic[T]):
         Returns:
             Entity instance or None if not found.
         """
-        query = select(self.model).where(self.model.id == id)
-
-        if not is_sqlite():
-            query = query.with_for_update()
-
-        return db.session.execute(query).scalar_one_or_none()
+        from app.db_utils import get_for_update
+        return get_for_update(self.model, id)
 
     def get_all(self) -> List[T]:
         """Get all entities.
@@ -148,11 +142,3 @@ class BaseRepository(Generic[T]):
             True if at least one match exists.
         """
         return self.count(**kwargs) > 0
-
-    def query(self) -> Query:
-        """Get a query object for the model.
-
-        Returns:
-            SQLAlchemy Query object.
-        """
-        return self.model.query

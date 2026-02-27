@@ -63,10 +63,6 @@ class FantasyPointsCalculator:
     # ==================== OTHER POINTS ====================
     PLAYING_XI_BONUS: int = 4
 
-    def __init__(self) -> None:
-        """Initialize the calculator."""
-        pass
-
     def calculate_batting_points(self, stats: Dict[str, Any]) -> Dict[str, Any]:
         """
         Calculate batting fantasy points.
@@ -312,23 +308,25 @@ class FantasyPointsCalculator:
 
     def _get_strike_rate_points(self, strike_rate: float) -> int:
         """Get points for strike rate."""
-        for min_sr, max_sr, points in self.STRIKE_RATE_THRESHOLDS:
-            # Use exclusive upper bound (min <= value < max) except for infinity
-            if max_sr == float('inf'):
-                if strike_rate >= min_sr:
-                    return points
-            elif min_sr <= strike_rate < max_sr:
-                return points
-        return 0
+        return self._lookup_threshold_points(strike_rate, self.STRIKE_RATE_THRESHOLDS)
 
     def _get_economy_rate_points(self, economy: float) -> int:
         """Get points for economy rate."""
-        for min_econ, max_econ, points in self.ECONOMY_RATE_THRESHOLDS:
-            # Use exclusive upper bound (min <= value < max) except for infinity
-            if max_econ == float('inf'):
-                if economy >= min_econ:
+        return self._lookup_threshold_points(economy, self.ECONOMY_RATE_THRESHOLDS)
+
+    @staticmethod
+    def _lookup_threshold_points(
+        value: float, thresholds: List[Tuple[float, float, int]]
+    ) -> int:
+        """Look up points from a threshold table.
+
+        Uses exclusive upper bound (min <= value < max), except for infinity.
+        """
+        for min_val, max_val, points in thresholds:
+            if max_val == float('inf'):
+                if value >= min_val:
                     return points
-            elif min_econ <= economy < max_econ:
+            elif min_val <= value < max_val:
                 return points
         return 0
 

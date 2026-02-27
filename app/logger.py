@@ -10,10 +10,7 @@ import logging
 import os
 import sys
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    pass  # For type hints only
+from typing import Any, Dict, Optional
 
 # Check if running in production for JSON logging
 USE_JSON_LOGGING = os.environ.get('FLASK_CONFIG') == 'production'
@@ -156,61 +153,3 @@ def get_logger(name: str) -> logging.Logger:
         logger.error("Something went wrong", exc_info=True)
     """
     return setup_logger(name)
-
-
-# Pre-configured loggers for common modules
-def get_api_logger() -> logging.Logger:
-    """Get logger for API/route operations."""
-    return get_logger('app.api')
-
-
-def get_cricket_logger() -> logging.Logger:
-    """Get logger for cricket data scraping operations."""
-    return get_logger('app.cricket')
-
-
-def get_fantasy_logger() -> logging.Logger:
-    """Get logger for fantasy points calculations."""
-    return get_logger('app.fantasy')
-
-
-def get_db_logger() -> logging.Logger:
-    """Get logger for database operations."""
-    return get_logger('app.db')
-
-
-def get_audit_logger() -> logging.Logger:
-    """Get logger for audit trail of sensitive operations."""
-    return get_logger('app.audit')
-
-
-def log_audit(
-    action: str,
-    entity_type: str,
-    entity_id: Optional[int] = None,
-    details: Optional[Dict[str, Any]] = None
-) -> None:
-    """Log an audit event for sensitive operations.
-
-    Args:
-        action: The action performed (e.g., 'bid_placed', 'player_sold')
-        entity_type: Type of entity affected (e.g., 'player', 'team')
-        entity_id: ID of the affected entity
-        details: Additional details about the action
-
-    Example:
-        log_audit('bid_placed', 'player', player_id, {
-            'team_id': team.id,
-            'amount': amount
-        })
-    """
-    audit_logger = get_audit_logger()
-
-    message = f"AUDIT: {action} on {entity_type}"
-    if entity_id:
-        message += f" (id={entity_id})"
-
-    if details:
-        message += f" - {json.dumps(details)}"
-
-    audit_logger.info(message)

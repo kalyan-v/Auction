@@ -7,7 +7,8 @@ used across the application.
 
 from datetime import datetime
 from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar, Union
+from typing import Any, Callable, Optional, Tuple, TypeVar
+from urllib.parse import urlparse
 
 from flask import jsonify, request, session
 from zoneinfo import ZoneInfo
@@ -48,36 +49,11 @@ def to_pacific(dt: Optional[datetime]) -> Optional[datetime]:
 
 # ==================== RESPONSE HELPERS ====================
 
-def success_response(
-    data: Optional[Dict[str, Any]] = None,
-    message: Optional[str] = None,
-    **kwargs: Any
-) -> Tuple[Dict[str, Any], int]:
-    """
-    Create a standardized success response.
-
-    Args:
-        data: Optional data dictionary to include
-        message: Optional success message
-        **kwargs: Additional key-value pairs to include
-
-    Returns:
-        Tuple of (response dict, status code)
-    """
-    response = {'success': True}
-    if message:
-        response['message'] = message
-    if data:
-        response.update(data)
-    response.update(kwargs)
-    return jsonify(response), 200
-
-
 def error_response(
     error: str,
     status_code: int = 400,
     **kwargs: Any
-) -> Tuple[Dict[str, Any], int]:
+) -> Tuple[dict[str, Any], int]:
     """
     Create a standardized error response.
 
@@ -117,7 +93,7 @@ def admin_required(f: F) -> F:
 
 # ==================== INPUT VALIDATION ====================
 
-def get_json_body() -> Tuple[Optional[Dict[str, Any]], Optional[Tuple[Dict[str, Any], int]]]:
+def get_json_body() -> Tuple[Optional[dict[str, Any]], Optional[Tuple[dict[str, Any], int]]]:
     """Get and validate JSON request body.
 
     Validates that the request contains a non-empty JSON body.
@@ -137,55 +113,34 @@ def get_json_body() -> Tuple[Optional[Dict[str, Any]], Optional[Tuple[Dict[str, 
     return data, None
 
 
-def get_json_with_fields(
-    required_fields: List[str]
-) -> Tuple[Optional[Dict[str, Any]], Optional[Tuple[Dict[str, Any], int]]]:
-    """Get JSON body and validate required fields.
-
-    Validates that the request contains a non-empty JSON body with all
-    required fields present.
-
-    Args:
-        required_fields: List of field names that must be present.
-
-    Returns:
-        Tuple of (data dict, None) on success, or (None, error_response) on failure.
-
-    Example:
-        data, error = get_json_with_fields(['player_id', 'amount'])
-        if error:
-            return error
-        # Use data safely here
-    """
-    data, error = get_json_body()
-    if error:
-        return None, error
-
-    missing = [f for f in required_fields if f not in data or data[f] is None]
-    if missing:
-        return None, error_response(f"Missing required fields: {', '.join(missing)}")
-
-    return data, None
-
-
-def validate_required_fields(
-    data: Dict[str, Any],
-    required_fields: List[str]
-) -> Optional[str]:
-    """
-    Validate that required fields are present in data.
+def _validate_positive_number(
+    value: Any,
+    field_name: str,
+    converter: Callable[[Any], Any],
+    type_label: str,
+    allow_zero: bool = False,
+) -> Tuple[Optional[Any], Optional[str]]:
+    """Validate and convert value to a positive number.
 
     Args:
-        data: Dictionary to validate
-        required_fields: List of required field names
+        value: Value to validate.
+        field_name: Name of field for error message.
+        converter: Conversion function (int or float).
+        type_label: Human-readable type name for errors.
+        allow_zero: Whether to allow zero value.
 
     Returns:
-        Error message if validation fails, None otherwise
+        Tuple of (converted value or None, error message or None).
     """
-    missing = [f for f in required_fields if f not in data or data[f] is None]
-    if missing:
-        return f"Missing required fields: {', '.join(missing)}"
-    return None
+    try:
+        converted = converter(value)
+        if allow_zero and converted < 0:
+            return None, f"{field_name} must be non-negative"
+        if not allow_zero and converted <= 0:
+            return None, f"{field_name} must be positive"
+        return converted, None
+    except (TypeError, ValueError):
+        return None, f"{field_name} must be a valid {type_label}"
 
 
 def validate_positive_int(
@@ -204,17 +159,7 @@ def validate_positive_int(
     Returns:
         Tuple of (converted value or None, error message or None)
     """
-    try:
-        int_value = int(value)
-        if allow_zero:
-            if int_value < 0:
-                return None, f"{field_name} must be non-negative"
-        else:
-            if int_value <= 0:
-                return None, f"{field_name} must be positive"
-        return int_value, None
-    except (TypeError, ValueError):
-        return None, f"{field_name} must be a valid integer"
+    return _validate_positive_number(value, field_name, int, "integer", allow_zero)
 
 
 def validate_positive_float(
@@ -233,17 +178,17 @@ def validate_positive_float(
     Returns:
         Tuple of (converted value or None, error message or None)
     """
-    try:
-        float_value = float(value)
-        if allow_zero:
-            if float_value < 0:
-                return None, f"{field_name} must be non-negative"
-        else:
-            if float_value <= 0:
-                return None, f"{field_name} must be positive"
-        return float_value, None
-    except (TypeError, ValueError):
-        return None, f"{field_name} must be a valid number"
+    return _validate_positive_number(value, field_name, float, "number", allow_zero)
+
+
+# Allowlist of trusted domains for player images
+_TRUSTED_DOMAINS: frozenset[str] = frozenset({
+    'upload.wikimedia.org',
+    'documents.iplt20.com',
+    'scores.iplt20.com',
+    'www.wplt20.com',
+    'bcciplayerimages.s3.ap-south-1.amazonaws.com',
+})
 
 
 def validate_url(url: str) -> bool:
@@ -274,19 +219,7 @@ def validate_url(url: str) -> bool:
 
     # Validate external URLs against allowlist
     if url.startswith('https://'):
-        from urllib.parse import urlparse
-        parsed = urlparse(url)
-
-        # Allowlist of trusted domains for player images
-        TRUSTED_DOMAINS = {
-            'upload.wikimedia.org',
-            'documents.iplt20.com',
-            'scores.iplt20.com',
-            'www.wplt20.com',
-            'bcciplayerimages.s3.ap-south-1.amazonaws.com',
-        }
-
-        return parsed.netloc in TRUSTED_DOMAINS
+        return urlparse(url).netloc in _TRUSTED_DOMAINS
 
     # Reject http:// (insecure) and other schemes
     return False
@@ -346,7 +279,7 @@ def normalize_player_name(name: str) -> str:
     """
     if not name:
         return ''
-    return name.lower().replace('.', '').replace('  ', ' ').strip()
+    return ' '.join(name.lower().replace('.', '').split())
 
 
 def create_safe_filename(name: str) -> str:

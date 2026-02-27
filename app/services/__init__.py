@@ -6,20 +6,13 @@ separating it from HTTP handling in routes and data access in repositories.
 """
 
 from app.services.base import (
-    AuthorizationError,
-    BaseService,
     NotFoundError,
     ServiceError,
     ValidationError,
 )
-from app.services.league_service import LeagueService, league_service
 
 __all__ = [
-    'BaseService',
-    'ServiceError',
     'NotFoundError',
+    'ServiceError',
     'ValidationError',
-    'AuthorizationError',
-    'LeagueService',
-    'league_service',
 ]

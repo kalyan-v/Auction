@@ -86,7 +86,7 @@ class FantasyService(BaseService):
             if not player:
                 raise NotFoundError("Player not found")
 
-            # Check for existing entry
+            # Check for existing entry (include soft-deleted to revive if needed)
             existing = FantasyPointEntry.query.filter_by(
                 player_id=player_id,
                 match_number=match_number,
@@ -95,6 +95,7 @@ class FantasyService(BaseService):
 
             if existing:
                 existing.points = points
+                existing.is_deleted = False
             else:
                 entry = FantasyPointEntry(
                     player_id=player_id,
@@ -204,6 +205,17 @@ class FantasyService(BaseService):
 
     # ==================== FANTASY AWARDS ====================
 
+    def _get_or_create_award(self, award_type: str, league_id: int) -> 'FantasyAward':
+        """Get existing award or create a new one (must be called within a transaction)."""
+        award = FantasyAward.query.filter_by(
+            award_type=award_type,
+            league_id=league_id
+        ).first()
+        if not award:
+            award = FantasyAward(award_type=award_type, league_id=league_id)
+            db.session.add(award)
+        return award
+
     def set_award(
         self,
         award_type: str,
@@ -228,14 +240,7 @@ class FantasyService(BaseService):
             raise ValidationError(f'Invalid award type. Valid: {valid_types}')
 
         with self.transaction():
-            award = FantasyAward.query.filter_by(
-                award_type=award_type,
-                league_id=league_id
-            ).first()
-
-            if not award:
-                award = FantasyAward(award_type=award_type, league_id=league_id)
-                db.session.add(award)
+            award = self._get_or_create_award(award_type, league_id)
 
             award.player_id = player_id if player_id else None
 
@@ -270,6 +275,30 @@ class FantasyService(BaseService):
                 'player_name': award.player.name if award.player else None
             }
         return {'success': True, 'awards': result}
+
+    def get_sold_players(self, league_id: int) -> list[dict]:
+        """Get all sold players with fantasy points for a league.
+
+        Args:
+            league_id: ID of the league.
+
+        Returns:
+            List of player dictionaries with fantasy info.
+        """
+        players = Player.query.filter_by(
+            league_id=league_id,
+            status='sold',
+            is_deleted=False
+        ).all()
+
+        return [{
+            'id': p.id,
+            'name': p.name,
+            'position': p.position,
+            'team_id': p.team_id,
+            'team_name': p.team.name if p.team else None,
+            'fantasy_points': p.fantasy_points
+        } for p in players]
 
     # ==================== PLAYER MATCHING ====================
 
@@ -370,32 +399,37 @@ class FantasyService(BaseService):
             logger.error(f"Error creating scraper: {e}")
             raise ValidationError(f'Failed to initialize scraper: {str(e)}')
 
+        # Fetch all award data BEFORE opening a transaction
+        # to avoid holding DB locks during slow network calls
+        with scraper:
+            orange_result = self._fetch_award_data(
+                scraper, 'get_orange_cap', AwardType.ORANGE_CAP,
+                league_id, results, 'runs'
+            )
+            purple_result = self._fetch_award_data(
+                scraper, 'get_purple_cap', AwardType.PURPLE_CAP,
+                league_id, results, 'wickets'
+            )
+            mvp_result = self._fetch_award_data(
+                scraper, 'get_mvp', AwardType.MVP,
+                league_id, results, 'points'
+            )
+
+        # Now write all awards in a single short transaction
         with self.transaction():
-            with scraper:
-                # Fetch Orange Cap
-                results = self._fetch_award(
-                    scraper, 'get_orange_cap', AwardType.ORANGE_CAP,
-                    league_id, results, 'runs'
-                )
-
-                # Fetch Purple Cap
-                results = self._fetch_award(
-                    scraper, 'get_purple_cap', AwardType.PURPLE_CAP,
-                    league_id, results, 'wickets'
-                )
-
-                # Fetch MVP
-                results = self._fetch_award(
-                    scraper, 'get_mvp', AwardType.MVP,
-                    league_id, results, 'points'
-                )
+            for award_data in [orange_result, purple_result, mvp_result]:
+                if award_data:
+                    award = self._get_or_create_award(
+                        award_data['award_type'], league_id
+                    )
+                    award.player_id = award_data['player_id']
 
         return {
             'success': len(results['errors']) == 0,
             'results': results
         }
 
-    def _fetch_award(
+    def _fetch_award_data(
         self,
         scraper,
         method_name: str,
@@ -403,8 +437,20 @@ class FantasyService(BaseService):
         league_id: int,
         results: dict,
         stat_key: str
-    ) -> dict:
-        """Helper to fetch and set a single award."""
+    ) -> Optional[dict]:
+        """Fetch award data from scraper without writing to DB.
+
+        Args:
+            scraper: Scraper instance.
+            method_name: Scraper method to call.
+            award_type: Type of award.
+            league_id: League ID for player matching.
+            results: Mutable results dict (updated in place).
+            stat_key: Key for the stat value.
+
+        Returns:
+            Dict with award_type and player_id if found, None otherwise.
+        """
         result_key = award_type.value
         try:
             method = getattr(scraper, method_name)
@@ -415,24 +461,15 @@ class FantasyService(BaseService):
                 player = self.find_player_by_name(player_name, league_id)
 
                 if player:
-                    award = FantasyAward.query.filter_by(
-                        award_type=award_type.value,
-                        league_id=league_id
-                    ).first()
-
-                    if not award:
-                        award = FantasyAward(
-                            award_type=award_type.value,
-                            league_id=league_id
-                        )
-                        db.session.add(award)
-
-                    award.player_id = player.id
                     results[result_key] = {
                         'player_name': player.name,
                         'player_id': player.id,
                         stat_key: fetch_result.leader.stats.get(stat_key, 0),
                         'wpl_name': player_name
+                    }
+                    return {
+                        'award_type': award_type.value,
+                        'player_id': player.id
                     }
                 else:
                     results['errors'].append(
@@ -448,7 +485,7 @@ class FantasyService(BaseService):
             logger.error(f"Error fetching {result_key}: {e}")
             results['errors'].append(f"{result_key}: {str(e)}")
 
-        return results
+        return None
 
     def fetch_match_fantasy_points(self, league_id: int) -> dict:
         """Fetch all match scorecards and calculate fantasy points.

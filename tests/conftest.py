@@ -6,7 +6,7 @@ Provides fixtures for app, client, database, and sample data.
 
 import pytest
 from app import create_app, db
-from app.models import AuctionState, Bid, League, Player, Team
+from app.models import AuctionState, League, Player, Team
 
 
 @pytest.fixture

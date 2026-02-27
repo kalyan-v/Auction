@@ -4,7 +4,7 @@ Data classes for structured data in the WPL Auction application.
 Provides type-safe data structures for player stats, match info, and scraping results.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional
 
 from app.enums import PlayerPosition
@@ -57,31 +57,6 @@ class PlayerStats:
             "run_outs_indirect": self.run_outs_indirect,
             "position": self.position.value,
         }
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "PlayerStats":
-        """Create from dictionary."""
-        position = data.get("position", "Allrounder")
-        if isinstance(position, str):
-            position = PlayerPosition.from_string(position)
-        return cls(
-            runs=data.get("runs", 0),
-            balls_faced=data.get("balls_faced", 0),
-            fours=data.get("fours", 0),
-            sixes=data.get("sixes", 0),
-            is_out=data.get("is_out", False),
-            wickets=data.get("wickets", 0),
-            overs=data.get("overs", 0.0),
-            runs_conceded=data.get("runs_conceded", 0),
-            maidens=data.get("maidens", 0),
-            dot_balls=data.get("dot_balls", 0),
-            lbw_bowled=data.get("lbw_bowled", 0),
-            catches=data.get("catches", 0),
-            stumpings=data.get("stumpings", 0),
-            run_outs_direct=data.get("run_outs_direct", 0),
-            run_outs_indirect=data.get("run_outs_indirect", 0),
-            position=position,
-        )
 
 
 @dataclass
@@ -203,17 +178,7 @@ class PointsTableEntry:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
-        return {
-            "team_name": self.team_name,
-            "team_short_name": self.team_short_name,
-            "played": self.played,
-            "won": self.won,
-            "lost": self.lost,
-            "tied": self.tied,
-            "no_result": self.no_result,
-            "points": self.points,
-            "nrr": self.nrr,
-        }
+        return asdict(self)
 
 
 @dataclass
@@ -231,13 +196,7 @@ class AggregatedPlayerStats:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
-        return {
-            "matches_played": self.matches_played,
-            "total_runs": self.total_runs,
-            "total_wickets": self.total_wickets,
-            "total_catches": self.total_catches,
-            "total_stumpings": self.total_stumpings,
-            "total_run_outs": self.total_run_outs,
-            "total_fantasy_points": self.total_fantasy_points,
-            "matches": self.match_details,
-        }
+        result = asdict(self)
+        result.pop('player_name')  # Not included in output
+        result['matches'] = result.pop('match_details')  # Rename key
+        return result

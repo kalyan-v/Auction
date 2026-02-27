@@ -10,7 +10,7 @@
  * - Confetti celebration on successful sales
  * - Unsold mode toggle for re-auctioning players
  *
- * Bid increment: 25 Lakhs per click
+ * Bid increment: Tiered (configured per league, default 25 Lakhs per click)
  * Base currency unit: Lakhs (1 Lakh = 100,000 INR)
  */
 let currentPlayerId = null;
@@ -20,6 +20,17 @@ let selectedTeamName = null;
 let currentBidPrice = 0;
 let leadingTeamName = '-';
 let unsoldModeEnabled = false;
+let autoStartTimer = null;
+
+function cancelAutoStart() {
+    if (autoStartTimer) {
+        clearTimeout(autoStartTimer);
+        autoStartTimer = null;
+        const hint = document.querySelector('.auto-start-hint');
+        if (hint) hint.textContent = '❌ Auto-start cancelled';
+        showNotification('Auto-start cancelled', 'info');
+    }
+}
 
 // Toggle Unsold Mode
 function toggleUnsoldMode() {
@@ -64,8 +75,26 @@ function initAuctioneerPanel() {
     updateBidDisplay();
 }
 
-// Fixed bid increment in Lakhs
-const BID_INCREMENT = 25;
+// Bid increment tiers - uses league config if available, falls back to flat 25L
+const _bidTiers = (typeof BID_INCREMENT_TIERS !== 'undefined' && Array.isArray(BID_INCREMENT_TIERS))
+    ? BID_INCREMENT_TIERS.sort((a, b) => a.threshold - b.threshold)
+    : [{ threshold: 0, increment: 2500000 }];
+
+/**
+ * Get the bid increment for a given price (in Lakhs).
+ * Prices internally are in Lakhs; tiers store raw values.
+ * Returns increment in Lakhs.
+ */
+function getBidIncrement(currentPriceLakhs) {
+    const currentRaw = currentPriceLakhs * 100000;
+    let applicable = _bidTiers[0];
+    for (const tier of _bidTiers) {
+        if (currentRaw >= tier.threshold) {
+            applicable = tier;
+        }
+    }
+    return applicable.increment / 100000; // convert to Lakhs
+}
 
 // Helper to select team from data attributes (safe for special characters)
 function selectTeamFromData(btn) {
@@ -77,7 +106,7 @@ function selectTeamFromData(btn) {
 // Prevent double-clicks
 let isProcessingBid = false;
 
-// Select team for bidding - first click = base price, subsequent clicks = +25L
+// Select team for bidding - first click = base price, subsequent clicks add tiered increment
 async function selectTeam(teamId, teamName) {
     if (isProcessingBid) return;
 
@@ -90,17 +119,18 @@ async function selectTeam(teamId, teamName) {
 
     // Calculate bid amount:
     // - If no bids yet (leadingTeamName is '-'), bid at base price
-    // - Otherwise, add 25L increment
+    // - Otherwise, add tiered increment
     let newBidPrice;
     let isBasePriceBid = false;
+    const increment = getBidIncrement(currentBidPrice);
     
     if (leadingTeamName === '-') {
         // First bid - use base price
         newBidPrice = currentBidPrice;
         isBasePriceBid = true;
     } else {
-        // Subsequent bid - add increment
-        newBidPrice = currentBidPrice + BID_INCREMENT;
+        // Subsequent bid - add tiered increment
+        newBidPrice = currentBidPrice + increment;
     }
     
     const bidAmount = newBidPrice * 100000;
@@ -139,7 +169,7 @@ async function selectTeam(teamId, teamName) {
             if (isBasePriceBid) {
                 showNotification(`${teamName} bids ₹${newBidPrice} L (base price)`, 'success');
             } else {
-                showNotification(`${teamName} bids ₹${newBidPrice} L (+${BID_INCREMENT}L)`, 'success');
+                showNotification(`${teamName} bids ₹${newBidPrice} L (+${increment}L)`, 'success');
             }
             addToBidHistory(teamName, newBidPrice);
         } else {
@@ -255,7 +285,11 @@ async function markSold() {
         return;
     }
 
-    if (!confirm(`Confirm SOLD to ${leadingTeamName} for ₹${currentBidPrice >= 100 ? (currentBidPrice/100).toFixed(2) + ' Cr' : currentBidPrice + ' L'}?`)) {
+    const rtmCheckbox = document.getElementById('rtmCheckbox');
+    const isRtm = rtmCheckbox ? rtmCheckbox.checked : false;
+    const rtmLabel = isRtm ? ' (RTM)' : '';
+
+    if (!confirm(`Confirm SOLD${rtmLabel} to ${leadingTeamName} for ₹${currentBidPrice >= 100 ? (currentBidPrice/100).toFixed(2) + ' Cr' : currentBidPrice + ' L'}?`)) {
         return;
     }
 
@@ -266,10 +300,16 @@ async function markSold() {
     }
 
     try {
-        const response = await secureFetch('/api/auction/end', { method: 'POST' });
+        const response = await secureFetch('/api/auction/end', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_rtm: isRtm })
+        });
         const data = await response.json();
 
         if (data.success) {
+            // Reset RTM checkbox for next auction
+            if (rtmCheckbox) rtmCheckbox.checked = false;
             // Trigger confetti celebration!
             triggerConfetti();
             showNotification(`🎉 SOLD to ${leadingTeamName}!`, 'success');
@@ -374,19 +414,20 @@ document.addEventListener('DOMContentLoaded', initAuctioneerPanel);
 
 // Pick random player from selected position with animation
 async function pickRandomPlayer() {
-    const position = document.getElementById('positionFilter').value;
+    const categoryEl = document.getElementById('categoryFilter');
+    const category = categoryEl ? categoryEl.value : '';
     const resultDiv = document.getElementById('randomResult');
-    const btn = document.querySelector('.randomizer-controls button');
+    const btn = document.getElementById('pickRandomBtn');
     
     // Disable button during animation
     btn.disabled = true;
     btn.innerHTML = '🎰 Selecting...';
     
     try {
-        // Build URL with position and unsold mode
+        // Build URL with category filter and unsold mode
         let url = '/api/players/available';
         const params = [];
-        if (position) params.push(`position=${position}`);
+        if (category) params.push(`auction_category=${encodeURIComponent(category)}`);
         if (unsoldModeEnabled) params.push('include_unsold=true');
         if (params.length > 0) url += '?' + params.join('&');
         const response = await secureFetch(url);
@@ -406,8 +447,8 @@ async function pickRandomPlayer() {
         
         // Slot machine animation - cycle through names
         let cycles = 0;
-        const totalCycles = 20;
-        let delay = 50;
+        const totalCycles = 14;
+        let delay = 40;
         
         const animate = () => {
             const randomIndex = Math.floor(Math.random() * players.length);
@@ -428,7 +469,7 @@ async function pickRandomPlayer() {
                 setTimeout(animate, delay);
             } else {
                 // Final selection - get actual random from server
-                selectFinalPlayer(position, resultDiv, btn);
+                selectFinalPlayer(category, resultDiv, btn);
             }
         };
         
@@ -442,12 +483,12 @@ async function pickRandomPlayer() {
     }
 }
 
-async function selectFinalPlayer(position, resultDiv, btn) {
+async function selectFinalPlayer(category, resultDiv, btn) {
     try {
-        // Build URL with position and unsold mode
+        // Build URL with category and unsold mode
         let url = '/api/players/random';
         const params = [];
-        if (position) params.push(`position=${position}`);
+        if (category) params.push(`auction_category=${encodeURIComponent(category)}`);
         if (unsoldModeEnabled) params.push('include_unsold=true');
         if (params.length > 0) url += '?' + params.join('&');
 
@@ -463,9 +504,16 @@ async function selectFinalPlayer(position, resultDiv, btn) {
                     <div class="confetti">🎉</div>
                     <h3>${escapeHtml(player.name)}</h3>
                     <p>${escapeHtml(player.position)} | Base Price: ₹${player.base_price / 100000} L</p>
-                    <button class="btn btn-primary pulse" onclick="startAuction(${parseInt(player.id, 10)})">Start Auction for ${escapeHtml(player.name)}</button>
+                    <p class="auto-start-hint">⏳ Starting auction in 2 seconds...</p>
+                    <button class="btn btn-small btn-danger" onclick="cancelAutoStart()">✋ Cancel</button>
                 </div>
             `;
+            // Auto-start auction after 2 seconds and scroll to top
+            autoStartTimer = setTimeout(() => {
+                autoStartTimer = null;
+                startAuction(parseInt(player.id, 10));
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }, 2000);
         } else {
             resultDiv.innerHTML = `<p style="color: #e74c3c;">${escapeHtml(data.error)}</p>`;
         }
@@ -522,83 +570,14 @@ async function startAuction(playerId) {
     }
 }
 
-// Place bid
-document.getElementById('bidForm')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-    if (!currentPlayerId) {
-        showNotification('No active auction', 'error');
-        return;
-    }
-
-    const teamSelect = document.getElementById('teamSelect');
-    const teamId = teamSelect?.value;
-    if (!teamId) {
-        showNotification('Please select a team', 'error');
-        return;
-    }
-
-    const amountInLakhs = document.getElementById('bidAmount')?.value;
-    const amount = parseFloat(amountInLakhs) * 100000;
-    if (isNaN(amount) || amount <= 0) {
-        showNotification('Please enter a valid bid amount', 'error');
-        return;
-    }
-
-    const bidButton = document.getElementById('bidButton');
-    if (bidButton) {
-        bidButton.disabled = true;
-        bidButton.textContent = '⏳ Placing...';
-    }
-
-    try {
-        const response = await secureFetch('/api/bid', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                player_id: currentPlayerId,
-                team_id: parseInt(teamId, 10),
-                amount: amount
-            })
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-            showNotification('Bid placed successfully!', 'success');
-            const currentPriceEl = document.getElementById('currentPrice');
-            if (currentPriceEl) currentPriceEl.textContent = formatCurrency(data.current_price);
-
-            // Add to bid history
-            const bidList = document.getElementById('bidList');
-            if (bidList && teamSelect.selectedOptions[0]) {
-                const bidItem = document.createElement('div');
-                const teamName = teamSelect.selectedOptions[0].text.split(' (')[0];
-                bidItem.className = 'bid-history-item';
-                bidItem.textContent = `${teamName}: ${formatCurrency(amount)}`;
-                bidList.insertBefore(bidItem, bidList.firstChild);
-            }
-        } else {
-            showNotification(data.error || 'Failed to place bid', 'error');
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        showNotification('Error placing bid', 'error');
-    } finally {
-        if (bidButton) {
-            bidButton.disabled = false;
-            bidButton.textContent = 'Place Bid';
-        }
-    }
-});
-
 // End auction
 document.getElementById('endAuctionBtn')?.addEventListener('click', async function() {
     if (!confirm('Are you sure you want to end the current auction?')) {
         return;
     }
+
+    const rtmCheckbox = document.getElementById('rtmCheckbox');
+    const isRtm = rtmCheckbox ? rtmCheckbox.checked : false;
 
     const btn = this;
     btn.disabled = true;
@@ -606,7 +585,9 @@ document.getElementById('endAuctionBtn')?.addEventListener('click', async functi
 
     try {
         const response = await secureFetch('/api/auction/end', {
-            method: 'POST'
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_rtm: isRtm })
         });
 
         const data = await response.json();

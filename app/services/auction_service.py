@@ -13,7 +13,7 @@ from typing import Optional
 from app import db
 from app.db_utils import AuctionLock, BidLock, get_for_update
 from app.logger import get_logger
-from app.models import AuctionState, Bid, Player, Team
+from app.models import AuctionState, Bid, League, Player, Team
 from app.repositories.bid_repository import BidRepository
 from app.services.base import BaseService, NotFoundError, ValidationError
 
@@ -133,18 +133,24 @@ class AuctionService(BaseService):
             player.current_price = player.base_price
             player.status = 'bidding'
 
+            # Soft-delete any old bids for this player (from previous auction rounds)
+            self.bid_repo.soft_delete_for_player(player_id)
+
             logger.info(f"Auction started for player: {player.name}")
 
             return {'success': True}
 
-    def end_auction(self) -> dict:
+    def end_auction(self, is_rtm: bool = False) -> dict:
         """End current auction and assign player to highest bidder.
+
+        Args:
+            is_rtm: Whether this sale uses a Right to Match (RTM).
 
         Returns:
             Dict with success status and outcome details.
 
         Raises:
-            ValidationError: If no active auction.
+            ValidationError: If no active auction or RTM limit exceeded.
             NotFoundError: If player or team not found.
         """
         with AuctionLock():
@@ -170,6 +176,32 @@ class AuctionService(BaseService):
                     if not team:
                         raise NotFoundError("Team not found")
 
+                    # Validate RTM limit if RTM is being used
+                    if is_rtm:
+                        if not player.league_id:
+                            raise ValidationError(
+                                "Cannot use RTM: player has no league assigned"
+                            )
+                        league = db.session.get(League, player.league_id)
+                        if league:
+                            max_rtm = league.max_rtm or 0
+                            if max_rtm <= 0:
+                                raise ValidationError(
+                                    "RTM is not enabled for this league"
+                                )
+                            # Count existing RTMs used by this team in this league
+                            rtm_used = Player.query.filter_by(
+                                team_id=team.id,
+                                league_id=player.league_id,
+                                is_rtm=True,
+                                status='sold',
+                                is_deleted=False
+                            ).count()
+                            if rtm_used >= max_rtm:
+                                raise ValidationError(
+                                    f"{team.name} has already used all {max_rtm} RTMs allowed"
+                                )
+
                     # Verify team still has sufficient budget
                     if team.budget < highest_bid.amount:
                         raise ValidationError(
@@ -179,11 +211,14 @@ class AuctionService(BaseService):
                     team.budget -= highest_bid.amount
                     player.team_id = team.id
                     player.status = 'sold'
+                    player.is_rtm = is_rtm
                     result['sold_to'] = team.name
                     result['amount'] = highest_bid.amount
+                    result['is_rtm'] = is_rtm
 
                     logger.info(
                         f"Player {player.name} sold to {team.name} for {highest_bid.amount}"
+                        f"{' (RTM)' if is_rtm else ''}"
                     )
                 else:
                     player.status = 'unsold'
@@ -257,32 +292,6 @@ class AuctionService(BaseService):
             logger.info(f"Price reset to {new_price} for player {player.name}")
 
             return {'success': True, 'new_price': new_price}
-
-    def get_auction_state(self) -> Optional[dict]:
-        """Get the current auction state.
-
-        Returns:
-            Dict with auction state or None if no auction exists.
-        """
-        auction_state = AuctionState.query.first()
-        if not auction_state:
-            return None
-
-        result = {
-            'is_active': auction_state.is_active,
-            'time_remaining': auction_state.time_remaining,
-            'current_player_id': auction_state.current_player_id,
-        }
-
-        if auction_state.current_player:
-            result['current_player'] = {
-                'id': auction_state.current_player.id,
-                'name': auction_state.current_player.name,
-                'current_price': auction_state.current_player.current_price,
-                'base_price': auction_state.current_player.base_price,
-            }
-
-        return result
 
 
 # Singleton instance for use in routes

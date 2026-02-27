@@ -10,20 +10,7 @@ from typing import Final
 # ==================== TIMEZONE ====================
 DEFAULT_TIMEZONE: Final[str] = 'America/Los_Angeles'
 
-# ==================== BUDGET & PRICING ====================
-DEFAULT_TEAM_BUDGET: Final[int] = 500_000_000  # 50 Crore (50,00,00,000)
-DEFAULT_BASE_PRICE: Final[int] = 5_000_000     # 50 Lakhs
-MIN_BID_INCREMENT: Final[int] = 1_000_000      # 10 Lakhs
-
-# ==================== AUCTION SETTINGS ====================
-DEFAULT_AUCTION_TIME_SECONDS: Final[int] = 300  # 5 minutes
-
-# ==================== SQUAD LIMITS ====================
-DEFAULT_MAX_SQUAD_SIZE: Final[int] = 20
-DEFAULT_MIN_SQUAD_SIZE: Final[int] = 16
-
 # ==================== HTTP REQUEST SETTINGS ====================
-DEFAULT_REQUEST_TIMEOUT: Final[int] = 15  # seconds
 IMAGE_REQUEST_TIMEOUT: Final[int] = 15    # seconds
 WIKI_REQUEST_TIMEOUT: Final[int] = 10     # seconds
 
@@ -66,30 +53,9 @@ WPL_STATS_URL_PATTERNS: Final[dict] = {
 }
 
 # ==================== HTTP HEADERS ====================
-DEFAULT_HEADERS: Final[dict] = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-    'Accept-Language': 'en-US,en;q=0.5',
-}
-
 WIKI_HEADERS: Final[dict] = {
     'User-Agent': 'WPLAuctionApp/1.0 (https://github.com/auction; auction@example.com) python-requests'
 }
-
-# ==================== CRICKET DATA API ====================
-CRICKETDATA_BASE_URL: Final[str] = "https://api.cricapi.com/v1"
-
-# ==================== PLAYER POSITIONS ====================
-PLAYER_POSITIONS: Final[list] = ['Batter', 'Keeper', 'Allrounder', 'Bowler']
-POSITION_SORT_ORDER: Final[dict] = {
-    'Batter': 1,
-    'Keeper': 2,
-    'Allrounder': 3,
-    'Bowler': 4,
-}
-
-# ==================== FANTASY AWARD TYPES ====================
-FANTASY_AWARD_TYPES: Final[list] = ['mvp', 'orange_cap', 'purple_cap']
 
 # ==================== PLAYOFF MATCH NUMBERS ====================
 # Playoff matches use special match numbers to distinguish from league matches
@@ -103,12 +69,20 @@ PLAYOFF_MATCH_NUMBERS: Final[dict] = {
     'final': 200,
 }
 
-# ==================== PLAYER STATUS ====================
-PLAYER_STATUS_AVAILABLE: Final[str] = 'available'
-PLAYER_STATUS_SOLD: Final[str] = 'sold'
-PLAYER_STATUS_UNSOLD: Final[str] = 'unsold'
-PLAYER_STATUS_BIDDING: Final[str] = 'bidding'
-
 # ==================== IMAGE SETTINGS ====================
 MIN_VALID_IMAGE_SIZE: Final[int] = 1000  # bytes - images smaller than this are likely invalid
 WPL_IMAGE_URL_TEMPLATE: Final[str] = "https://www.wplt20.com/static-assets/images/players/series/{series_id}/{player_id}.png"
+IPL_IMAGE_URL_TEMPLATE: Final[str] = "https://www.iplt20.com/static-assets/images/players/series/{series_id}/{player_id}.png"
+
+# ==================== LEAGUE IMAGE CONFIG ====================
+# Maps league type to image URL template and series ID
+LEAGUE_IMAGE_CONFIG: Final[dict] = {
+    'wpl': {
+        'template': WPL_IMAGE_URL_TEMPLATE,
+        'series_id': WPL_SERIES_ID,
+    },
+    'ipl': {
+        'template': IPL_IMAGE_URL_TEMPLATE,
+        'series_id': '',  # Set when IPL 2026 series ID is known
+    },
+}

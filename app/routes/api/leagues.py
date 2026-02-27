@@ -7,7 +7,6 @@ Handles CRUD operations for leagues by delegating to LeagueService.
 from flask import Response, jsonify, request
 
 from app.routes import api_bp
-from app.services.base import NotFoundError, ValidationError
 from app.services.league_service import league_service
 from app.utils import error_response, is_admin, validate_positive_int
 
@@ -34,6 +33,15 @@ def manage_leagues() -> tuple[Response, int] | Response:
         except (TypeError, ValueError):
             return error_response('Invalid default purse value')
 
+        # Parse bid increment tiers (list of {threshold, increment})
+        bid_increment_tiers = data.get('bid_increment_tiers')
+
+        # Parse max RTM
+        try:
+            max_rtm = int(data.get('max_rtm', 0))
+        except (TypeError, ValueError):
+            return error_response('Invalid max RTM value')
+
         max_squad, max_error = validate_positive_int(
             data.get('max_squad_size', 20), 'max_squad_size'
         )
@@ -46,17 +54,18 @@ def manage_leagues() -> tuple[Response, int] | Response:
         if min_error:
             return error_response(min_error)
 
-        try:
-            result = league_service.create_league(
-                name=data.get('name', ''),
-                display_name=data.get('display_name'),
-                default_purse=default_purse,
-                max_squad_size=max_squad,
-                min_squad_size=min_squad
-            )
-            return jsonify(result)
-        except ValidationError as e:
-            return error_response(e.message, e.status_code)
+        result = league_service.create_league(
+            name=data.get('name', ''),
+            display_name=data.get('display_name'),
+            default_purse=default_purse,
+            max_squad_size=max_squad,
+            min_squad_size=min_squad,
+            bid_increment_tiers=bid_increment_tiers,
+            max_rtm=max_rtm,
+            league_type=data.get('league_type', 'wpl'),
+            auction_categories=data.get('auction_categories')
+        )
+        return jsonify(result)
 
     # GET request - return all leagues
     leagues = league_service.get_leagues()
@@ -77,11 +86,8 @@ def update_league(league_id: int) -> tuple[Response, int] | Response:
         return error_response('Admin login required', 403)
 
     if request.method == 'DELETE':
-        try:
-            result = league_service.delete_league(league_id)
-            return jsonify(result)
-        except NotFoundError as e:
-            return error_response(e.message, e.status_code)
+        result = league_service.delete_league(league_id)
+        return jsonify(result)
 
     # PUT request - update league
     data = request.get_json()
@@ -95,6 +101,15 @@ def update_league(league_id: int) -> tuple[Response, int] | Response:
             default_purse = float(data['default_purse'])
         except (TypeError, ValueError):
             return error_response('Invalid default purse value')
+
+    bid_increment_tiers = data.get('bid_increment_tiers')
+
+    max_rtm = None
+    if 'max_rtm' in data:
+        try:
+            max_rtm = int(data['max_rtm'])
+        except (TypeError, ValueError):
+            return error_response('Invalid max RTM value')
 
     max_squad_size = None
     if 'max_squad_size' in data:
@@ -112,15 +127,16 @@ def update_league(league_id: int) -> tuple[Response, int] | Response:
         if min_error:
             return error_response(min_error)
 
-    try:
-        result = league_service.update_league(
-            league_id=league_id,
-            name=data.get('name'),
-            display_name=data.get('display_name'),
-            default_purse=default_purse,
-            max_squad_size=max_squad_size,
-            min_squad_size=min_squad_size
-        )
-        return jsonify(result)
-    except (ValidationError, NotFoundError) as e:
-        return error_response(e.message, e.status_code)
+    result = league_service.update_league(
+        league_id=league_id,
+        name=data.get('name'),
+        display_name=data.get('display_name'),
+        default_purse=default_purse,
+        max_squad_size=max_squad_size,
+        min_squad_size=min_squad_size,
+        bid_increment_tiers=bid_increment_tiers,
+        max_rtm=max_rtm,
+        league_type=data.get('league_type'),
+        auction_categories=data.get('auction_categories')
+    )
+    return jsonify(result)

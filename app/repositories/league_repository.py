@@ -45,14 +45,3 @@ class LeagueRepository(BaseRepository[League]):
             League instance or None.
         """
         return self.first_by(name=name, is_deleted=False)
-
-    def get_by_id_if_active(self, league_id: int) -> Optional[League]:
-        """Get a league by ID if it's active.
-
-        Args:
-            league_id: ID of the league.
-
-        Returns:
-            League instance if active, None otherwise.
-        """
-        return self.first_by(id=league_id, is_deleted=False)

@@ -46,13 +46,6 @@ class ValidationError(ServiceError):
         super().__init__(message, 400)
 
 
-class AuthorizationError(ServiceError):
-    """Exception raised when authorization fails."""
-
-    def __init__(self, message: str = "Not authorized"):
-        super().__init__(message, 403)
-
-
 class BaseService:
     """Base class for all services.
 

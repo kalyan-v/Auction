@@ -5,6 +5,7 @@ Contains all SQLAlchemy models for leagues, teams, players, bids,
 fantasy points, and auction state.
 """
 
+import json
 from typing import Optional
 
 from app import db
@@ -16,18 +17,68 @@ class League(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), nullable=False)  # "WPL 2025", "IPL 2026"
     display_name = db.Column(db.String(100))  # "Women's Premier League 2025"
+    league_type = db.Column(db.String(20), default='wpl')  # 'wpl', 'ipl', etc. - used for image/scraper routing
     default_purse = db.Column(db.Float, default=500000000)  # Default team budget
     max_squad_size = db.Column(db.Integer, default=20)  # Maximum players per team
     min_squad_size = db.Column(db.Integer, default=16)  # Minimum players per team
+    bid_increment_tiers = db.Column(db.Text, default='[{"threshold": 0, "increment": 2500000}]')  # JSON: [{threshold, increment}] sorted by threshold
+    max_rtm = db.Column(db.Integer, default=0)  # Max RTMs allowed per team (0 = disabled)
     is_deleted = db.Column(db.Boolean, default=False)  # Soft delete
     created_at = db.Column(db.DateTime, default=get_pacific_time)
-    
+
+    @property
+    def bid_increment_tiers_parsed(self) -> list[dict]:
+        """Parse bid_increment_tiers JSON into list of dicts."""
+        try:
+            tiers = json.loads(self.bid_increment_tiers or '[]')
+            return sorted(tiers, key=lambda t: t.get('threshold', 0))
+        except (json.JSONDecodeError, TypeError):
+            return [{'threshold': 0, 'increment': 2500000}]
+
+    def get_bid_increment(self, current_price: int) -> int:
+        """Get the bid increment for a given current price.
+
+        Args:
+            current_price: Current bid price in raw value (e.g. 50000000 for 5 Cr).
+
+        Returns:
+            Increment amount in raw value.
+        """
+        tiers = self.bid_increment_tiers_parsed
+        # Find the highest threshold that current_price meets
+        applicable = tiers[0]
+        for tier in tiers:
+            if current_price >= tier.get('threshold', 0):
+                applicable = tier
+        return applicable.get('increment', 2500000)
+
     # Relationships
     teams = db.relationship('Team', backref='league', lazy=True)
     players = db.relationship('Player', backref='league', lazy=True)
+    auction_categories = db.relationship('AuctionCategory', backref='league', lazy=True,
+                                          order_by='AuctionCategory.sort_order')
     
     def __repr__(self):
         return f'<League {self.name}>'
+
+
+class AuctionCategory(db.Model):
+    """Auction categories for organizing players during auctions (e.g., Marquee, Set 1, Capped, Uncapped).
+    
+    These are league-specific and set by admin during league creation.
+    They are purely for auction organization and do NOT replace player positions.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), nullable=False)  # e.g., "Marquee", "Set 1"
+    league_id = db.Column(db.Integer, db.ForeignKey('league.id'), nullable=False, index=True)
+    sort_order = db.Column(db.Integer, default=0)  # For display ordering
+    is_deleted = db.Column(db.Boolean, default=False)
+    
+    # Note: No DB-level unique constraint — soft-delete makes it incompatible.
+    # Uniqueness is enforced at the application layer (addCategoryTag prevents duplicates).
+    
+    def __repr__(self):
+        return f'<AuctionCategory {self.name}>'
 
 
 class Team(db.Model):
@@ -61,8 +112,10 @@ class Player(db.Model):
     team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=True, index=True)
     league_id = db.Column(db.Integer, db.ForeignKey('league.id'), nullable=True, index=True)
     original_team = db.Column(db.String(100), nullable=True, index=True)  # Previous/original team name
+    auction_category = db.Column(db.String(50), nullable=True, index=True)  # Auction tier (Marquee, Set 1, etc.)
     fantasy_points = db.Column(db.Float, default=0)  # Total fantasy points
     image_url = db.Column(db.String(500), nullable=True)  # Player image URL
+    is_rtm = db.Column(db.Boolean, default=False)  # Whether this player was acquired via RTM
     is_deleted = db.Column(db.Boolean, default=False, index=True)  # Soft delete
 
     # Composite indexes for common query patterns

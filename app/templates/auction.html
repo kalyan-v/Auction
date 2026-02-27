@@ -68,7 +68,16 @@
                 {% endfor %}
             </div>
             <p class="selected-team-display">Selected: <strong id="selectedTeamName">None</strong></p>
-            <p class="bid-hint" aria-live="polite">💡 Click team = +₹25L (first click = base price)</p>
+            <p class="bid-hint" aria-live="polite">💡
+                {% if bid_increment_tiers|length == 1 %}
+                    Click team = +₹{{ '{:.0f}'.format(bid_increment_tiers[0].increment / 100000) }}L (first click = base price)
+                {% else %}
+                    First click = base price. Increments:
+                    {% for tier in bid_increment_tiers %}
+                        {% if tier.threshold == 0 %}Under{% else %}≥ ₹{{ '{:.0f}'.format(tier.threshold / 10000000) }} Cr{% endif %}: +₹{{ '{:.0f}'.format(tier.increment / 100000) }}L{{ '; ' if not loop.last else '' }}
+                    {% endfor %}
+                {% endif %}
+            </p>
             
             <div class="reset-price">
                 <input type="number" id="resetPriceInput" placeholder="Reset to (in Lakhs)" step="25" min="1">
@@ -77,34 +86,21 @@
         </div>
         
         <div class="auction-controls">
+            {% if current_league and current_league.max_rtm > 0 %}
+            <label class="rtm-toggle">
+                <input type="checkbox" id="rtmCheckbox">
+                <span>🔄 RTM</span>
+            </label>
+            {% endif %}
             <button class="btn btn-success" id="soldBtn" onclick="markSold()" data-tooltip="Finalize sale to the leading bidder">✅ SOLD!</button>
             <button class="btn btn-danger" id="unsoldBtn" onclick="markUnsold()" data-tooltip="Mark player as unsold and move to next">❌ UNSOLD</button>
         </div>
     </div>
 
-    <!-- Bidding Section - Admin Only -->
-    <div class="bidding-section">
-        <h2>Place Your Bid</h2>
-        <form id="bidForm">
-            <label for="teamSelect" class="visually-hidden">Select Team</label>
-            <select id="teamSelect" required aria-label="Select team for bidding">
-                <option value="" disabled selected>Select Team</option>
-                {% for team in teams %}
-                <option value="{{ team.id }}" data-budget="{{ team.budget }}">
-                    {{ team.name }} (Budget: ₹{{ '{:.2f}'.format(team.budget / 10000000) }} Cr)
-                </option>
-                {% endfor %}
-            </select>
-
-            <label for="bidAmount" class="visually-hidden">Bid Amount in Lakhs</label>
-            <input type="number" id="bidAmount" placeholder="Bid Amount (in Lakhs)" step="10" min="1" required aria-label="Bid amount in Lakhs">
-            <button type="submit" class="btn btn-primary" id="bidButton">Place Bid</button>
-        </form>
-        
-        <div id="bidHistory" class="bid-history">
-            <h3>Bid History</h3>
-            <div id="bidList"></div>
-        </div>
+    <!-- Bid History -->
+    <div id="bidHistory" class="bid-history">
+        <h3>Bid History</h3>
+        <div id="bidList"></div>
     </div>
 
     <!-- Randomizer Section - Admin Only -->
@@ -120,14 +116,15 @@
         </div>
         
         <div class="randomizer-controls">
-            <select id="positionFilter">
-                <option value="">Any Position</option>
-                <option value="Batter">Batter</option>
-                <option value="Bowler">Bowler</option>
-                <option value="Allrounder">Allrounder</option>
-                <option value="Keeper">Keeper</option>
+            {% if auction_categories %}
+            <select id="categoryFilter">
+                <option value="">Any Category</option>
+                {% for cat in auction_categories %}
+                <option value="{{ cat.name }}">{{ cat.name }}</option>
+                {% endfor %}
             </select>
-            <button class="btn btn-primary" onclick="pickRandomPlayer()">🎲 Pick Random Player</button>
+            {% endif %}
+            <button class="btn btn-primary" id="pickRandomBtn" onclick="pickRandomPlayer()">🎲 Pick Random Player</button>
         </div>
         <div id="randomResult" class="random-result"></div>
     </div>
@@ -147,6 +144,7 @@
                 {% endif %}
                 <h4>{{ player.name }}</h4>
                 <p>{{ player.position }} {% if player.country == 'Overseas' %}<span class="country-emoji">✈️</span>{% else %}<span class="flag-india"></span>{% endif %}</p>
+                {% if player.auction_category %}<span class="badge category-badge">{{ player.auction_category }}</span>{% endif %}
                 <p>Base: ₹{{ '{:.0f}'.format(player.base_price / 100000) }} L</p>
                 {% if admin_mode %}
                 <button class="btn btn-small" onclick="startAuction({{ player.id }})">Start Auction</button>
@@ -170,6 +168,7 @@
                 {% endif %}
                 <h4>{{ player.name }}</h4>
                 <p>{{ player.position }} {% if player.country == 'Overseas' %}<span class="country-emoji">✈️</span>{% else %}<span class="flag-india"></span>{% endif %}</p>
+                {% if player.auction_category %}<span class="badge category-badge">{{ player.auction_category }}</span>{% endif %}
                 <p>Base: ₹{{ '{:.0f}'.format(player.base_price / 100000) }} L</p>
                 {% if admin_mode %}
                 <button class="btn btn-small btn-retry" onclick="startAuction({{ player.id }})" data-tooltip="Start auction for this player again">🔄 Retry</button>
@@ -194,5 +193,10 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+    // League-configured bid increment tiers
+    const BID_INCREMENT_TIERS = {{ bid_increment_tiers | tojson }};
+    const MAX_RTM = {{ current_league.max_rtm if current_league and current_league.max_rtm else 0 }};
+</script>
 <script src="{{ url_for('static', filename='js/auction.js') }}"></script>
 {% endblock %}

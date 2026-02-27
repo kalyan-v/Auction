@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app import create_app, db
 from app.enums import AwardType
-from app.models import FantasyAward, FantasyPointEntry, Player, League
+from app.models import FantasyAward, Player, League
 from app.scrapers import get_scraper, ScraperType
 from app.services.fantasy_service import fantasy_service
 

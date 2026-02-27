@@ -18,16 +18,15 @@ from flask import current_app
 from app import db
 from app.constants import (
     IMAGE_REQUEST_TIMEOUT,
+    LEAGUE_IMAGE_CONFIG,
     MIN_VALID_IMAGE_SIZE,
     WIKI_HEADERS,
     WIKI_REQUEST_TIMEOUT,
-    WPL_IMAGE_URL_TEMPLATE,
-    WPL_SERIES_ID,
 )
 from app.db_utils import PlayerLock, get_for_update
 from app.logger import get_logger
-from app.models import AuctionState, Player, Team
-from app.player_data import WPL_PLAYER_IDS
+from app.models import AuctionState, Bid, Player, Team
+from app.player_data import get_player_id_for_league
 from app.repositories.bid_repository import BidRepository
 from app.services.base import BaseService, NotFoundError, ValidationError
 from app.utils import create_safe_filename
@@ -56,7 +55,8 @@ class PlayerService(BaseService):
         position: str = '',
         country: str = 'Indian',
         base_price: float = 100000,
-        original_team: str = ''
+        original_team: str = '',
+        auction_category: str = ''
     ) -> dict:
         """Create a new player.
 
@@ -67,6 +67,7 @@ class PlayerService(BaseService):
             country: Player's country ('Indian' or 'Overseas').
             base_price: Starting auction price.
             original_team: Player's previous team.
+            auction_category: Auction tier (e.g., 'Marquee', 'Set 1').
 
         Returns:
             Dict with success status and player ID.
@@ -87,6 +88,7 @@ class PlayerService(BaseService):
                 country=country,
                 base_price=base_price,
                 original_team=original_team,
+                auction_category=auction_category if auction_category else None,
                 league_id=league_id
             )
             db.session.add(player)
@@ -103,7 +105,8 @@ class PlayerService(BaseService):
         position: Optional[str] = None,
         country: Optional[str] = None,
         base_price: Optional[float] = None,
-        original_team: Optional[str] = None
+        original_team: Optional[str] = None,
+        auction_category: Optional[str] = None
     ) -> dict:
         """Update an existing player.
 
@@ -114,6 +117,7 @@ class PlayerService(BaseService):
             country: New country (optional).
             base_price: New base price (optional).
             original_team: New original team (optional).
+            auction_category: New auction category (optional).
 
         Returns:
             Dict with success status.
@@ -135,6 +139,8 @@ class PlayerService(BaseService):
                 player.country = country
             if original_team is not None:
                 player.original_team = original_team
+            if auction_category is not None:
+                player.auction_category = auction_category if auction_category else None
             if base_price is not None:
                 if base_price < 0:
                     raise ValidationError("Base price cannot be negative")
@@ -208,6 +214,7 @@ class PlayerService(BaseService):
                 player.status = 'available'
                 player.team_id = None
                 player.current_price = player.base_price
+                player.is_rtm = False
 
                 # Soft delete all bids for this player
                 self.bid_repo.soft_delete_for_player(player_id)
@@ -218,6 +225,44 @@ class PlayerService(BaseService):
                     'success': True,
                     'message': f'{player_name} has been released back to auction'
                 }
+
+    def get_player_bids(self, player_id: int) -> dict:
+        """Get a player's info and bid history.
+
+        Args:
+            player_id: ID of the player.
+
+        Returns:
+            Dict with player info and list of bids.
+
+        Raises:
+            NotFoundError: If player not found.
+        """
+        player = db.session.get(Player, player_id)
+        if not player:
+            raise NotFoundError('Player not found')
+
+        bids = (
+            Bid.query
+            .filter_by(player_id=player_id, is_deleted=False)
+            .order_by(Bid.amount.desc())
+            .all()
+        )
+
+        return {
+            'player': {
+                'id': player.id,
+                'name': player.name,
+                'position': player.position,
+                'status': player.status,
+                'final_price': player.current_price
+            },
+            'bids': [{
+                'team_name': bid.team.name if bid.team else 'Unknown',
+                'amount': bid.amount,
+                'timestamp': bid.timestamp
+            } for bid in bids]
+        }
 
     def get_players(self, league_id: int) -> List[dict]:
         """Get all players for a league.
@@ -239,6 +284,7 @@ class PlayerService(BaseService):
             'country': p.country,
             'base_price': p.base_price,
             'original_team': p.original_team,
+            'auction_category': p.auction_category,
             'status': p.status
         } for p in players]
 
@@ -246,7 +292,8 @@ class PlayerService(BaseService):
         self,
         league_id: int,
         position: Optional[str] = None,
-        include_unsold: bool = False
+        include_unsold: bool = False,
+        auction_category: Optional[str] = None
     ) -> List[Player]:
         """Get available players for auction.
 
@@ -254,6 +301,7 @@ class PlayerService(BaseService):
             league_id: ID of the league.
             position: Filter by position (optional).
             include_unsold: Include unsold players in results.
+            auction_category: Filter by auction category (optional).
 
         Returns:
             List of Player objects.
@@ -274,13 +322,17 @@ class PlayerService(BaseService):
         if position:
             query = query.filter_by(position=position)
 
+        if auction_category:
+            query = query.filter_by(auction_category=auction_category)
+
         return query.all()
 
     def get_random_player(
         self,
         league_id: int,
         position: Optional[str] = None,
-        include_unsold: bool = False
+        include_unsold: bool = False,
+        auction_category: Optional[str] = None
     ) -> Optional[Player]:
         """Get a random available player.
 
@@ -288,11 +340,12 @@ class PlayerService(BaseService):
             league_id: ID of the league.
             position: Filter by position (optional).
             include_unsold: Include unsold players.
+            auction_category: Filter by auction category (optional).
 
         Returns:
             Random Player object or None if none available.
         """
-        available = self.get_available_players(league_id, position, include_unsold)
+        available = self.get_available_players(league_id, position, include_unsold, auction_category)
         if not available:
             return None
         return random.choice(available)
@@ -309,6 +362,48 @@ class PlayerService(BaseService):
         real_image_dir = os.path.realpath(image_dir)
         return real_filepath.startswith(real_image_dir + os.sep)
 
+    def _save_image_content(
+        self,
+        content: bytes,
+        player_id: int,
+        player_name: str,
+        extension: str = 'jpg'
+    ) -> Optional[str]:
+        """Save image bytes to the player images directory.
+
+        Args:
+            content: Raw image bytes.
+            player_id: Player's ID for filename.
+            player_name: Player's name for filename.
+            extension: File extension (jpg or png).
+
+        Returns:
+            Local URL path to saved image, or None on failure.
+        """
+        max_size = 5 * 1024 * 1024
+        if len(content) > max_size:
+            logger.warning(f"Image too large for {player_name}: {len(content)} bytes")
+            return None
+
+        image_dir = self._get_image_path()
+        os.makedirs(image_dir, exist_ok=True)
+
+        safe_name = create_safe_filename(player_name)
+        filename = f"{player_id}_{safe_name}.{extension}"
+        filepath = os.path.join(image_dir, filename)
+
+        if not self._validate_image_path(filepath, image_dir):
+            logger.error(f"Path traversal attempt detected: {filepath}")
+            return None
+
+        try:
+            with open(filepath, 'wb') as f:
+                f.write(content)
+            return f"/static/images/players/{filename}"
+        except IOError as e:
+            logger.error(f"File error saving image for {player_name}: {e}")
+            return None
+
     def _download_image(
         self,
         image_url: str,
@@ -316,7 +411,7 @@ class PlayerService(BaseService):
         player_name: str,
         extension: str = 'jpg'
     ) -> Optional[str]:
-        """Download an image and save it locally.
+        """Download an image from URL and save it locally.
 
         Args:
             image_url: URL to download from.
@@ -336,42 +431,15 @@ class PlayerService(BaseService):
             if response.status_code != 200:
                 return None
 
-            # Validate content type is an image
             content_type = response.headers.get('Content-Type', '')
             if not content_type.startswith('image/'):
                 logger.warning(f"Invalid content type for {player_name}: {content_type}")
                 return None
 
-            # Validate file size (max 5MB)
-            max_size = 5 * 1024 * 1024
-            if len(response.content) > max_size:
-                logger.warning(f"Image too large for {player_name}: {len(response.content)} bytes")
-                return None
-
-            # Ensure directory exists
-            image_dir = self._get_image_path()
-            os.makedirs(image_dir, exist_ok=True)
-
-            # Create safe filename
-            safe_name = create_safe_filename(player_name)
-            filename = f"{player_id}_{safe_name}.{extension}"
-            filepath = os.path.join(image_dir, filename)
-
-            # Security check
-            if not self._validate_image_path(filepath, image_dir):
-                logger.error(f"Path traversal attempt detected: {filepath}")
-                return None
-
-            with open(filepath, 'wb') as f:
-                f.write(response.content)
-
-            return f"/static/images/players/{filename}"
+            return self._save_image_content(response.content, player_id, player_name, extension)
 
         except requests.RequestException as e:
             logger.error(f"Network error downloading image for {player_name}: {e}")
-            return None
-        except IOError as e:
-            logger.error(f"File error saving image for {player_name}: {e}")
             return None
         except Exception as e:
             logger.error(f"Unexpected error downloading image for {player_name}: {e}", exc_info=True)
@@ -380,7 +448,7 @@ class PlayerService(BaseService):
     def fetch_player_image(self, player_id: int) -> dict:
         """Search for and download player image.
 
-        Tries WPL official source first, falls back to Wikipedia.
+        Tries league-specific official source first, falls back to Wikipedia.
 
         Args:
             player_id: ID of the player.
@@ -395,7 +463,10 @@ class PlayerService(BaseService):
         if not player:
             raise NotFoundError("Player not found")
 
-        local_path = self._search_and_download_image(player.id, player.name)
+        # Determine league type for image source routing
+        league_type = getattr(player.league, 'league_type', None) or 'wpl'
+
+        local_path = self._search_and_download_image(player.id, player.name, league_type)
 
         if local_path:
             with self.transaction():
@@ -412,13 +483,15 @@ class PlayerService(BaseService):
     def _search_and_download_image(
         self,
         player_id: int,
-        player_name: str
+        player_name: str,
+        league_type: str = 'wpl'
     ) -> Optional[str]:
         """Search for player image from multiple sources.
 
         Args:
             player_id: Player's ID.
             player_name: Player's name.
+            league_type: League type for source routing (e.g., 'wpl', 'ipl').
 
         Returns:
             Local path to image or None.
@@ -427,14 +500,17 @@ class PlayerService(BaseService):
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
 
-        # Try WPL first
-        wpl_player_id = WPL_PLAYER_IDS.get(player_name.strip())
-        if wpl_player_id:
+        # Try league-specific source first
+        league_player_id = get_player_id_for_league(player_name.strip(), league_type)
+        image_config = LEAGUE_IMAGE_CONFIG.get(league_type)
+
+        if league_player_id and image_config and image_config.get('series_id'):
             try:
-                image_url = WPL_IMAGE_URL_TEMPLATE.format(
-                    series_id=WPL_SERIES_ID,
-                    player_id=wpl_player_id
+                image_url = image_config['template'].format(
+                    series_id=image_config['series_id'],
+                    player_id=league_player_id
                 )
+                # Check minimum valid size before delegating to _download_image
                 response = requests.get(
                     image_url,
                     headers=headers,
@@ -442,26 +518,16 @@ class PlayerService(BaseService):
                 )
                 if (response.status_code == 200 and
                         len(response.content) > MIN_VALID_IMAGE_SIZE):
-                    max_size = 5 * 1024 * 1024
-                    if len(response.content) <= max_size:
-                        image_dir = self._get_image_path()
-                        os.makedirs(image_dir, exist_ok=True)
-
-                        safe_name = create_safe_filename(player_name)
-                        filename = f"{player_id}_{safe_name}.png"
-                        filepath = os.path.join(image_dir, filename)
-
-                        if self._validate_image_path(filepath, image_dir):
-                            with open(filepath, 'wb') as f:
-                                f.write(response.content)
-                            return f"/static/images/players/{filename}"
+                    local_path = self._save_image_content(
+                        response.content, player_id, player_name, extension='png'
+                    )
+                    if local_path:
+                        return local_path
 
             except requests.RequestException as e:
-                logger.error(f"WPL network error for {player_name}: {e}")
-            except IOError as e:
-                logger.error(f"WPL file error for {player_name}: {e}")
+                logger.error(f"League image network error for {player_name}: {e}")
             except Exception as e:
-                logger.error(f"WPL unexpected error for {player_name}: {e}", exc_info=True)
+                logger.error(f"League image unexpected error for {player_name}: {e}", exc_info=True)
 
         # Fallback to Wikipedia
         try:
@@ -532,6 +598,10 @@ class PlayerService(BaseService):
         Returns:
             Dict with results summary.
         """
+        from app.models import League
+        league = db.session.get(League, league_id)
+        league_type = (getattr(league, 'league_type', None) or 'wpl') if league else 'wpl'
+
         players = Player.query.filter(
             Player.league_id == league_id,
             Player.is_deleted.is_(False),
@@ -542,7 +612,7 @@ class PlayerService(BaseService):
 
         with self.transaction():
             for player in players:
-                local_path = self._search_and_download_image(player.id, player.name)
+                local_path = self._search_and_download_image(player.id, player.name, league_type)
 
                 if local_path:
                     player.image_url = local_path

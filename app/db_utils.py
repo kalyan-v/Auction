@@ -11,8 +11,7 @@ which supports true row-level locking.
 """
 
 import threading
-from functools import wraps
-from typing import Any, Callable, Type, TypeVar
+from typing import Any, Type, TypeVar
 
 from sqlalchemy import select
 
@@ -20,12 +19,12 @@ from app import db
 
 # Application-level locks for critical sections
 # These work for single-process deployments (e.g., PythonAnywhere)
-_bid_lock = threading.Lock()
-_auction_lock = threading.Lock()
-_player_lock = threading.Lock()
+# RLock allows the same thread to re-enter the lock without deadlocking
+_bid_lock = threading.RLock()
+_auction_lock = threading.RLock()
+_player_lock = threading.RLock()
 
 T = TypeVar('T')
-F = TypeVar('F', bound=Callable[..., Any])
 
 
 def is_sqlite() -> bool:
@@ -56,17 +55,19 @@ def get_for_update(model: Type[T], id_value: int) -> T | None:
     return db.session.execute(query).scalar_one_or_none()
 
 
-class BidLock:
-    """
-    Context manager for bidding operations.
+class _SQLiteLock:
+    """Context manager that acquires a threading lock only on SQLite.
 
-    Provides thread-safe access to bidding operations.
-    For SQLite, uses application-level locking.
+    For PostgreSQL/MySQL, these operations use row-level locking instead.
+    For SQLite (single-process deployments), uses application-level locks.
     """
 
-    def __enter__(self) -> 'BidLock':
+    def __init__(self, lock: threading.RLock) -> None:
+        self._lock = lock
+
+    def __enter__(self) -> '_SQLiteLock':
         if is_sqlite():
-            _bid_lock.acquire()
+            self._lock.acquire()
         return self
 
     def __exit__(
@@ -76,67 +77,19 @@ class BidLock:
         exc_tb: Any
     ) -> None:
         if is_sqlite():
-            _bid_lock.release()
+            self._lock.release()
 
 
-class AuctionLock:
-    """
-    Context manager for auction state changes.
-
-    Provides thread-safe access to auction operations.
-    """
-
-    def __enter__(self) -> 'AuctionLock':
-        if is_sqlite():
-            _auction_lock.acquire()
-        return self
-
-    def __exit__(
-        self,
-        exc_type: type | None,
-        exc_val: BaseException | None,
-        exc_tb: Any
-    ) -> None:
-        if is_sqlite():
-            _auction_lock.release()
+def BidLock() -> _SQLiteLock:
+    """Lock for bidding operations."""
+    return _SQLiteLock(_bid_lock)
 
 
-class PlayerLock:
-    """
-    Context manager for player modification operations.
-
-    Provides thread-safe access to player operations like release.
-    """
-
-    def __enter__(self) -> 'PlayerLock':
-        if is_sqlite():
-            _player_lock.acquire()
-        return self
-
-    def __exit__(
-        self,
-        exc_type: type | None,
-        exc_val: BaseException | None,
-        exc_tb: Any
-    ) -> None:
-        if is_sqlite():
-            _player_lock.release()
+def AuctionLock() -> _SQLiteLock:
+    """Lock for auction state changes."""
+    return _SQLiteLock(_auction_lock)
 
 
-def with_lock(lock_class: Type[BidLock | AuctionLock | PlayerLock]) -> Callable[[F], F]:
-    """
-    Decorator to wrap a function with a lock context manager.
-
-    Args:
-        lock_class: The lock class to use (BidLock, AuctionLock, or PlayerLock)
-
-    Returns:
-        Decorated function with lock protection
-    """
-    def decorator(f: F) -> F:
-        @wraps(f)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            with lock_class():
-                return f(*args, **kwargs)
-        return wrapper  # type: ignore
-    return decorator
+def PlayerLock() -> _SQLiteLock:
+    """Lock for player modification operations."""
+    return _SQLiteLock(_player_lock)

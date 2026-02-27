@@ -6,12 +6,14 @@ Encapsulates all business logic related to:
 - League validation
 """
 
+import json
 import re
 from typing import List, Optional
 
 from app import db
+from app.enums import LeagueType
 from app.logger import get_logger
-from app.models import League
+from app.models import AuctionCategory, League
 from app.repositories.league_repository import LeagueRepository
 from app.services.base import BaseService, NotFoundError, ValidationError
 
@@ -21,6 +23,7 @@ logger = get_logger(__name__)
 MAX_LEAGUE_NAME_LENGTH = 50
 MAX_DISPLAY_NAME_LENGTH = 100
 LEAGUE_NAME_PATTERN = re.compile(r'^[\w\s\-]+$')
+VALID_LEAGUE_TYPES = {lt.value for lt in LeagueType}
 
 
 class LeagueService(BaseService):
@@ -104,13 +107,65 @@ class LeagueService(BaseService):
                 'Minimum squad size cannot be greater than maximum'
             )
 
+    def _validate_bid_increment_tiers(self, tiers: list) -> None:
+        """Validate bid increment tiers structure.
+
+        Args:
+            tiers: List of {threshold, increment} dicts.
+
+        Raises:
+            ValidationError: If tiers are invalid.
+        """
+        if not tiers or not isinstance(tiers, list):
+            raise ValidationError('Bid increment tiers must be a non-empty list')
+        for tier in tiers:
+            if not isinstance(tier, dict):
+                raise ValidationError('Each tier must be an object with threshold and increment')
+            if 'threshold' not in tier or 'increment' not in tier:
+                raise ValidationError('Each tier must have threshold and increment')
+            try:
+                threshold = int(tier['threshold'])
+                increment = int(tier['increment'])
+            except (TypeError, ValueError):
+                raise ValidationError('Threshold and increment must be numbers')
+            if threshold < 0:
+                raise ValidationError('Threshold must be non-negative')
+            if increment <= 0:
+                raise ValidationError('Increment must be positive')
+
+        has_base_tier = any(int(t['threshold']) == 0 for t in tiers)
+        if not has_base_tier:
+            raise ValidationError(
+                'Bid increment tiers must include a base tier with threshold 0'
+            )
+
+    def _create_auction_categories(
+        self, league_id: int, category_names: List[str]
+    ) -> None:
+        """Create auction categories for a league (must be called within a transaction)."""
+        seen: set[str] = set()
+        for i, cat_name in enumerate(category_names):
+            cat_name = cat_name.strip()
+            if cat_name and cat_name.lower() not in seen:
+                seen.add(cat_name.lower())
+                category = AuctionCategory(
+                    name=cat_name,
+                    league_id=league_id,
+                    sort_order=i
+                )
+                db.session.add(category)
+
     def create_league(
         self,
         name: str,
         display_name: Optional[str] = None,
         default_purse: float = 500000000,
         max_squad_size: int = 20,
-        min_squad_size: int = 16
+        min_squad_size: int = 16,
+        bid_increment_tiers: Optional[list] = None,
+        max_rtm: int = 0,
+        league_type: str = 'wpl',
+        auction_categories: Optional[List[str]] = None
     ) -> dict:
         """Create a new league.
 
@@ -120,6 +175,10 @@ class LeagueService(BaseService):
             default_purse: Default team budget.
             max_squad_size: Maximum players per team.
             min_squad_size: Minimum players per team.
+            bid_increment_tiers: List of {threshold, increment} dicts.
+            max_rtm: Maximum RTM allowed per team (0 = disabled).
+            league_type: League type (e.g., 'wpl', 'ipl').
+            auction_categories: Optional list of auction category names.
 
         Returns:
             Dict with success status and league ID.
@@ -135,6 +194,18 @@ class LeagueService(BaseService):
         self._validate_purse(default_purse)
         self._validate_squad_sizes(min_squad_size, max_squad_size)
 
+        # Validate league type
+        if league_type not in VALID_LEAGUE_TYPES:
+            raise ValidationError(
+                f'Invalid league type. Valid: {", ".join(sorted(VALID_LEAGUE_TYPES))}'
+            )
+
+        # Validate and serialize bid increment tiers
+        if bid_increment_tiers is None:
+            bid_increment_tiers = [{'threshold': 0, 'increment': 2500000}]
+        self._validate_bid_increment_tiers(bid_increment_tiers)
+        bid_increment_tiers_json = json.dumps(bid_increment_tiers)
+
         # Check for duplicate league name
         existing = self.league_repo.find_by_name(name)
         if existing:
@@ -146,10 +217,17 @@ class LeagueService(BaseService):
                 display_name=display_name,
                 default_purse=default_purse,
                 max_squad_size=max_squad_size,
-                min_squad_size=min_squad_size
+                min_squad_size=min_squad_size,
+                bid_increment_tiers=bid_increment_tiers_json,
+                max_rtm=max_rtm,
+                league_type=league_type
             )
             db.session.add(league)
             self.flush()
+
+            # Create auction categories if provided
+            if auction_categories:
+                self._create_auction_categories(league.id, auction_categories)
 
             logger.info(f"Created league: {league.name} (ID: {league.id})")
 
@@ -162,7 +240,11 @@ class LeagueService(BaseService):
         display_name: Optional[str] = None,
         default_purse: Optional[float] = None,
         max_squad_size: Optional[int] = None,
-        min_squad_size: Optional[int] = None
+        min_squad_size: Optional[int] = None,
+        bid_increment_tiers: Optional[list] = None,
+        max_rtm: Optional[int] = None,
+        league_type: Optional[str] = None,
+        auction_categories: Optional[List[str]] = None
     ) -> dict:
         """Update an existing league.
 
@@ -173,6 +255,10 @@ class LeagueService(BaseService):
             default_purse: New default purse (optional).
             max_squad_size: New max squad size (optional).
             min_squad_size: New min squad size (optional).
+            bid_increment_tiers: New bid increment tiers (optional).
+            max_rtm: New max RTM per team (optional).
+            league_type: New league type (optional).
+            auction_categories: New auction category names (optional).
 
         Returns:
             Dict with success status.
@@ -213,6 +299,33 @@ class LeagueService(BaseService):
                 league.min_squad_size = new_min
                 league.max_squad_size = new_max
 
+            if bid_increment_tiers is not None:
+                self._validate_bid_increment_tiers(bid_increment_tiers)
+                league.bid_increment_tiers = json.dumps(bid_increment_tiers)
+
+            if league_type is not None:
+                if league_type not in VALID_LEAGUE_TYPES:
+                    raise ValidationError(
+                        f'Invalid league type. Valid: {", ".join(sorted(VALID_LEAGUE_TYPES))}'
+                    )
+                league.league_type = league_type
+
+            if max_rtm is not None:
+                if max_rtm < 0:
+                    raise ValidationError('Max RTM cannot be negative')
+                league.max_rtm = max_rtm
+
+            # Update auction categories if provided
+            if auction_categories is not None:
+                # Soft-delete existing categories
+                existing_cats = AuctionCategory.query.filter_by(
+                    league_id=league_id, is_deleted=False
+                ).all()
+                for cat in existing_cats:
+                    cat.is_deleted = True
+                # Add new categories
+                self._create_auction_categories(league_id, auction_categories)
+
             logger.info(f"Updated league: {league.name}")
 
             return {'success': True}
@@ -252,35 +365,17 @@ class LeagueService(BaseService):
             'id': league.id,
             'name': league.name,
             'display_name': league.display_name,
+            'league_type': league.league_type,
             'default_purse': league.default_purse,
             'max_squad_size': league.max_squad_size,
-            'min_squad_size': league.min_squad_size
+            'min_squad_size': league.min_squad_size,
+            'bid_increment_tiers': league.bid_increment_tiers_parsed,
+            'max_rtm': league.max_rtm,
+            'auction_categories': [
+                {'id': c.id, 'name': c.name, 'sort_order': c.sort_order}
+                for c in league.auction_categories if not c.is_deleted
+            ]
         } for league in leagues]
-
-    def get_league(self, league_id: int) -> dict:
-        """Get a specific league by ID.
-
-        Args:
-            league_id: ID of the league.
-
-        Returns:
-            League dictionary.
-
-        Raises:
-            NotFoundError: If league not found.
-        """
-        league = self.league_repo.get(league_id)
-        if not league or league.is_deleted:
-            raise NotFoundError('League not found')
-
-        return {
-            'id': league.id,
-            'name': league.name,
-            'display_name': league.display_name,
-            'default_purse': league.default_purse,
-            'max_squad_size': league.max_squad_size,
-            'min_squad_size': league.min_squad_size
-        }
 
 
 # Singleton instance for use in routes

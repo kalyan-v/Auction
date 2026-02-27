@@ -7,7 +7,6 @@ Supports development, testing, and production environments.
 
 import os
 from datetime import timedelta
-from typing import Optional
 
 
 class Config:
@@ -30,15 +29,6 @@ class Config:
     ADMIN_PASSWORD: str = os.environ.get('ADMIN_PASSWORD', '')
     # Hashed password for production (bcrypt) - takes precedence over ADMIN_PASSWORD
     ADMIN_PASSWORD_HASH: str = os.environ.get('ADMIN_PASSWORD_HASH', '')
-
-    # Auction settings
-    DEFAULT_AUCTION_TIME: int = 300  # 5 minutes in seconds
-    MIN_BID_INCREMENT: int = 1_000_000  # 10 Lakhs
-    STARTING_BUDGET: int = 500_000_000  # 50 Crore
-    DEFAULT_BASE_PRICE: int = 5_000_000  # 50 Lakhs
-
-    # Cricket API settings
-    CRICKET_API_KEY: Optional[str] = os.environ.get('CRICKET_API_KEY', '')
 
 
 class DevelopmentConfig(Config):

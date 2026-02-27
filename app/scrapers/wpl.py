@@ -299,9 +299,10 @@ class WPLScraper(BaseScraper):
 
     # ==================== Match Scorecard ====================
 
-    def _is_absolute_url(self, url: str) -> bool:
+    @staticmethod
+    def _is_absolute_url(url: str) -> bool:
         """Check if URL is absolute (has protocol)."""
-        return url.startswith("http://") or url.startswith("https://")
+        return url.startswith(("http://", "https://"))
 
     def _extract_game_id(self, url: str) -> str:
         """Extract game_id from match URL."""
@@ -442,11 +443,10 @@ class WPLScraper(BaseScraper):
             stats.maidens += safe_int(bowler.get("Maidens", 0))
             stats.dot_balls += safe_int(bowler.get("Dots", 0))
 
-    def _is_valid_fielder(self, fielder_name: str) -> bool:
+    @staticmethod
+    def _is_valid_fielder(fielder_name: str) -> bool:
         """Check if fielder name is valid (not a substitute placeholder)."""
-        if not fielder_name:
-            return False
-        return fielder_name.lower() not in IGNORED_FIELDERS
+        return bool(fielder_name) and fielder_name.lower() not in IGNORED_FIELDERS
 
     def _credit_fielding_action(
         self,

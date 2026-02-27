@@ -14,108 +14,344 @@
 {% block title %}Setup - Player Auction System{% endblock %}
 
 {% block content %}
-<h2>Setup Teams and Players</h2>
+<div class="setup-page">
+    <div class="setup-page-header">
+        <h2>Auction Setup</h2>
+        <p class="setup-subtitle">Configure your league, add teams, and register players before starting the auction.</p>
+    </div>
 
-{% if not admin_mode %}
-<div class="readonly-banner">
-    🔒 <strong>View Only Mode</strong> - Adding/editing is disabled. Contact admin for changes.
-</div>
-{% endif %}
+    {% if not admin_mode %}
+    <div class="readonly-banner">
+        🔒 <strong>View Only Mode</strong> — Adding/editing is disabled. Contact admin for changes.
+    </div>
+    {% endif %}
 
-<div class="setup-container">
     {% if admin_mode %}
-    <!-- Leagues Section -->
-    <div class="setup-section leagues-section">
-        <h3>🏆 Leagues</h3>
-        <form id="leagueForm" class="form-inline">
-            <input type="text" id="leagueName" placeholder="League ID (e.g. wpl2026)" required>
-            <input type="text" id="leagueDisplayName" placeholder="Display Name (e.g. WPL 2026)" required>
-            <input type="number" id="leaguePurse" placeholder="Default Purse (Cr)" value="50" step="1">
-            <button type="submit" class="btn btn-primary">Create League</button>
-        </form>
-        
-        <div id="leaguesList" class="list-container">
+    <!-- ═══════════════ STEP 1: LEAGUE ═══════════════ -->
+    <div class="setup-step">
+        <div class="step-header">
+            <span class="step-number">1</span>
+            <div>
+                <h3>League</h3>
+                <p class="step-desc">Create a league or select an existing one. Each league has its own teams, players, and auction settings.</p>
+            </div>
+        </div>
+
+        <!-- Existing Leagues -->
+        {% if all_leagues %}
+        <div class="league-cards" id="leaguesList">
             {% for league in all_leagues %}
-            <div class="list-item {% if current_league and league.id == current_league.id %}active-league{% endif %}">
-                <span class="league-name">{{ league.display_name }}</span>
-                <span class="league-id">({{ league.name }})</span>
-                <span class="purse">₹{{ '{:.0f}'.format(league.default_purse / 10000000) }} Cr</span>
-                <span class="squad-limits">Squad: {{ league.min_squad_size }}-{{ league.max_squad_size }}</span>
-                {% if current_league and league.id == current_league.id %}
-                <span class="badge active">Active</span>
-                {% else %}
-                <button class="btn btn-small btn-select" onclick="switchLeague({{ league.id }})">Select</button>
+            <div class="league-card {% if current_league and league.id == current_league.id %}league-card--active{% endif %}">
+                <div class="league-card-header">
+                    <div>
+                        <h4 class="league-card-title">{{ league.display_name }}</h4>
+                        <span class="league-card-id">{{ league.name }}</span>
+                    </div>
+                    {% if current_league and league.id == current_league.id %}
+                    <span class="league-status-badge league-status-badge--active">Active</span>
+                    {% else %}
+                    <button class="btn btn-small btn-select" onclick="switchLeague({{ league.id }})">Switch</button>
+                    {% endif %}
+                </div>
+                <div class="league-card-details">
+                    <div class="league-detail">
+                        <span class="league-detail-label">Purse</span>
+                        <span class="league-detail-value">₹{{ '{:.0f}'.format(league.default_purse / 10000000) }} Cr</span>
+                    </div>
+                    <div class="league-detail">
+                        <span class="league-detail-label">Bid Increments</span>
+                        <span class="league-detail-value league-detail-value--small">
+                            {% for tier in league.bid_increment_tiers_parsed %}
+                            {% if tier.threshold == 0 %}Base{% else %}≥₹{{ '{:.0f}'.format(tier.threshold / 10000000) }}Cr{% endif %}: +₹{{ '{:.0f}'.format(tier.increment / 100000) }}L{{ ', ' if not loop.last else '' }}
+                            {% endfor %}
+                        </span>
+                    </div>
+                    <div class="league-detail">
+                        <span class="league-detail-label">Type</span>
+                        <span class="league-detail-value">{{ league.league_type|upper }}</span>
+                    </div>
+                    <div class="league-detail">
+                        <span class="league-detail-label">Squad</span>
+                        <span class="league-detail-value">{{ league.min_squad_size }}–{{ league.max_squad_size }}</span>
+                    </div>
+                    <div class="league-detail">
+                        <span class="league-detail-label">RTM</span>
+                        <span class="league-detail-value">{{ league.max_rtm if league.max_rtm else 'Off' }}</span>
+                    </div>
+                </div>
+                {% if league.auction_categories %}
+                <div class="league-card-categories">
+                    <span class="league-detail-label">Auction Categories</span>
+                    <div class="league-cat-tags">
+                        {% for cat in league.auction_categories if not cat.is_deleted %}
+                        <span class="cat-tag cat-tag--readonly">{{ cat.name }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
                 {% endif %}
             </div>
             {% endfor %}
         </div>
+        {% endif %}
+
+        <!-- Create New League (collapsible) -->
+        <details class="create-form-toggle" {% if not all_leagues %}open{% endif %}>
+            <summary class="create-form-summary">
+                <span>➕ Create New League</span>
+            </summary>
+            <form id="leagueForm" class="setup-form">
+                <div class="form-row form-row--2col">
+                    <div class="form-field">
+                        <label for="leagueName">League ID <span class="required">*</span></label>
+                        <input type="text" id="leagueName" placeholder="e.g. wpl2026" required>
+                        <span class="form-hint">Unique identifier, no spaces. Used internally.</span>
+                    </div>
+                    <div class="form-field">
+                        <label for="leagueDisplayName">Display Name <span class="required">*</span></label>
+                        <input type="text" id="leagueDisplayName" placeholder="e.g. WPL 2026" required>
+                        <span class="form-hint">Shown in the UI and navigation.</span>
+                    </div>
+                </div>
+                <div class="form-row form-row--2col">
+                    <div class="form-field">
+                        <label for="leagueType">League Type</label>
+                        <select id="leagueType">
+                            <option value="wpl">WPL</option>
+                            <option value="ipl">IPL</option>
+                        </select>
+                        <span class="form-hint">Determines player image source.</span>
+                    </div>
+                    <div class="form-field">
+                        <label for="leaguePurse">Default Purse</label>
+                        <div class="input-with-unit">
+                            <input type="number" id="leaguePurse" value="50" step="1" min="1">
+                            <span class="input-unit">Cr</span>
+                        </div>
+                        <span class="form-hint">Starting budget for each team.</span>
+                    </div>
+                </div>
+                <div class="form-row form-row--2col">
+                    <div class="form-field">
+                        <label for="leagueMaxRtm">Max RTMs per Team</label>
+                        <input type="number" id="leagueMaxRtm" value="0" step="1" min="0" max="10">
+                        <span class="form-hint">0 = RTM disabled. Limits RTM usage per team.</span>
+                    </div>
+                </div>
+
+                <!-- Bid Increment Tiers -->
+                <div class="form-field">
+                    <label>Bid Increments</label>
+                    <p class="form-hint form-hint--block">
+                        Set how much each bid raises the price. Add multiple tiers for different price ranges (e.g. +₹25L under 5 Cr, +₹50L above 5 Cr).
+                    </p>
+                    <div class="tier-builder" id="tierBuilder">
+                        <div class="tier-rows" id="tierRows">
+                            <!-- Tier rows are added by JS -->
+                        </div>
+                        <button type="button" class="btn btn-small btn-add-tier" id="addTierBtn">+ Add Tier</button>
+                    </div>
+                    <div class="tag-presets">
+                        <span class="tag-preset-label">Presets:</span>
+                        <button type="button" class="tag-preset tier-preset" data-tiers='[{"threshold":0,"increment":2500000}]'>Flat ₹25L</button>
+                        <button type="button" class="tag-preset tier-preset" data-tiers='[{"threshold":0,"increment":2500000},{"threshold":50000000,"increment":5000000}]'>₹25L / ₹50L at 5 Cr</button>
+                        <button type="button" class="tag-preset tier-preset" data-tiers='[{"threshold":0,"increment":2000000},{"threshold":40000000,"increment":5000000},{"threshold":100000000,"increment":10000000}]'>₹20L / ₹50L / ₹1Cr</button>
+                    </div>
+                </div>
+
+                <!-- Auction Categories: Tag-based UI -->
+                <div class="form-field">
+                    <label>Auction Categories <span class="optional">(optional)</span></label>
+                    <p class="form-hint form-hint--block">
+                        Group players into auction rounds like Marquee, Set 1, Set 2 etc. 
+                        These are used during auction only — not related to cricket positions.
+                    </p>
+                    <div class="tag-input-container" id="categoryTagContainer">
+                        <div class="tag-list" id="categoryTagList"></div>
+                        <div class="tag-input-row">
+                            <input type="text" id="categoryInput" placeholder="Type a category name and press Enter or Add" 
+                                   class="tag-text-input" autocomplete="off">
+                            <button type="button" class="btn btn-small btn-add-tag" id="addCategoryBtn">+ Add</button>
+                        </div>
+                    </div>
+                    <div class="tag-presets">
+                        <span class="tag-preset-label">Quick add:</span>
+                        <button type="button" class="tag-preset" data-categories="Marquee,Set 1,Set 2,Set 3">Standard (Marquee + Sets)</button>
+                        <button type="button" class="tag-preset" data-categories="Marquee,Set 1,Set 2,Set 3,Set 4">Extended (4 Sets)</button>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Create League</button>
+                </div>
+            </form>
+        </details>
     </div>
     {% endif %}
 
-    <!-- Teams Section -->
-    <div class="setup-section">
-        <h3>Teams (Budget in Cr)</h3>
+    <!-- ═══════════════ STEP 2: TEAMS ═══════════════ -->
+    <div class="setup-step">
+        <div class="step-header">
+            <span class="step-number">2</span>
+            <div>
+                <h3>Teams{% if current_league %} <span class="step-league-tag">{{ current_league.display_name }}</span>{% endif %}</h3>
+                <p class="step-desc">
+                    {% if current_league %}
+                    Teams for <strong>{{ current_league.display_name }}</strong>. Each team starts with ₹{{ '{:.0f}'.format(current_league.default_purse / 10000000) }} Cr purse by default.
+                    {% else %}
+                    Create or select a league first, then add teams here.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+
         {% if admin_mode %}
-        <form id="teamForm" class="form-inline">
-            <input type="text" id="teamName" placeholder="Team Name" required>
-            <input type="number" id="teamBudget" placeholder="Budget (in Cr)" value="50" step="1" min="1">
-            <button type="submit" class="btn btn-primary">Add Team</button>
+        <form id="teamForm" class="setup-form setup-form--inline">
+            <div class="form-field form-field--grow">
+                <label for="teamName">Team Name <span class="required">*</span></label>
+                <input type="text" id="teamName" placeholder="e.g. Mumbai Indians" required>
+            </div>
+            <div class="form-field">
+                <label for="teamBudget">Budget</label>
+                <div class="input-with-unit">
+                    <input type="number" id="teamBudget" value="{{ '{:.0f}'.format((current_league.default_purse if current_league else 500000000) / 10000000) }}" step="1" min="1">
+                    <span class="input-unit">Cr</span>
+                </div>
+            </div>
+            <div class="form-field form-field--action">
+                <button type="submit" class="btn btn-primary">Add Team</button>
+            </div>
         </form>
         {% endif %}
-        
-        <div id="teamsList" class="list-container">
+
+        <div id="teamsList" class="item-list">
             {% for team in teams %}
-            <div class="list-item">
-                <span>{{ team.name }}</span>
-                <span class="budget">₹{{ '{:.2f}'.format(team.budget / 10000000) }} Cr</span>
+            <div class="item-row">
+                <span class="item-name">{{ team.name }}</span>
+                <span class="item-meta item-meta--money">₹{{ '{:.2f}'.format(team.budget / 10000000) }} Cr</span>
             </div>
             {% endfor %}
+            {% if not teams %}
+            <div class="empty-state">No teams added yet. Add teams above to get started.</div>
+            {% endif %}
         </div>
     </div>
 
-    <!-- Players Section -->
-    <div class="setup-section">
-        <h3>Players (Base Price in Lakhs)</h3>
+    <!-- ═══════════════ STEP 3: PLAYERS ═══════════════ -->
+    <div class="setup-step">
+        <div class="step-header">
+            <span class="step-number">3</span>
+            <div>
+                <h3>Players{% if current_league %} <span class="step-league-tag">{{ current_league.display_name }}</span>{% endif %}</h3>
+                <p class="step-desc">
+                    {% if current_league %}
+                    Player pool for <strong>{{ current_league.display_name }}</strong>. Each player needs a position, country, and base price.
+                    {% if current_league.auction_categories %}
+                    You can also assign an auction category to group players into sets.
+                    {% endif %}
+                    {% else %}
+                    Create or select a league first, then register players here.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+
         {% if admin_mode %}
-        <form id="playerForm" class="form-inline">
-            <input type="text" id="playerName" placeholder="Player Name" required>
-            <select id="playerPosition" required>
-                <option value="" disabled selected>Select Position</option>
-                <option value="Batter">Batter</option>
-                <option value="Bowler">Bowler</option>
-                <option value="Allrounder">Allrounder</option>
-                <option value="Keeper">Keeper</option>
-            </select>
-            <select id="playerCountry" required>
-                <option value="Indian">Indian</option>
-                <option value="Overseas">Overseas</option>
-            </select>
-            <input type="number" id="playerBasePrice" placeholder="Base Price (in Lakhs)" value="50" step="10" min="1">
-            <input type="text" id="playerOriginalTeam" placeholder="Original Team (optional)">
-            <button type="submit" class="btn btn-primary">Add Player</button>
+        <form id="playerForm" class="setup-form">
+            <div class="form-row form-row--player">
+                <div class="form-field form-field--grow">
+                    <label for="playerName">Player Name <span class="required">*</span></label>
+                    <input type="text" id="playerName" placeholder="e.g. Smriti Mandhana" required>
+                </div>
+                <div class="form-field">
+                    <label for="playerPosition">Position <span class="required">*</span></label>
+                    <select id="playerPosition" required>
+                        <option value="" disabled selected>Select…</option>
+                        <option value="Batter">Batter</option>
+                        <option value="Bowler">Bowler</option>
+                        <option value="Allrounder">Allrounder</option>
+                        <option value="Keeper">Keeper</option>
+                    </select>
+                </div>
+                <div class="form-field">
+                    <label for="playerCountry">Country <span class="required">*</span></label>
+                    <select id="playerCountry" required>
+                        <option value="Indian">Indian</option>
+                        <option value="Overseas">Overseas</option>
+                    </select>
+                </div>
+                <div class="form-field">
+                    <label for="playerBasePrice">Base Price</label>
+                    <div class="input-with-unit">
+                        <input type="number" id="playerBasePrice" value="50" step="1" min="1">
+                        <span class="input-unit">Lakhs</span>
+                    </div>
+                </div>
+                <div class="form-field">
+                    <label for="playerOriginalTeam">Original Team</label>
+                    <input type="text" id="playerOriginalTeam" placeholder="Optional">
+                </div>
+                {% if current_league and current_league.auction_categories %}
+                <div class="form-field">
+                    <label for="playerAuctionCategory">Category</label>
+                    <select id="playerAuctionCategory">
+                        <option value="">None</option>
+                        {% for cat in current_league.auction_categories if not cat.is_deleted %}
+                        <option value="{{ cat.name }}">{{ cat.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% else %}
+                <input type="hidden" id="playerAuctionCategory" value="">
+                {% endif %}
+                <div class="form-field form-field--action">
+                    <button type="submit" class="btn btn-primary">Add Player</button>
+                </div>
+            </div>
         </form>
         {% endif %}
-        
-        <div id="playersList" class="list-container">
+
+        <!-- Player count summary -->
+        {% if players %}
+        <div class="player-summary">
+            <span class="player-count">{{ players|length }} player{{ 's' if players|length != 1 else '' }}</span>
+            {% set indian_count = players|selectattr('country', 'equalto', 'Indian')|list|length %}
+            {% set overseas_count = players|selectattr('country', 'equalto', 'Overseas')|list|length %}
+            <span class="player-breakdown">{{ indian_count }} Indian · {{ overseas_count }} Overseas</span>
+        </div>
+        {% endif %}
+
+        <div id="playersList" class="item-list item-list--players">
             {% for player in players %}
-            <div class="list-item" data-player-id="{{ player.id }}">
-                <span class="player-name">{{ player.name }}</span>
-                <span class="position">{{ player.position }}</span>
-                <span>{% if player.country == 'Overseas' %}<span class="country-emoji">✈️</span>{% else %}<span class="flag-india"></span>{% endif %}</span>
-                <span class="price">₹{{ '{:.0f}'.format(player.base_price / 100000) }} L</span>
-                {% if player.original_team %}<span class="original-team">{{ player.original_team }}</span>{% endif %}
+            <div class="item-row item-row--player" data-player-id="{{ player.id }}">
+                <span class="item-name">{{ player.name }}</span>
+                <span class="item-meta item-meta--position">{{ player.position }}</span>
+                <span class="item-meta item-meta--country">
+                    {% if player.country == 'Overseas' %}✈️{% else %}🇮🇳{% endif %}
+                </span>
+                <span class="item-meta item-meta--money">₹{{ '{:.0f}'.format(player.base_price / 100000) }} L</span>
+                {% if player.original_team %}
+                <span class="item-meta item-meta--team">{{ player.original_team }}</span>
+                {% endif %}
+                {% if player.auction_category %}
+                <span class="badge category-badge">{{ player.auction_category }}</span>
+                {% endif %}
                 {% if admin_mode %}
-                <button class="btn btn-small btn-edit" 
+                <button class="btn btn-icon btn-edit"
                     data-player-id="{{ player.id }}"
                     data-player-name="{{ player.name }}"
                     data-player-position="{{ player.position }}"
                     data-player-country="{{ player.country }}"
                     data-player-base-price="{{ player.base_price }}"
                     data-player-original-team="{{ player.original_team or '' }}"
-                    onclick="editPlayerFromData(this)">✏️</button>
+                    data-player-auction-category="{{ player.auction_category or '' }}"
+                    onclick="editPlayerFromData(this)"
+                    title="Edit {{ player.name }}">✏️</button>
                 {% endif %}
             </div>
             {% endfor %}
+            {% if not players %}
+            <div class="empty-state">No players registered yet. Add players above to build the auction pool.</div>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -129,33 +365,50 @@
         <form id="editPlayerForm">
             <input type="hidden" id="editPlayerId">
             <div class="form-group">
-                <label>Name</label>
+                <label for="editPlayerName">Name</label>
                 <input type="text" id="editPlayerName" required>
             </div>
+            <div class="form-row form-row--2col">
+                <div class="form-group">
+                    <label for="editPlayerPosition">Position</label>
+                    <select id="editPlayerPosition" required>
+                        <option value="Batter">Batter</option>
+                        <option value="Bowler">Bowler</option>
+                        <option value="Allrounder">Allrounder</option>
+                        <option value="Keeper">Keeper</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="editPlayerCountry">Country</label>
+                    <select id="editPlayerCountry" required>
+                        <option value="Indian">Indian</option>
+                        <option value="Overseas">Overseas</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row form-row--2col">
+                <div class="form-group">
+                    <label for="editPlayerBasePrice">Base Price (Lakhs)</label>
+                    <input type="number" id="editPlayerBasePrice" step="1" min="1" required>
+                </div>
+                <div class="form-group">
+                    <label for="editPlayerOriginalTeam">Original Team</label>
+                    <input type="text" id="editPlayerOriginalTeam" placeholder="Leave blank if none">
+                </div>
+            </div>
+            {% if current_league and current_league.auction_categories %}
             <div class="form-group">
-                <label>Position</label>
-                <select id="editPlayerPosition" required>
-                    <option value="Batter">Batter</option>
-                    <option value="Bowler">Bowler</option>
-                    <option value="Allrounder">Allrounder</option>
-                    <option value="Keeper">Keeper</option>
+                <label for="editPlayerAuctionCategory">Auction Category</label>
+                <select id="editPlayerAuctionCategory">
+                    <option value="">No Category</option>
+                    {% for cat in current_league.auction_categories if not cat.is_deleted %}
+                    <option value="{{ cat.name }}">{{ cat.name }}</option>
+                    {% endfor %}
                 </select>
             </div>
-            <div class="form-group">
-                <label>Country</label>
-                <select id="editPlayerCountry" required>
-                    <option value="Indian">Indian</option>
-                    <option value="Overseas">Overseas</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Base Price (Lakhs)</label>
-                <input type="number" id="editPlayerBasePrice" step="10" min="1" required>
-            </div>
-            <div class="form-group">
-                <label>Original Team</label>
-                <input type="text" id="editPlayerOriginalTeam" placeholder="Leave blank if none">
-            </div>
+            {% else %}
+            <input type="hidden" id="editPlayerAuctionCategory" value="">
+            {% endif %}
             <div class="modal-buttons">
                 <button type="submit" class="btn btn-primary">Save Changes</button>
                 <button type="button" class="btn btn-danger" onclick="deletePlayer()">Delete Player</button>

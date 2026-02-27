@@ -6,14 +6,10 @@ Business logic is delegated to PlayerService.
 """
 
 from flask import Response, jsonify, request
-from sqlalchemy.orm import joinedload
 
-from app import db
 from app.logger import get_logger
-from app.models import Bid, Player
 from app.routes import api_bp
 from app.routes.main import get_current_league
-from app.services.base import NotFoundError, ValidationError
 from app.services.player_service import player_service
 from app.utils import (
     admin_required,
@@ -54,18 +50,16 @@ def manage_players() -> tuple[Response, int] | Response:
         except (TypeError, ValueError):
             return error_response('Invalid base price value')
 
-        try:
-            result = player_service.create_player(
-                name=data['name'],
-                league_id=current_league.id,
-                position=data.get('position', ''),
-                country=data.get('country', 'Indian'),
-                base_price=base_price,
-                original_team=data.get('original_team', '')
-            )
-            return jsonify(result)
-        except ValidationError as e:
-            return error_response(e.message, e.status_code)
+        result = player_service.create_player(
+            name=data['name'],
+            league_id=current_league.id,
+            position=data.get('position', ''),
+            country=data.get('country', 'Indian'),
+            base_price=base_price,
+            original_team=data.get('original_team', ''),
+            auction_category=data.get('auction_category', '')
+        )
+        return jsonify(result)
 
     # GET request - return all players
     if current_league:
@@ -90,11 +84,8 @@ def update_player(player_id: int) -> tuple[Response, int] | Response:
         return error_response('Admin login required', 403)
 
     if request.method == 'DELETE':
-        try:
-            result = player_service.delete_player(player_id)
-            return jsonify(result)
-        except NotFoundError as e:
-            return error_response(e.message, e.status_code)
+        result = player_service.delete_player(player_id)
+        return jsonify(result)
 
     # PUT request - update player
     data = request.get_json()
@@ -109,18 +100,16 @@ def update_player(player_id: int) -> tuple[Response, int] | Response:
         except (TypeError, ValueError):
             return error_response('Invalid base price value')
 
-    try:
-        result = player_service.update_player(
-            player_id=player_id,
-            name=data.get('name'),
-            position=data.get('position'),
-            country=data.get('country'),
-            base_price=base_price,
-            original_team=data.get('original_team')
-        )
-        return jsonify(result)
-    except (ValidationError, NotFoundError) as e:
-        return error_response(e.message, e.status_code)
+    result = player_service.update_player(
+        player_id=player_id,
+        name=data.get('name'),
+        position=data.get('position'),
+        country=data.get('country'),
+        base_price=base_price,
+        original_team=data.get('original_team'),
+        auction_category=data.get('auction_category')
+    )
+    return jsonify(result)
 
 
 @api_bp.route('/players/<int:player_id>/release', methods=['POST'])
@@ -134,11 +123,8 @@ def release_player(player_id: int) -> tuple[Response, int] | Response:
     Returns:
         JSON response with release result.
     """
-    try:
-        result = player_service.release_player(player_id)
-        return jsonify(result)
-    except (ValidationError, NotFoundError) as e:
-        return error_response(e.message, e.status_code)
+    result = player_service.release_player(player_id)
+    return jsonify(result)
 
 
 # ==================== PLAYER QUERIES ====================
@@ -156,16 +142,19 @@ def get_random_player() -> tuple[Response, int] | Response:
 
     position = request.args.get('position', '')
     include_unsold = request.args.get('include_unsold', 'false') == 'true'
+    auction_category = request.args.get('auction_category', '')
 
     player = player_service.get_random_player(
         league_id=current_league.id,
-        position=position if position else None,
-        include_unsold=include_unsold
+        position=position or None,
+        include_unsold=include_unsold,
+        auction_category=auction_category or None
     )
 
     if not player:
         position_text = f" for position '{position}'" if position else ""
-        return error_response(f'No available players{position_text}')
+        category_text = f" in category '{auction_category}'" if auction_category else ""
+        return error_response(f'No available players{position_text}{category_text}')
 
     return jsonify({
         'success': True,
@@ -191,18 +180,21 @@ def get_available_players() -> tuple[Response, int] | Response:
 
     position = request.args.get('position', '')
     include_unsold = request.args.get('include_unsold', 'false') == 'true'
+    auction_category = request.args.get('auction_category', '')
 
     available_players = player_service.get_available_players(
         league_id=current_league.id,
-        position=position if position else None,
-        include_unsold=include_unsold
+        position=position or None,
+        include_unsold=include_unsold,
+        auction_category=auction_category or None
     )
 
     if not available_players:
         position_text = f" for position '{position}'" if position else ""
+        category_text = f" in category '{auction_category}'" if auction_category else ""
         return jsonify({
             'success': False,
-            'error': f'No available players{position_text}',
+            'error': f'No available players{position_text}{category_text}',
             'players': []
         })
 
@@ -227,38 +219,14 @@ def get_player_bids(player_id: int) -> tuple[Response, int] | Response:
     Returns:
         JSON response with player info and bid history.
     """
-    player = db.session.get(Player, player_id)
-    if not player:
-        return error_response('Player not found', 404)
+    result = player_service.get_player_bids(player_id)
 
-    bids = (
-        Bid.query
-        .filter_by(player_id=player_id)
-        .options(joinedload(Bid.team))
-        .order_by(Bid.amount.desc())
-        .all()
-    )
+    # Format timestamps for display
+    for bid in result['bids']:
+        pacific_time = to_pacific(bid['timestamp'])
+        bid['timestamp'] = pacific_time.strftime('%I:%M:%S %p') if pacific_time else 'N/A'
 
-    def format_bid_timestamp(bid: Bid) -> str:
-        """Safely format bid timestamp."""
-        pacific_time = to_pacific(bid.timestamp)
-        return pacific_time.strftime('%I:%M:%S %p') if pacific_time else 'N/A'
-
-    return jsonify({
-        'success': True,
-        'player': {
-            'id': player.id,
-            'name': player.name,
-            'position': player.position,
-            'status': player.status,
-            'final_price': player.current_price
-        },
-        'bids': [{
-            'team_name': bid.team.name,
-            'amount': bid.amount,
-            'timestamp': format_bid_timestamp(bid)
-        } for bid in bids]
-    })
+    return jsonify({'success': True, **result})
 
 
 # ==================== PLAYER IMAGES ====================
@@ -274,11 +242,8 @@ def fetch_player_image(player_id: int) -> tuple[Response, int] | Response:
     Returns:
         JSON response with image URL or error.
     """
-    try:
-        result = player_service.fetch_player_image(player_id)
-        return jsonify(result)
-    except (ValidationError, NotFoundError) as e:
-        return error_response(e.message, e.status_code)
+    result = player_service.fetch_player_image(player_id)
+    return jsonify(result)
 
 
 @api_bp.route('/players/<int:player_id>/image', methods=['PUT'])
@@ -299,11 +264,8 @@ def update_player_image(player_id: int) -> tuple[Response, int] | Response:
     if image_url and not validate_url(image_url):
         return error_response('Invalid URL format. Use http://, https://, or /path')
 
-    try:
-        result = player_service.update_player_image(player_id, image_url)
-        return jsonify(result)
-    except NotFoundError as e:
-        return error_response(e.message, e.status_code)
+    result = player_service.update_player_image(player_id, image_url)
+    return jsonify(result)
 
 
 @api_bp.route('/players/fetch-all-images', methods=['POST'])

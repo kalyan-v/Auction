@@ -10,7 +10,7 @@ from flask import Response, jsonify, request
 from app.extensions import limiter
 from app.logger import get_logger
 from app.routes import api_bp
-from app.services import ServiceError, ValidationError
+from app.routes.main import get_current_league
 from app.services.auction_service import auction_service
 from app.services.team_service import team_service
 from app.utils import (
@@ -22,15 +22,13 @@ logger = get_logger(__name__)
 
 @api_bp.route('/bid', methods=['POST'])
 @limiter.limit("30 per minute")
+@admin_required
 def place_bid() -> tuple[Response, int] | Response:
     """Place a bid on the current player.
 
     Returns:
         JSON response with bid result.
     """
-    if not is_admin():
-        return error_response('Admin login required', 403)
-
     data = request.get_json()
     if not data:
         return error_response('Request body is required')
@@ -43,11 +41,8 @@ def place_bid() -> tuple[Response, int] | Response:
     except (TypeError, ValueError):
         return error_response('Invalid player_id, team_id, or amount')
 
-    try:
-        result = auction_service.place_bid(player_id, team_id, amount)
-        return jsonify(result)
-    except ServiceError as e:
-        return error_response(e.message, e.status_code)
+    result = auction_service.place_bid(player_id, team_id, amount)
+    return jsonify(result)
 
 
 @api_bp.route('/auction/start/<int:player_id>', methods=['POST'])
@@ -62,11 +57,8 @@ def start_auction(player_id: int) -> tuple[Response, int] | Response:
     Returns:
         JSON response with auction start result.
     """
-    try:
-        result = auction_service.start_auction(player_id)
-        return jsonify(result)
-    except ServiceError as e:
-        return error_response(e.message, e.status_code)
+    result = auction_service.start_auction(player_id)
+    return jsonify(result)
 
 
 @api_bp.route('/auction/end', methods=['POST'])
@@ -78,11 +70,10 @@ def end_auction() -> tuple[Response, int] | Response:
     Returns:
         JSON response with auction end result.
     """
-    try:
-        result = auction_service.end_auction()
-        return jsonify(result)
-    except ServiceError as e:
-        return error_response(e.message, e.status_code)
+    data = request.get_json(silent=True) or {}
+    is_rtm = bool(data.get('is_rtm', False))
+    result = auction_service.end_auction(is_rtm=is_rtm)
+    return jsonify(result)
 
 
 @api_bp.route('/auction/unsold', methods=['POST'])
@@ -94,11 +85,8 @@ def mark_unsold() -> tuple[Response, int] | Response:
     Returns:
         JSON response with unsold result.
     """
-    try:
-        result = auction_service.mark_unsold()
-        return jsonify(result)
-    except ServiceError as e:
-        return error_response(e.message, e.status_code)
+    result = auction_service.mark_unsold()
+    return jsonify(result)
 
 
 @api_bp.route('/auction/reset-price', methods=['POST'])
@@ -118,11 +106,8 @@ def reset_price() -> tuple[Response, int] | Response:
     if price_error:
         return error_response(price_error)
 
-    try:
-        result = auction_service.reset_price(new_price)
-        return jsonify(result)
-    except ServiceError as e:
-        return error_response(e.message, e.status_code)
+    result = auction_service.reset_price(new_price)
+    return jsonify(result)
 
 
 @api_bp.route('/teams', methods=['GET', 'POST'])
@@ -132,8 +117,6 @@ def manage_teams() -> tuple[Response, int] | Response:
     Returns:
         JSON response with teams list or creation result.
     """
-    from app.routes.main import get_current_league
-
     current_league = get_current_league()
 
     if request.method == 'POST':
@@ -146,16 +129,13 @@ def manage_teams() -> tuple[Response, int] | Response:
         if not data or 'name' not in data:
             return error_response('Team name is required')
 
-        try:
-            result = team_service.create_team(
-                name=data['name'],
-                league_id=current_league.id,
-                budget=data.get('budget'),
-                default_purse=current_league.default_purse
-            )
-            return jsonify(result)
-        except ValidationError as e:
-            return error_response(e.message, e.status_code)
+        result = team_service.create_team(
+            name=data['name'],
+            league_id=current_league.id,
+            budget=data.get('budget'),
+            default_purse=current_league.default_purse
+        )
+        return jsonify(result)
 
     # GET request - return all teams
     if current_league:

@@ -60,88 +60,63 @@ def _get_current_scraper() -> BaseScraper:
     return get_scraper(ScraperType.WPL)
 
 
+def _fetch_leader_stats(
+    scraper_method: str, stat_fields: dict[str, str]
+) -> tuple[Response, int] | Response:
+    """Fetch cricket leader stats using the given scraper method.
+
+    Args:
+        scraper_method: Name of the scraper method to call.
+        stat_fields: Mapping of response key to leader.stats key.
+
+    Returns:
+        JSON response with leader data.
+    """
+    try:
+        with _get_current_scraper() as scraper:
+            result = getattr(scraper, scraper_method)()
+            if result.success and result.leader:
+                response = {
+                    'success': True,
+                    'player_name': result.leader.player_name,
+                    'player_id': result.leader.player_id,
+                    'matches': result.leader.matches_played,
+                    'team': result.leader.team_short_name,
+                    'all_players': [p.to_dict() for p in result.players],
+                }
+                for resp_key, stat_key in stat_fields.items():
+                    response[resp_key] = result.leader.stats.get(stat_key, 0)
+                return jsonify(response)
+            return jsonify(result.to_dict())
+    except Exception as e:
+        logger.error("Error fetching cricket data: %s", e, exc_info=True)
+        return error_response('Failed to fetch cricket data', 500)
+
+
 # ==================== WPL STATISTICS ====================
 
 @api_bp.route('/cricket/stats/orange-cap', methods=['GET'])
 def get_orange_cap_stats() -> tuple[Response, int] | Response:
-    """Fetch Orange Cap (most runs) statistics.
-
-    Returns:
-        JSON response with Orange Cap leader and all players.
-    """
-    try:
-        with _get_current_scraper() as scraper:
-            result = scraper.get_orange_cap()
-            if result.success and result.leader:
-                return jsonify({
-                    'success': True,
-                    'player_name': result.leader.player_name,
-                    'player_id': result.leader.player_id,
-                    'runs': result.leader.stats.get('runs', 0),
-                    'matches': result.leader.matches_played,
-                    'average': result.leader.stats.get('average', 0),
-                    'strike_rate': result.leader.stats.get('strike_rate', 0),
-                    'team': result.leader.team_short_name,
-                    'all_players': [p.to_dict() for p in result.players],
-                })
-            return jsonify(result.to_dict())
-    except Exception as e:
-        logger.error(f"Error fetching cricket data: {e}", exc_info=True)
-        return error_response('Failed to fetch cricket data', 500)
+    """Fetch Orange Cap (most runs) statistics."""
+    return _fetch_leader_stats('get_orange_cap', {
+        'runs': 'runs', 'average': 'average', 'strike_rate': 'strike_rate'
+    })
 
 
 @api_bp.route('/cricket/stats/purple-cap', methods=['GET'])
 def get_purple_cap_stats() -> tuple[Response, int] | Response:
-    """Fetch Purple Cap (most wickets) statistics.
-
-    Returns:
-        JSON response with Purple Cap leader and all players.
-    """
-    try:
-        with _get_current_scraper() as scraper:
-            result = scraper.get_purple_cap()
-            if result.success and result.leader:
-                return jsonify({
-                    'success': True,
-                    'player_name': result.leader.player_name,
-                    'player_id': result.leader.player_id,
-                    'wickets': result.leader.stats.get('wickets', 0),
-                    'matches': result.leader.matches_played,
-                    'economy': result.leader.stats.get('economy', 0),
-                    'average': result.leader.stats.get('average', 0),
-                    'team': result.leader.team_short_name,
-                    'all_players': [p.to_dict() for p in result.players],
-                })
-            return jsonify(result.to_dict())
-    except Exception as e:
-        logger.error(f"Error fetching cricket data: {e}", exc_info=True)
-        return error_response('Failed to fetch cricket data', 500)
+    """Fetch Purple Cap (most wickets) statistics."""
+    return _fetch_leader_stats('get_purple_cap', {
+        'wickets': 'wickets', 'economy': 'economy', 'average': 'average'
+    })
 
 
 @api_bp.route('/cricket/stats/mvp', methods=['GET'])
 def get_mvp_stats() -> tuple[Response, int] | Response:
-    """Fetch MVP (most valuable player) statistics.
-
-    Returns:
-        JSON response with MVP leader and all players.
-    """
-    try:
-        with _get_current_scraper() as scraper:
-            result = scraper.get_mvp()
-            if result.success and result.leader:
-                return jsonify({
-                    'success': True,
-                    'player_name': result.leader.player_name,
-                    'player_id': result.leader.player_id,
-                    'points': result.leader.stats.get('points', 0),
-                    'matches': result.leader.matches_played,
-                    'team': result.leader.team_short_name,
-                    'all_players': [p.to_dict() for p in result.players],
-                })
-            return jsonify(result.to_dict())
-    except Exception as e:
-        logger.error(f"Error fetching cricket data: {e}", exc_info=True)
-        return error_response('Failed to fetch cricket data', 500)
+    """Fetch MVP (most valuable player) statistics."""
+    return _fetch_leader_stats('get_mvp', {
+        'points': 'points'
+    })
 
 
 @api_bp.route('/cricket/stats/<stat_type>', methods=['GET'])
@@ -162,7 +137,7 @@ def get_cricket_stats(stat_type: str) -> tuple[Response, int] | Response:
                 return jsonify(result.to_dict())
             return error_response(f"Stat type '{stat_type}' not supported", 400)
     except Exception as e:
-        logger.error(f"Error fetching cricket data: {e}", exc_info=True)
+        logger.error("Error fetching cricket data: %s", e, exc_info=True)
         return error_response('Failed to fetch cricket data', 500)
 
 
@@ -180,7 +155,7 @@ def get_points_table() -> tuple[Response, int] | Response:
             result = scraper.get_points_table()
             return jsonify(result)
     except Exception as e:
-        logger.error(f"Error fetching cricket data: {e}", exc_info=True)
+        logger.error("Error fetching cricket data: %s", e, exc_info=True)
         return error_response('Failed to fetch cricket data', 500)
 
 
@@ -197,7 +172,7 @@ def get_matches() -> tuple[Response, int] | Response:
         with _get_current_scraper() as scraper:
             return jsonify(scraper.get_all_match_urls())
     except Exception as e:
-        logger.error(f"Error fetching cricket data: {e}", exc_info=True)
+        logger.error("Error fetching cricket data: %s", e, exc_info=True)
         return error_response('Failed to fetch cricket data', 500)
 
 
@@ -223,5 +198,5 @@ def get_match_scorecard_data() -> tuple[Response, int] | Response:
             result = scraper.scrape_match_scorecard(match_url)
             return jsonify(result.to_dict())
     except Exception as e:
-        logger.error(f"Error fetching cricket data: {e}", exc_info=True)
+        logger.error("Error fetching cricket data: %s", e, exc_info=True)
         return error_response('Failed to fetch cricket data', 500)

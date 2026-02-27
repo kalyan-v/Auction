@@ -7,6 +7,36 @@ used for matching players across different data sources.
 
 from typing import Final, FrozenSet, Dict, Optional
 
+
+# ==================== LEAGUE PLAYER ID REGISTRY ====================
+# Maps league_type -> player ID dict for image fetching
+# This is populated after the individual dicts are defined below
+_LEAGUE_PLAYER_IDS: Dict[str, Dict[str, int]] = {}
+
+
+def get_player_id_for_league(player_name: str, league_type: str) -> Optional[int]:
+    """Get player ID for image fetching based on league type.
+
+    Args:
+        player_name: The player's name (case-sensitive).
+        league_type: The league type ('wpl', 'ipl', etc.).
+
+    Returns:
+        Player ID if found, None otherwise.
+    """
+    player_ids = _LEAGUE_PLAYER_IDS.get(league_type, {})
+    return player_ids.get(player_name.strip())
+
+# ==================== IPL PLAYER IDS ====================
+# Player ID mapping from iplt20.com for image fetching
+# Format: 'Database Name': IPL_Player_ID
+# To be populated with IPL 2026 player data
+
+IPL_PLAYER_IDS: Final[Dict[str, int]] = {
+    # Add IPL player name -> player ID mappings here
+}
+
+
 # ==================== WPL PLAYER IDS ====================
 # Player ID mapping from wplt20.com squad pages for image fetching
 # Format: 'Database Name': WPL_Player_ID
@@ -176,56 +206,6 @@ KNOWN_BOWLERS: Final[FrozenSet[str]] = frozenset({
 })
 
 
-# ==================== HELPER FUNCTIONS ====================
-
-def get_wpl_player_id(player_name: str) -> Optional[int]:
-    """
-    Get WPL player ID for a given player name.
-
-    Args:
-        player_name: The player's name (case-sensitive)
-
-    Returns:
-        WPL player ID if found, None otherwise
-    """
-    return WPL_PLAYER_IDS.get(player_name.strip())
-
-
-def get_mapped_name(wpl_name: str) -> str:
-    """
-    Get the database name for a WPL website name.
-
-    Args:
-        wpl_name: Name as it appears on WPL website
-
-    Returns:
-        Mapped database name, or original name if no mapping exists
-    """
-    normalized = wpl_name.strip().lower()
-    return NAME_MAPPINGS.get(normalized, normalized)
-
-
-def is_known_bowler(player_name: str) -> bool:
-    """
-    Check if a player is classified as a bowler.
-
-    Args:
-        player_name: The player's name
-
-    Returns:
-        True if player is a known bowler, False otherwise
-    """
-    return player_name.strip().lower() in KNOWN_BOWLERS
-
-
-def get_player_position(player_name: str) -> str:
-    """
-    Determine player position based on known bowler list.
-
-    Args:
-        player_name: The player's name
-
-    Returns:
-        'Bowler' if known bowler, 'Allrounder' otherwise
-    """
-    return 'Bowler' if is_known_bowler(player_name) else 'Allrounder'
+# ==================== POPULATE LEAGUE REGISTRY ====================
+_LEAGUE_PLAYER_IDS['wpl'] = WPL_PLAYER_IDS
+_LEAGUE_PLAYER_IDS['ipl'] = IPL_PLAYER_IDS

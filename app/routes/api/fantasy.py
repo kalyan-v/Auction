@@ -8,10 +8,8 @@ Business logic is delegated to FantasyService.
 from flask import Response, jsonify, request
 
 from app.logger import get_logger
-from app.models import Player
 from app.routes import api_bp
 from app.routes.main import get_current_league
-from app.services.base import NotFoundError, ValidationError
 from app.services.fantasy_service import fantasy_service
 from app.utils import admin_required, error_response, is_admin
 
@@ -47,11 +45,8 @@ def update_fantasy_points() -> tuple[Response, int] | Response:
     except (TypeError, ValueError):
         return error_response('Invalid points value')
 
-    try:
-        result = fantasy_service.update_player_points(player_id, points)
-        return jsonify(result)
-    except NotFoundError as e:
-        return error_response(e.message, e.status_code)
+    result = fantasy_service.update_player_points(player_id, points)
+    return jsonify(result)
 
 
 @api_bp.route('/fantasy/points/add', methods=['POST'])
@@ -90,16 +85,13 @@ def add_match_points() -> tuple[Response, int] | Response:
     except (TypeError, ValueError):
         return error_response('Invalid points value')
 
-    try:
-        result = fantasy_service.add_match_points(
-            player_id=player_id,
-            match_number=match_number,
-            points=points,
-            league_id=current_league.id
-        )
-        return jsonify(result)
-    except NotFoundError as e:
-        return error_response(e.message, e.status_code)
+    result = fantasy_service.add_match_points(
+        player_id=player_id,
+        match_number=match_number,
+        points=points,
+        league_id=current_league.id
+    )
+    return jsonify(result)
 
 
 @api_bp.route('/fantasy/points/<int:player_id>', methods=['GET'])
@@ -115,11 +107,8 @@ def get_player_match_points(player_id: int) -> tuple[Response, int] | Response:
     current_league = get_current_league()
     league_id = current_league.id if current_league else None
 
-    try:
-        result = fantasy_service.get_player_match_points(player_id, league_id)
-        return jsonify(result)
-    except NotFoundError as e:
-        return error_response(e.message, e.status_code)
+    result = fantasy_service.get_player_match_points(player_id, league_id)
+    return jsonify(result)
 
 
 @api_bp.route('/fantasy/points/delete/<int:entry_id>', methods=['DELETE'])
@@ -133,11 +122,8 @@ def delete_match_points(entry_id: int) -> tuple[Response, int] | Response:
     Returns:
         JSON response with new total points.
     """
-    try:
-        result = fantasy_service.delete_match_points(entry_id)
-        return jsonify(result)
-    except NotFoundError as e:
-        return error_response(e.message, e.status_code)
+    result = fantasy_service.delete_match_points(entry_id)
+    return jsonify(result)
 
 
 # ==================== FANTASY AWARDS ====================
@@ -155,18 +141,17 @@ def set_fantasy_award() -> tuple[Response, int] | Response:
         return error_response('No league selected')
 
     data = request.get_json()
+    if not data:
+        return error_response('Request body is required')
     award_type = data.get('award_type')
     player_id = data.get('player_id')
 
-    try:
-        result = fantasy_service.set_award(
-            award_type=award_type,
-            league_id=current_league.id,
-            player_id=player_id
-        )
-        return jsonify(result)
-    except ValidationError as e:
-        return error_response(e.message, e.status_code)
+    result = fantasy_service.set_award(
+        award_type=award_type,
+        league_id=current_league.id,
+        player_id=player_id
+    )
+    return jsonify(result)
 
 
 @api_bp.route('/fantasy/awards', methods=['GET'])
@@ -195,23 +180,8 @@ def get_fantasy_players() -> tuple[Response, int] | Response:
     if not current_league:
         return jsonify({'success': True, 'players': []})
 
-    players = Player.query.filter_by(
-        league_id=current_league.id,
-        status='sold',
-        is_deleted=False
-    ).all()
-
-    return jsonify({
-        'success': True,
-        'players': [{
-            'id': p.id,
-            'name': p.name,
-            'position': p.position,
-            'team_id': p.team_id,
-            'team_name': p.team.name if p.team else None,
-            'fantasy_points': p.fantasy_points
-        } for p in players]
-    })
+    players = fantasy_service.get_sold_players(current_league.id)
+    return jsonify({'success': True, 'players': players})
 
 
 # ==================== DATA FETCHING ====================
@@ -228,11 +198,8 @@ def fetch_and_update_awards() -> tuple[Response, int] | Response:
     if not current_league:
         return error_response('No league selected')
 
-    try:
-        result = fantasy_service.fetch_and_update_awards(current_league.id)
-        return jsonify(result)
-    except ValidationError as e:
-        return error_response(e.message, e.status_code)
+    result = fantasy_service.fetch_and_update_awards(current_league.id)
+    return jsonify(result)
 
 
 @api_bp.route('/fantasy/fetch-match-points', methods=['POST'])
@@ -247,8 +214,5 @@ def fetch_match_fantasy_points() -> tuple[Response, int] | Response:
     if not current_league:
         return error_response('No league selected')
 
-    try:
-        result = fantasy_service.fetch_match_fantasy_points(current_league.id)
-        return jsonify(result)
-    except ValidationError as e:
-        return error_response(e.message, e.status_code)
+    result = fantasy_service.fetch_match_fantasy_points(current_league.id)
+    return jsonify(result)

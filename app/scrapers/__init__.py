@@ -77,59 +77,10 @@ def get_scraper(
     return scraper_class(**kwargs)
 
 
-def get_available_scrapers() -> list[LeagueType]:
-    """
-    Get list of available scraper types.
-
-    Returns:
-        List of LeagueType enums for implemented scrapers
-    """
-    return list(_SCRAPER_REGISTRY.keys())
-
-
-def is_scraper_available(league_type: LeagueType) -> bool:
-    """
-    Check if a scraper is available for the given league type.
-
-    Args:
-        league_type: The league type to check
-
-    Returns:
-        True if scraper is available, False otherwise
-    """
-    return league_type in _SCRAPER_REGISTRY
-
-
-def register_scraper(
-    league_type: LeagueType,
-    scraper_class: Type[BaseScraper]
-) -> None:
-    """
-    Register a new scraper type.
-
-    This allows dynamically adding new scrapers at runtime.
-
-    Args:
-        league_type: The league type to register
-        scraper_class: The scraper class (must inherit from BaseScraper)
-
-    Raises:
-        TypeError: If scraper_class doesn't inherit from BaseScraper
-    """
-    if not issubclass(scraper_class, BaseScraper):
-        raise TypeError(
-            f"{scraper_class.__name__} must inherit from BaseScraper"
-        )
-    _SCRAPER_REGISTRY[league_type] = scraper_class
-
-
 # Export public API
 __all__ = [
     "BaseScraper",
     "WPLScraper",
     "ScraperType",
     "get_scraper",
-    "get_available_scrapers",
-    "is_scraper_available",
-    "register_scraper",
 ]

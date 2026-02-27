@@ -132,7 +132,10 @@
 
     <!-- Available Players -->
     <div class="players-section">
-        <h2>Available Players</h2>
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+            <h2>Available Players</h2>
+            <a href="/api/players/export" class="btn btn-small" style="text-decoration: none;">📥 Download All Players (CSV)</a>
+        </div>
         <div id="playersList" class="players-grid">
             {% for player in players %}
             <div class="player-item" data-player-id="{{ player.id }}">

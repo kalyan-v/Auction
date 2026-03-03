@@ -104,13 +104,13 @@ class TestPlayerService:
             result = service.update_player(
                 player_id=setup_data['player_id'],
                 name='Updated Name',
-                position='All-rounder'
+                position='Allrounder'
             )
             assert result['success'] is True
 
             player = db.session.get(Player, setup_data['player_id'])
             assert player.name == 'Updated Name'
-            assert player.position == 'All-rounder'
+            assert player.position == 'Allrounder'
 
     def test_update_player_not_found(self, app, service):
         """Test updating non-existent player."""

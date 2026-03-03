@@ -18,22 +18,211 @@ def get_player_id_for_league(player_name: str, league_type: str) -> Optional[int
     """Get player ID for image fetching based on league type.
 
     Args:
-        player_name: The player's name (case-sensitive).
+        player_name: The player's name (case-insensitive).
         league_type: The league type ('wpl', 'ipl', etc.).
 
     Returns:
         Player ID if found, None otherwise.
     """
     player_ids = _LEAGUE_PLAYER_IDS.get(league_type, {})
-    return player_ids.get(player_name.strip())
+    # Try exact match first, then case-insensitive fallback
+    name = player_name.strip()
+    result = player_ids.get(name)
+    if result is not None:
+        return result
+    # Case-insensitive lookup
+    name_lower = name.lower()
+    for key, value in player_ids.items():
+        if key.lower() == name_lower:
+            return value
+    return None
 
 # ==================== IPL PLAYER IDS ====================
-# Player ID mapping from iplt20.com for image fetching
-# Format: 'Database Name': IPL_Player_ID
-# To be populated with IPL 2026 player data
+# Headshot ID mapping from iplt20.com squad pages for image fetching
+# These IDs correspond to IPLHeadshot images on documents.iplt20.com
+# Format: 'Database Name': IPL_Headshot_ID
 
 IPL_PLAYER_IDS: Final[Dict[str, int]] = {
-    # Add IPL player name -> player ID mappings here
+    # CSK
+    'Anshul Kamboj': 3106,
+    'Ayush Mhatre': 3497,
+    'Dewald Brevis': 797,
+    'Gurjapneet Singh': 2256,
+    'Jamie Overton': 1216,
+    'Khaleel Ahmed': 8,
+    'MS Dhoni': 57,
+    'Mukesh Choudhary': 970,
+    'Nathan Ellis': 633,
+    'Noor Ahmad': 975,
+    'Ramakrishna Ghosh': 3559,
+    'Ruturaj Gaikwad': 102,
+    'Shivam Dube': 211,
+    'Shreyas Gopal': 192,
+    'Urvil Patel': 1486,
+
+    # DC
+    'Abishek Porel': 1580,
+    'Ajay Mandal': 1931,
+    'Ashutosh Sharma': 3109,
+    'Axar Patel': 110,
+    'Dushmantha Chameera': 608,
+    'KL Rahul': 19,
+    'Karun Nair': 131,
+    'Kuldeep Yadav': 14,
+    'Lungisani Ngidi': 99,
+    'Madhav Tiwari': 3561,
+    'Mitchell Starc': 31,
+    'Mukesh Kumar': 1462,
+    'Prithvi Shaw': 51,
+    'Sameer Rizvi': 1229,
+    'T. Natarajan': 224,
+    'Tripurana Vijay': 3563,
+    'Tristan Stubbs': 1017,
+    'Vipraj Nigam': 3560,
+
+    # GT
+    'Anuj Rawat': 534,
+    'Glenn Phillips': 635,
+    'Gurnoor Singh Brar': 1231,
+    'Ishant Sharma': 50,
+    'Jayant Yadav': 165,
+    'Jos Buttler': 182,
+    'Kagiso Rabada': 116,
+    'Kumar Kushagra': 3101,
+    'Manav Suthar': 2443,
+    'Mohammed Siraj': 63,
+    'Mohd. Arshad Khan': 988,
+    'Nishant Sindhu': 791,
+    'Prasidh Krishna': 150,
+    'Rahul Tewatia': 120,
+    'Rashid Khan': 218,
+    'Sai Kishore': 544,
+    'Sai Sudharsan': 976,
+    'Shahrukh Khan': 590,
+    'Shubman Gill': 62,
+    'Washington Sundar': 20,
+
+    # KKR
+    'Ajinkya Rahane': 44,
+    'Angkrish Raghuvanshi': 787,
+    'Anukul Roy': 160,
+    'Harshit Rana': 1013,
+    'Manish Pandey': 16,
+    'Ramandeep Singh': 991,
+    'Rinku Singh': 152,
+    'Rovman Powell': 329,
+    'Sunil Narine': 156,
+    'Vaibhav Arora': 583,
+    'Varun Chakaravarthy': 140,
+
+    # LSG
+    'Abdul Samad': 525,
+    'Aiden Markram': 287,
+    'Akash Singh': 535,
+    'Arshin Kulkarni': 2788,
+    'Avesh Khan': 109,
+    'Ayush Badoni': 985,
+    'Digvesh Singh': 3565,
+    'Himmat Singh': 203,
+    'M. Siddharth': 532,
+    'Matthew Breetzke': 2805,
+    'Mayank Yadav': 987,
+    'Mitchell Marsh': 40,
+    'Mohsin Khan': 541,
+    'Nicholas Pooran': 136,
+    'Prince Yadav': 1225,
+    'Rishabh Pant': 18,
+    'Shahbaz Ahamad': 523,
+
+    # MI
+    'Ashwani Kumar': 3569,
+    'Deepak Chahar': 91,
+    'Hardik Pandya': 54,
+    'Jasprit Bumrah': 9,
+    'Mitchell Santner': 75,
+    'N. Tilak Varma': 993,
+    'Naman Dhir': 3107,
+    'Raghu Sharma': 3869,
+    'Raj Angad Bawa': 781,
+    'Robin Minz': 3103,
+    'Rohit Sharma': 6,
+    'Ryan Rickelton': 743,
+    'Surya Kumar Yadav': 174,
+    'Trent Boult': 66,
+
+    # PBKS
+    'Arshdeep Singh': 125,
+    'Azmatullah Omarzai': 1354,
+    'Harnoor Pannu': 784,
+    'Harpreet Brar': 130,
+    'Marco Jansen': 586,
+    'Marcus Stoinis': 23,
+    'Mitch Owen': 3870,
+    'Musheer Khan': 2813,
+    'Nehal Wadhera': 1541,
+    'Prabhsimran Singh': 137,
+    'Pravin Dubey': 548,
+    'Priyansh Arya': 3571,
+    'Pyla Avinash': 3573,
+    'Shashank Singh': 191,
+    'Shreyas Iyer': 12,
+    'Suryansh Shedge': 2146,
+    'Vishnu Vinod': 581,
+    'Vyshak Vijaykumar': 2034,
+    'Xavier Bartlett': 3572,
+    'Yash Thakur': 1550,
+    'Yuzvendra Chahal': 10,
+
+    # RR
+    'Dhruv Jurel': 1004,
+    'Jofra Archer': 181,
+    'Kuldeep Sen': 1005,
+    'Kwena Maphaka': 801,
+    'Lhuan-dre Pretorius': 2827,
+    'Nandre Burger': 2806,
+    'Riyan Parag': 189,
+    'Sandeep Sharma': 220,
+    'Shimron Hetmyer': 210,
+    'Shubham Dubey': 3112,
+    'Tushar Deshpande': 539,
+    'Vaibhav Suryavanshi': 3498,
+    'Yashasvi Jaiswal': 533,
+    'Yudhvir Singh Charak': 587,
+
+    # RCB
+    'Abhinandan Singh': 3574,
+    'Bhuvneshwar Kumar': 15,
+    'Devdutt Padikkal': 200,
+    'Jacob Bethell': 869,
+    'Jitesh Sharma': 1000,
+    'Josh Hazlewood': 36,
+    'Krunal Pandya': 17,
+    'Nuwan Thushara': 813,
+    'Phil Salt': 1220,
+    'Rajat Patidar': 597,
+    'Rasikh Dar': 172,
+    'Romario Shepherd': 371,
+    'Suyash Sharma': 1932,
+    'Swapnil Singh': 1483,
+    'Tim David': 636,
+    'Virat Kohli': 2,
+    'Yash Dayal': 978,
+
+    # SRH
+    'Abhishek Sharma': 212,
+    'Aniket Verma': 3576,
+    'Eshan Malinga': 3339,
+    'Harsh Dubey': 1494,
+    'Harshal Patel': 114,
+    'Heinrich Klaasen': 202,
+    'Ishan Kishan': 164,
+    'Jaydev Unadkat': 180,
+    'Kamindu Mendis': 627,
+    'Nitish Kumar Reddy': 1944,
+    'Pat Cummins': 33,
+    'Smaran Ravichandran': 3752,
+    'Travis Head': 37,
+    'Zeeshan Ansari': 3575,
 }
 
 

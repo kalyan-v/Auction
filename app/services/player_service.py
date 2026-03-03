@@ -505,29 +505,34 @@ class PlayerService(BaseService):
         image_config = LEAGUE_IMAGE_CONFIG.get(league_type)
 
         if league_player_id and image_config and image_config.get('series_id'):
-            try:
-                image_url = image_config['template'].format(
-                    series_id=image_config['series_id'],
-                    player_id=league_player_id
-                )
-                # Check minimum valid size before delegating to _download_image
-                response = requests.get(
-                    image_url,
-                    headers=headers,
-                    timeout=IMAGE_REQUEST_TIMEOUT
-                )
-                if (response.status_code == 200 and
-                        len(response.content) > MIN_VALID_IMAGE_SIZE):
-                    local_path = self._save_image_content(
-                        response.content, player_id, player_name, extension='png'
-                    )
-                    if local_path:
-                        return local_path
+            # Build list of series IDs to try: primary first, then fallbacks
+            series_ids_to_try = [image_config['series_id']]
+            series_ids_to_try.extend(image_config.get('fallback_series_ids', []))
 
-            except requests.RequestException as e:
-                logger.error(f"League image network error for {player_name}: {e}")
-            except Exception as e:
-                logger.error(f"League image unexpected error for {player_name}: {e}", exc_info=True)
+            for series_id in series_ids_to_try:
+                try:
+                    image_url = image_config['template'].format(
+                        series_id=series_id,
+                        player_id=league_player_id
+                    )
+                    # Check minimum valid size before delegating to _download_image
+                    response = requests.get(
+                        image_url,
+                        headers=headers,
+                        timeout=IMAGE_REQUEST_TIMEOUT
+                    )
+                    if (response.status_code == 200 and
+                            len(response.content) > MIN_VALID_IMAGE_SIZE):
+                        local_path = self._save_image_content(
+                            response.content, player_id, player_name, extension='png'
+                        )
+                        if local_path:
+                            return local_path
+
+                except requests.RequestException as e:
+                    logger.error(f"League image network error for {player_name}: {e}")
+                except Exception as e:
+                    logger.error(f"League image unexpected error for {player_name}: {e}", exc_info=True)
 
         # Fallback to Wikipedia
         try:

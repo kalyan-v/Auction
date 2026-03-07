@@ -96,7 +96,7 @@ class TestPlayerService:
                     league_id=setup_data['league_id'],
                     base_price=-1000
                 )
-            assert 'negative' in str(exc.value).lower()
+            assert 'positive' in str(exc.value).lower()
 
     def test_update_player(self, app, service, setup_data):
         """Test updating a player."""

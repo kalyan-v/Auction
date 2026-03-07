@@ -17,6 +17,7 @@ from app.routes.main import get_current_league
 from app.services.player_service import player_service
 from app.utils import (
     admin_required,
+    create_safe_filename,
     error_response,
     is_admin,
     to_pacific,
@@ -57,7 +58,8 @@ def export_players_csv() -> Response:
         ])
 
     response = make_response(output.getvalue())
-    filename = f"{current_league.name}_players.csv"
+    safe_name = create_safe_filename(current_league.name)
+    filename = f"{safe_name}_players.csv"
     response.headers['Content-Type'] = 'text/csv; charset=utf-8'
     response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
@@ -120,6 +122,17 @@ def update_player(player_id: int) -> tuple[Response, int] | Response:
     """
     if not is_admin():
         return error_response('Admin login required', 403)
+
+    # Verify player belongs to the admin's current league
+    current_league = get_current_league()
+    if not current_league:
+        return error_response('No league selected. Create a league first.')
+
+    player = Player.query.filter_by(id=player_id, is_deleted=False).first()
+    if not player:
+        return error_response('Player not found', 404)
+    if player.league_id != current_league.id:
+        return error_response('Player does not belong to the current league', 403)
 
     if request.method == 'DELETE':
         result = player_service.delete_player(player_id)

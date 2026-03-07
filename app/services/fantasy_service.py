@@ -121,22 +121,27 @@ class FantasyService(BaseService):
                 'total_points': total_points
             }
 
-    def delete_match_points(self, entry_id: int) -> dict:
+    def delete_match_points(self, entry_id: int, league_id: Optional[int] = None) -> dict:
         """Soft delete a specific match point entry.
 
         Args:
             entry_id: ID of the entry to delete.
+            league_id: Optional league ID for ownership validation.
 
         Returns:
             Dict with success status and new total.
 
         Raises:
             NotFoundError: If entry not found.
+            ValidationError: If entry doesn't belong to the specified league.
         """
         with self.transaction():
             entry = db.session.get(FantasyPointEntry, entry_id)
             if not entry or entry.is_deleted:
                 raise NotFoundError("Entry not found")
+
+            if league_id is not None and entry.league_id != league_id:
+                raise ValidationError("Entry does not belong to the current league")
 
             player_id = entry.player_id
             league_id = entry.league_id

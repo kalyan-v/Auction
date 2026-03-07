@@ -47,11 +47,19 @@ class TeamService(BaseService):
         if not name or not name.strip():
             raise ValidationError("Team name is required")
 
+        name = name.strip()
         team_budget = budget if budget is not None else default_purse
 
         with self.transaction():
+            # Check for duplicate team name within the league (inside transaction)
+            existing = Team.query.filter_by(
+                name=name, league_id=league_id, is_deleted=False
+            ).first()
+            if existing:
+                raise ValidationError(f"A team named '{name}' already exists in this league")
+
             team = Team(
-                name=name.strip(),
+                name=name,
                 budget=team_budget,
                 initial_budget=team_budget,
                 league_id=league_id

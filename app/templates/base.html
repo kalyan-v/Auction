@@ -93,19 +93,31 @@
             document.body.classList.remove('page-loading');
             document.body.classList.add('page-loaded');
             
-            // Initialize scroll reveal animations
-            initScrollReveal();
+            // Initialize scroll reveal animations (only if target elements exist)
+            if (document.querySelector('.team-card, .feature-card, .setup-section, .award-card')) {
+                initScrollReveal();
+            }
             
-            // Initialize animated counters
-            initCounters();
+            // Initialize animated counters (only if target elements exist)
+            if (document.querySelector('.team-stats .stat-value, .fantasy-total')) {
+                initCounters();
+            }
             
             // Initialize tooltips
             initTooltips();
+
+            // Batch image error handling — single delegated listener
+            document.body.addEventListener('error', function(e) {
+                if (e.target.tagName === 'IMG' && e.target.nextElementSibling) {
+                    e.target.style.display = 'none';
+                    e.target.nextElementSibling.style.display = 'flex';
+                }
+            }, true);
         });
         
-        // Scroll Reveal Animation
+        // Scroll Reveal Animation — only for cards/sections, NOT player-items (too many)
         function initScrollReveal() {
-            const revealElements = document.querySelectorAll('.team-card, .feature-card, .player-item, .setup-section, .award-card');
+            const revealElements = document.querySelectorAll('.team-card, .feature-card, .setup-section, .award-card');
             
             const observer = new IntersectionObserver((entries) => {
                 entries.forEach(entry => {
@@ -122,9 +134,9 @@
             });
         }
         
-        // Animated Number Counters
+        // Animated Number Counters — limited to team stats only (not per-player values)
         function initCounters() {
-            const counters = document.querySelectorAll('.stat-value, .points-value, .fantasy-total');
+            const counters = document.querySelectorAll('.team-stats .stat-value, .fantasy-total');
             
             counters.forEach(counter => {
                 const text = counter.textContent;

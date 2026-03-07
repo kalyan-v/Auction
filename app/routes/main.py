@@ -27,9 +27,12 @@ from app import db
 from app.enums import AwardType
 from app.extensions import limiter
 from app.models import FantasyAward, League, Player, Team
+from app.logger import get_logger
 from app.routes import main_bp
 from app.auth import verify_password
 from app.utils import is_admin
+
+logger = get_logger(__name__)
 
 
 def get_current_league() -> Optional[League]:
@@ -95,7 +98,7 @@ def switch_league(league_id: int) -> WerkzeugResponse:
         session['current_league_id'] = league.id
         if is_admin():
             # Set this league as the globally active one for non-admin users
-            League.query.filter_by(is_active=True).update({'is_active': False})
+            League.query.filter_by(is_active=True, is_deleted=False).update({'is_active': False})
             league.is_active = True
             db.session.commit()
 
@@ -174,10 +177,10 @@ def health_check() -> tuple[Response, int] | Response:
             'timestamp': datetime.now(timezone.utc).isoformat()
         })
     except Exception as e:
+        logger.error("Health check failed: %s", e, exc_info=True)
         return jsonify({
             'status': 'unhealthy',
             'database': 'disconnected',
-            'error': str(e)
         }), 503
 
 

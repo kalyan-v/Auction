@@ -79,6 +79,9 @@ def add_match_points() -> tuple[Response, int] | Response:
     except (TypeError, ValueError):
         return error_response('Invalid player_id or match_number')
 
+    if match_number <= 0:
+        return error_response('Match number must be positive')
+
     # Validate points
     try:
         points = float(points)
@@ -122,7 +125,11 @@ def delete_match_points(entry_id: int) -> tuple[Response, int] | Response:
     Returns:
         JSON response with new total points.
     """
-    result = fantasy_service.delete_match_points(entry_id)
+    current_league = get_current_league()
+    if not current_league:
+        return error_response('No league selected')
+
+    result = fantasy_service.delete_match_points(entry_id, league_id=current_league.id)
     return jsonify(result)
 
 
@@ -145,6 +152,12 @@ def set_fantasy_award() -> tuple[Response, int] | Response:
         return error_response('Request body is required')
     award_type = data.get('award_type')
     player_id = data.get('player_id')
+
+    if player_id is not None:
+        try:
+            player_id = int(player_id)
+        except (TypeError, ValueError):
+            return error_response('Invalid player_id')
 
     result = fantasy_service.set_award(
         award_type=award_type,

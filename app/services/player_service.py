@@ -9,7 +9,6 @@ Encapsulates all business logic related to:
 """
 
 import os
-import random
 from typing import List, Optional
 
 import requests
@@ -80,8 +79,8 @@ class PlayerService(BaseService):
         if not name or not name.strip():
             raise ValidationError("Player name is required")
 
-        if base_price < 0:
-            raise ValidationError("Base price cannot be negative")
+        if base_price <= 0:
+            raise ValidationError("Base price must be positive")
 
         with self.transaction():
             player = Player(
@@ -130,7 +129,7 @@ class PlayerService(BaseService):
         """
         with self.transaction():
             player = db.session.get(Player, player_id)
-            if not player:
+            if not player or player.is_deleted:
                 raise NotFoundError("Player not found")
 
             if name is not None:
@@ -144,8 +143,8 @@ class PlayerService(BaseService):
             if auction_category is not None:
                 player.auction_category = auction_category if auction_category else None
             if base_price is not None:
-                if base_price < 0:
-                    raise ValidationError("Base price cannot be negative")
+                if base_price <= 0:
+                    raise ValidationError("Base price must be positive")
                 player.base_price = base_price
 
             logger.info(f"Updated player: {player.name}")
@@ -166,7 +165,7 @@ class PlayerService(BaseService):
         """
         with self.transaction():
             player = db.session.get(Player, player_id)
-            if not player:
+            if not player or player.is_deleted:
                 raise NotFoundError("Player not found")
 
             # Check if player is in active auction
@@ -176,6 +175,9 @@ class PlayerService(BaseService):
                 auction_state.is_active = False
 
             player.is_deleted = True
+
+            # Soft delete any associated bids
+            self.bid_repo.soft_delete_for_player(player_id)
 
             logger.info(f"Deleted player: {player.name}")
 
@@ -198,7 +200,7 @@ class PlayerService(BaseService):
             with self.transaction():
                 player = get_for_update(Player, player_id)
 
-                if not player:
+                if not player or player.is_deleted:
                     raise NotFoundError("Player not found")
 
                 if player.status != 'sold':
@@ -337,7 +339,7 @@ class PlayerService(BaseService):
         include_unsold: bool = False,
         auction_category: Optional[str] = None
     ) -> Optional[Player]:
-        """Get a random available player.
+        """Get a random available player using SQL-level randomization.
 
         Args:
             league_id: ID of the league.
@@ -348,10 +350,26 @@ class PlayerService(BaseService):
         Returns:
             Random Player object or None if none available.
         """
-        available = self.get_available_players(league_id, position, include_unsold, auction_category)
-        if not available:
-            return None
-        return random.choice(available)
+        if include_unsold:
+            query = Player.query.filter(
+                Player.league_id == league_id,
+                Player.is_deleted.is_(False),
+                Player.status.in_(['available', 'unsold'])
+            )
+        else:
+            query = Player.query.filter_by(
+                league_id=league_id,
+                is_deleted=False,
+                status='available'
+            )
+
+        if position:
+            query = query.filter_by(position=position)
+
+        if auction_category:
+            query = query.filter_by(auction_category=auction_category)
+
+        return query.order_by(db.func.random()).first()
 
     # ==================== IMAGE MANAGEMENT ====================
 
@@ -463,7 +481,7 @@ class PlayerService(BaseService):
             NotFoundError: If player not found.
         """
         player = db.session.get(Player, player_id)
-        if not player:
+        if not player or player.is_deleted:
             raise NotFoundError("Player not found")
 
         # Determine league type for image source routing
@@ -586,7 +604,7 @@ class PlayerService(BaseService):
         """
         with self.transaction():
             player = db.session.get(Player, player_id)
-            if not player:
+            if not player or player.is_deleted:
                 raise NotFoundError("Player not found")
 
             player.image_url = image_url if image_url else None

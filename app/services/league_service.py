@@ -206,12 +206,12 @@ class LeagueService(BaseService):
         self._validate_bid_increment_tiers(bid_increment_tiers)
         bid_increment_tiers_json = json.dumps(bid_increment_tiers)
 
-        # Check for duplicate league name
-        existing = self.league_repo.find_by_name(name)
-        if existing:
-            raise ValidationError('A league with this name already exists')
-
         with self.transaction():
+            # Check for duplicate league name (inside transaction to avoid TOCTOU race)
+            existing = self.league_repo.find_by_name(name)
+            if existing:
+                raise ValidationError('A league with this name already exists')
+
             # If this is the first league, mark it as active
             existing_active = League.query.filter_by(is_active=True, is_deleted=False).first()
 

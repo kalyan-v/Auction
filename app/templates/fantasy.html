@@ -35,7 +35,7 @@
         <div class="award-card mvp">
             <div class="award-image-container">
                 {% if mvp and mvp.player and mvp.player.image_url %}
-                <img src="{{ mvp.player.image_url }}" alt="{{ mvp.player.name }}" class="award-player-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <img src="{{ mvp.player.image_url }}" alt="{{ mvp.player.name }}" class="award-player-image">
                 <div class="award-icon fallback" style="display:none;">🏅</div>
                 {% else %}
                 <div class="award-icon">🏅</div>
@@ -62,7 +62,7 @@
         <div class="award-card orange-cap">
             <div class="award-image-container">
                 {% if orange_cap and orange_cap.player and orange_cap.player.image_url %}
-                <img src="{{ orange_cap.player.image_url }}" alt="{{ orange_cap.player.name }}" class="award-player-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <img src="{{ orange_cap.player.image_url }}" alt="{{ orange_cap.player.name }}" class="award-player-image">
                 <div class="award-icon fallback" style="display:none;">🧢</div>
                 {% else %}
                 <div class="award-icon">🧢</div>
@@ -89,7 +89,7 @@
         <div class="award-card purple-cap">
             <div class="award-image-container">
                 {% if purple_cap and purple_cap.player and purple_cap.player.image_url %}
-                <img src="{{ purple_cap.player.image_url }}" alt="{{ purple_cap.player.name }}" class="award-player-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <img src="{{ purple_cap.player.image_url }}" alt="{{ purple_cap.player.name }}" class="award-player-image">
                 <div class="award-icon fallback" style="display:none;">🧢</div>
                 {% else %}
                 <div class="award-icon">🧢</div>
@@ -204,7 +204,7 @@
                         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showPointsModalFromRow(this);}">
                         <td class="player-name-cell">
                             {% if player.image_url %}
-                            <img src="{{ player.image_url }}" alt="{{ player.name }}" class="player-thumbnail" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                            <img src="{{ player.image_url }}" alt="{{ player.name }}" class="player-thumbnail" loading="lazy">
                             <span class="player-thumbnail-placeholder" style="display:none;">🏏</span>
                             {% else %}
                             <span class="player-thumbnail-placeholder">🏏</span>

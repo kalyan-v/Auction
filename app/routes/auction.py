@@ -5,6 +5,7 @@ Handles the main auction room interface.
 """
 
 from flask import render_template
+from sqlalchemy.orm import joinedload
 
 from app.models import AuctionState, Bid, League, Player, Team
 from app.routes import auction_bp
@@ -22,12 +23,14 @@ def auction_room() -> str:
         teams = Team.query.filter_by(
             league_id=current_league.id, is_deleted=False
         ).all()
-        players = Player.query.filter_by(
-            league_id=current_league.id, status='available', is_deleted=False
+        # Single query for both available and unsold players
+        all_pool = Player.query.filter(
+            Player.league_id == current_league.id,
+            Player.is_deleted.is_(False),
+            Player.status.in_(['available', 'unsold'])
         ).all()
-        unsold_players = Player.query.filter_by(
-            league_id=current_league.id, status='unsold', is_deleted=False
-        ).all()
+        players = [p for p in all_pool if p.status == 'available']
+        unsold_players = [p for p in all_pool if p.status == 'unsold']
     else:
         teams = []
         players = []
@@ -41,6 +44,7 @@ def auction_room() -> str:
         highest_bid = (
             Bid.query
             .filter_by(player_id=auction_state.current_player_id, is_deleted=False)
+            .options(joinedload(Bid.team))
             .order_by(Bid.amount.desc())
             .first()
         )

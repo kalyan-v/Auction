@@ -57,7 +57,9 @@ def start_auction(player_id: int) -> tuple[Response, int] | Response:
     Returns:
         JSON response with auction start result.
     """
-    result = auction_service.start_auction(player_id)
+    current_league = get_current_league()
+    league_id = current_league.id if current_league else None
+    result = auction_service.start_auction(player_id, league_id=league_id)
     return jsonify(result)
 
 
@@ -129,10 +131,19 @@ def manage_teams() -> tuple[Response, int] | Response:
         if not data or 'name' not in data:
             return error_response('Team name is required')
 
+        budget = data.get('budget')
+        if budget is not None:
+            try:
+                budget = float(budget)
+            except (TypeError, ValueError):
+                return error_response('Invalid budget value')
+            if budget <= 0:
+                return error_response('Budget must be positive')
+
         result = team_service.create_team(
             name=data['name'],
             league_id=current_league.id,
-            budget=data.get('budget'),
+            budget=budget,
             default_purse=current_league.default_purse
         )
         return jsonify(result)

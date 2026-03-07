@@ -15,6 +15,8 @@ from typing import List, Optional
 import requests
 from flask import current_app
 
+from sqlalchemy.orm import joinedload
+
 from app import db
 from app.constants import (
     IMAGE_REQUEST_TIMEOUT,
@@ -245,6 +247,7 @@ class PlayerService(BaseService):
         bids = (
             Bid.query
             .filter_by(player_id=player_id, is_deleted=False)
+            .options(joinedload(Bid.team))
             .order_by(Bid.amount.desc())
             .all()
         )

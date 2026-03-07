@@ -86,6 +86,10 @@ def create_app(config_name: str = 'default') -> Flask:
             if request.is_secure:
                 response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
 
+        # Cache static assets for 1 day (browser cache)
+        if request.path.startswith('/static'):
+            response.headers['Cache-Control'] = 'public, max-age=86400'
+
         # Request logging
         if hasattr(g, 'start_time'):
             elapsed = time.time() - g.start_time
@@ -113,8 +117,12 @@ def create_app(config_name: str = 'default') -> Flask:
             'retry_after': str(e.description)
         }), 429
 
-    # Create database tables
+    # Create database tables and configure SQLite
     with app.app_context():
         db.create_all()
+        # Enable WAL mode for better concurrent read/write performance
+        if 'sqlite' in app.config.get('SQLALCHEMY_DATABASE_URI', ''):
+            db.session.execute(db.text('PRAGMA journal_mode=WAL'))
+            db.session.commit()
 
     return app

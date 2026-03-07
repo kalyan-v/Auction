@@ -219,7 +219,7 @@ def squads() -> str:
     if current_league:
         teams = Team.query.filter_by(
             league_id=current_league.id, is_deleted=False
-        ).all()
+        ).options(joinedload(Team.players)).all()
     else:
         teams = []
 

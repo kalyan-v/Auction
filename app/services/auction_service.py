@@ -286,8 +286,9 @@ class AuctionService(BaseService):
 
             player.current_price = new_price
 
-            # Soft delete bids for this player above the new price
-            self.bid_repo.soft_delete_above_price(player.id, new_price)
+            # Soft delete ALL bids for this player so the next bid is
+            # treated as a first bid (allowed at the reset price).
+            self.bid_repo.soft_delete_for_player(player.id)
 
             logger.info(f"Price reset to {new_price} for player {player.name}")
 

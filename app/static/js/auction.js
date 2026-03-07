@@ -409,8 +409,32 @@ async function markUnsold() {
     }
 }
 
+// Persist category filter selection across page reloads
+function initCategoryFilter() {
+    const categoryEl = document.getElementById('categoryFilter');
+    if (!categoryEl) return;
+
+    // Restore saved selection
+    const saved = sessionStorage.getItem('auctionCategoryFilter');
+    if (saved !== null) {
+        // Only restore if the option still exists in the dropdown
+        const optionExists = Array.from(categoryEl.options).some(o => o.value === saved);
+        if (optionExists) {
+            categoryEl.value = saved;
+        }
+    }
+
+    // Save on change
+    categoryEl.addEventListener('change', () => {
+        sessionStorage.setItem('auctionCategoryFilter', categoryEl.value);
+    });
+}
+
 // Initialize on page load
-document.addEventListener('DOMContentLoaded', initAuctioneerPanel);
+document.addEventListener('DOMContentLoaded', () => {
+    initAuctioneerPanel();
+    initCategoryFilter();
+});
 
 // Pick random player from selected position with animation
 async function pickRandomPlayer() {

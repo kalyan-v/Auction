@@ -46,6 +46,13 @@
                         <span class="stat-label">Spent</span>
                         <span class="stat-value spent">₹{{ '{:.2f}'.format(spent / 10000000) }} Cr</span>
                     </div>
+                    {% if current_league and current_league.max_rtm > 0 %}
+                    {% set rtm_used = sold_players | selectattr('is_rtm', 'equalto', true) | list | length %}
+                    <div class="stat">
+                        <span class="stat-label">RTMs Used</span>
+                        <span class="stat-value">{{ rtm_used }}/{{ current_league.max_rtm }}</span>
+                    </div>
+                    {% endif %}
                 </div>
                 <!-- Budget Progress Bar -->
                 <div class="budget-progress-container">
@@ -74,7 +81,7 @@
                         <tr class="player-row" data-player-id="{{ player.id }}" data-player-name="{{ player.name }}">
                             <td onclick="showBidHistoryFromRow(this.parentElement)" class="player-name-cell">
                                 {% if player.image_url %}
-                                <img src="{{ player.image_url }}" alt="{{ player.name }}" class="player-thumbnail" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <img src="{{ player.image_url }}" alt="{{ player.name }}" class="player-thumbnail" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                                 <span class="player-thumbnail-placeholder" style="display:none;">🏏</span>
                                 {% else %}
                                 <span class="player-thumbnail-placeholder">🏏</span>

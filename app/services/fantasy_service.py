@@ -10,6 +10,8 @@ Encapsulates all business logic related to:
 
 from typing import Dict, List, Optional
 
+from sqlalchemy.orm import joinedload
+
 from app import db
 from app.constants import PLAYOFF_MATCH_NUMBERS
 from app.enums import AwardType
@@ -289,7 +291,7 @@ class FantasyService(BaseService):
             league_id=league_id,
             status='sold',
             is_deleted=False
-        ).all()
+        ).options(joinedload(Player.team)).all()
 
         return [{
             'id': p.id,

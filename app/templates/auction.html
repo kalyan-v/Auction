@@ -140,7 +140,7 @@
             {% for player in players %}
             <div class="player-item" data-player-id="{{ player.id }}">
                 {% if player.image_url %}
-                <img src="{{ player.image_url }}" alt="{{ player.name }}" class="player-photo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <img src="{{ player.image_url }}" alt="{{ player.name }}" class="player-photo" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                 <div class="player-photo-placeholder" style="display:none;" role="img" aria-label="Player photo not available">🏏</div>
                 {% else %}
                 <div class="player-photo-placeholder" role="img" aria-label="Player photo not available">🏏</div>
@@ -164,7 +164,7 @@
             {% for player in unsold_players %}
             <div class="player-item unsold-item" data-player-id="{{ player.id }}">
                 {% if player.image_url %}
-                <img src="{{ player.image_url }}" alt="{{ player.name }}" class="player-photo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <img src="{{ player.image_url }}" alt="{{ player.name }}" class="player-photo" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                 <div class="player-photo-placeholder" style="display:none;" role="img" aria-label="Player photo not available">🏏</div>
                 {% else %}
                 <div class="player-photo-placeholder" role="img" aria-label="Player photo not available">🏏</div>

@@ -204,7 +204,7 @@
                         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showPointsModalFromRow(this);}">
                         <td class="player-name-cell">
                             {% if player.image_url %}
-                            <img src="{{ player.image_url }}" alt="{{ player.name }}" class="player-thumbnail" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                            <img src="{{ player.image_url }}" alt="{{ player.name }}" class="player-thumbnail" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                             <span class="player-thumbnail-placeholder" style="display:none;">🏏</span>
                             {% else %}
                             <span class="player-thumbnail-placeholder">🏏</span>

@@ -26,11 +26,12 @@
 <!-- Special Awards Section -->
 <div class="awards-section">
     <h3>🏆 Special Awards</h3>
-    {% if admin_mode %}
     <div class="awards-actions">
-        <button class="btn btn-small btn-primary" onclick="fetchAllData()" id="fetchAllBtn">📡 Fetch WPL Data</button>
+        {% if admin_mode %}
+        <button class="btn btn-small btn-primary" onclick="fetchAllData()" id="fetchAllBtn">📡 Fetch Data</button>
+        {% endif %}
+        <button class="btn btn-small btn-secondary" onclick="downloadStandingsCSV()">📥 Download Excel</button>
     </div>
-    {% endif %}
     <div class="awards-container">
         <div class="award-card mvp">
             <div class="award-image-container">
@@ -281,6 +282,11 @@ const isAdmin = {{ 'true' if admin_mode else 'false' }};
 
 // Cache for lowercase player names (performance optimization)
 const playerNameCache = new Map();
+
+// Download standings as CSV
+function downloadStandingsCSV() {
+    window.location.href = '/api/fantasy/export-csv';
+}
 
 // Fetch all WPL data (awards + fantasy points)
 async function fetchAllData() {

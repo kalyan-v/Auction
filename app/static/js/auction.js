@@ -249,6 +249,14 @@ function resetPrice() {
         if (data.success) {
             currentBidPrice = newPrice;
             leadingTeamName = '-';  // Reset leading team
+
+            // Clear selected team state and animation
+            selectedTeamId = null;
+            selectedTeamName = null;
+            document.querySelectorAll('.team-btn').forEach(btn => btn.classList.remove('selected'));
+            const selectedTeamEl = document.getElementById('selectedTeamName');
+            if (selectedTeamEl) selectedTeamEl.textContent = '-';
+
             updateBidDisplay();
 
             // Clear the input

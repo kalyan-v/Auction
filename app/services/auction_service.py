@@ -150,7 +150,7 @@ class AuctionService(BaseService):
 
                 auction_state.current_player_id = player_id
                 auction_state.is_active = True
-                auction_state.time_remaining = 300
+                auction_state.time_remaining = 600
 
                 player.current_price = player.base_price
                 player.status = 'bidding'

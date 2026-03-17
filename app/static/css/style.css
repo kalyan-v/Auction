@@ -2102,6 +2102,12 @@ input:checked + .toggle-slider:before {
         width: auto;
     }
 
+    /* Squad release button must stay compact */
+    .sp-release {
+        width: 28px;
+        padding: 0;
+    }
+
     /* Setup Page */
     .setup-container {
         grid-template-columns: 1fr;
@@ -2396,9 +2402,134 @@ input:checked + .toggle-slider:before {
 }
 
 .players-list {
-    padding: 1rem;
+    padding: 0;
 }
 
+/* ===== Squad Player Rows ===== */
+.squad-player-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.squad-player {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.65rem 1rem;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.squad-player:last-child {
+    border-bottom: none;
+}
+
+.squad-player:hover {
+    background: #f4f7ff;
+}
+
+.squad-player:nth-child(even) {
+    background: #fafbff;
+}
+
+.squad-player:nth-child(even):hover {
+    background: #f4f7ff;
+}
+
+/* Left section: avatar + text */
+.sp-left {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-width: 0;
+    flex: 1;
+}
+
+.sp-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #e8e8e8;
+    flex-shrink: 0;
+}
+
+.sp-avatar-fallback {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #f0f0f0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+    border: 2px solid #e8e8e8;
+}
+
+.sp-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 2px;
+}
+
+.sp-name {
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: #1a1a2e;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sp-meta {
+    font-size: 0.75rem;
+    color: #666;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.sp-pos {
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.65rem;
+    letter-spacing: 0.3px;
+}
+
+.sp-pos.batter { color: #2980b9; }
+.sp-pos.bowler { color: #8e44ad; }
+.sp-pos.allrounder { color: #c0392b; }
+.sp-pos.keeper { color: #d68910; }
+
+/* Release button — minimal, always visible */
+.sp-release {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: none;
+    background: #fee2e2;
+    color: #dc2626;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, transform 0.15s;
+    margin-left: 0.5rem;
+}
+
+.sp-release:hover {
+    background: #dc2626;
+    color: #fff;
+    transform: scale(1.1);
+}
+
+/* Generic squad-table class (used by fantasy page) */
 .squad-table {
     width: 100%;
     border-collapse: collapse;
@@ -2415,26 +2546,6 @@ input:checked + .toggle-slider:before {
     background: #f8f9fa;
     font-weight: 600;
     color: #2c3e50;
-}
-
-.player-row {
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.player-row:hover {
-    background: #f0f7ff;
-}
-
-/* Release button in squads */
-.release-btn {
-    font-size: 0.75rem;
-    padding: 0.3rem 0.6rem;
-    white-space: nowrap;
-}
-
-.squad-table td:last-child {
-    text-align: center;
 }
 
 .position-badge {
@@ -3457,7 +3568,7 @@ textarea:focus {
     outline: none;
 }
 
-/* Squad Table Enhanced */
+/* Squad Table Enhanced (used by fantasy page) */
 .squad-table {
     border-radius: 10px;
     overflow: hidden;
@@ -3477,7 +3588,6 @@ textarea:focus {
 
 .squad-table tbody tr:hover {
     background: linear-gradient(135deg, #f0f7ff 0%, #e8f4fd 100%);
-    transform: scale(1.01);
 }
 
 /* Position Badges Enhanced */
@@ -3563,6 +3673,7 @@ textarea:focus {
     display: flex;
     align-items: center;
     gap: 0.75rem;
+    min-width: 0;
 }
 
 .player-thumbnail {
@@ -3599,14 +3710,8 @@ textarea:focus {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    max-width: 150px;
 }
 
-@media (min-width: 768px) {
-    .player-name-text {
-        max-width: 200px;
-    }
-}
 
 /* ==================== PAGE LOAD ANIMATION ==================== */
 .page-loading {

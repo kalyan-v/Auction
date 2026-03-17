@@ -150,7 +150,7 @@ def auction_state(app, sample_player):
         state = AuctionState(
             current_player_id=player.id,
             is_active=True,
-            time_remaining=300
+            time_remaining=600
         )
         db.session.add(state)
         db.session.commit()

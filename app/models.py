@@ -196,7 +196,7 @@ class AuctionState(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     current_player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=True)
     is_active = db.Column(db.Boolean, default=False)
-    time_remaining = db.Column(db.Integer, default=300)  # seconds
+    time_remaining = db.Column(db.Integer, default=600)  # seconds
     
     current_player = db.relationship('Player')
     

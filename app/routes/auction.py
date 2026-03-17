@@ -7,7 +7,7 @@ Handles the main auction room interface.
 from flask import render_template
 from sqlalchemy.orm import joinedload
 
-from app.models import AuctionState, Bid, League, Player, Team
+from app.models import AuctionCategory, AuctionState, Bid, League, Player, Team
 from app.routes import auction_bp
 from app.routes.main import get_current_league
 from app.utils import is_admin
@@ -29,7 +29,22 @@ def auction_room() -> str:
             Player.is_deleted.is_(False),
             Player.status.in_(['available', 'unsold'])
         ).all()
-        players = [p for p in all_pool if p.status == 'available']
+
+        # Build category sort order lookup from AuctionCategory
+        category_order = {}
+        for cat in AuctionCategory.query.filter_by(
+            league_id=current_league.id, is_deleted=False
+        ).all():
+            category_order[cat.name] = cat.sort_order
+
+        def player_sort_key(p: Player) -> tuple:
+            cat_ord = category_order.get(p.auction_category, 999)
+            return (cat_ord, p.original_team or '', p.name)
+
+        players = sorted(
+            [p for p in all_pool if p.status == 'available'],
+            key=player_sort_key
+        )
         unsold_players = [p for p in all_pool if p.status == 'unsold']
     else:
         teams = []

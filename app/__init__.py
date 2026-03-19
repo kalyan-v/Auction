@@ -120,9 +120,9 @@ def create_app(config_name: str = 'default') -> Flask:
     # Create database tables and configure SQLite
     with app.app_context():
         db.create_all()
-        # Enable WAL mode for better concurrent read/write performance
+        # Use DELETE journal mode for compatibility with PythonAnywhere
         if 'sqlite' in app.config.get('SQLALCHEMY_DATABASE_URI', ''):
-            db.session.execute(db.text('PRAGMA journal_mode=WAL'))
+            db.session.execute(db.text('PRAGMA journal_mode=DELETE'))
             db.session.commit()
 
     return app

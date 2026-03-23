@@ -21,6 +21,16 @@ from app.utils import admin_required, error_response, is_admin
 
 logger = get_logger(__name__)
 
+# Characters that trigger formula evaluation in Excel
+_FORMULA_PREFIXES = ('=', '+', '-', '@', '\t', '\r')
+
+
+def _sanitize_excel_value(value: str) -> str:
+    """Sanitize a string value to prevent Excel formula injection."""
+    if isinstance(value, str) and value and value[0] in _FORMULA_PREFIXES:
+        return "'" + value
+    return value
+
 
 # ==================== FANTASY POINTS CRUD ====================
 
@@ -410,7 +420,7 @@ def export_fantasy_csv() -> Response:
             r = thick if c == col_start + 2 else thin
             mc.border = Border(left=l, right=r, top=thick, bottom=thick)
         # Set value on the top-left cell
-        ws.cell(row=row_num, column=col_start).value = team_name
+        ws.cell(row=row_num, column=col_start).value = _sanitize_excel_value(team_name)
 
     row_num += 1  # Row 3: blank
     row_num += 1  # Row 4: headers
@@ -457,7 +467,7 @@ def export_fantasy_csv() -> Response:
                     price_cr = round((p.current_price or 0) / 10000000, 2)
                     pts = int(p.fantasy_points) if p.fantasy_points else 0
                     apply_team_cells(row_num, ti, col_start,
-                                     f'{p.name}{overseas}', pts, price_cr)
+                                     _sanitize_excel_value(f'{p.name}{overseas}'), pts, price_cr)
                 else:
                     apply_team_cells(row_num, ti, col_start)
 
@@ -558,7 +568,7 @@ def export_fantasy_csv() -> Response:
         nc.border = thin_border
         nc.alignment = left_align
         if award and award.player:
-            nc.value = award.player.name
+            nc.value = _sanitize_excel_value(award.player.name)
             nc.font = Font(bold=True, size=11)
 
         row_num += 1

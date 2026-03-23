@@ -184,9 +184,6 @@
                             Total Points <span class="sort-icon" id="sort-points-{{ team.id }}" aria-hidden="true">⇅</span>
                         </th>
                         <th>Original Team</th>
-                        <th class="sortable" tabindex="0" role="button" aria-label="Sort by position" onclick="sortTable({{ team.id }}, 'position')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();sortTable({{ team.id }}, 'position');}">
-                            Position <span class="sort-icon" id="sort-position-{{ team.id }}" aria-hidden="true">⇅</span>
-                        </th>
                     </tr>
                 </thead>
                 <tbody>
@@ -210,13 +207,15 @@
                             {% else %}
                             <span class="player-thumbnail-placeholder">🏏</span>
                             {% endif %}
-                            <span class="player-name-text">{{ player.name }}</span>
+                            <div class="sp-text">
+                                <span class="player-name-text">{{ player.name }}</span>
+                                <span class="sp-meta"><span class="sp-pos {{ player.position | lower }}">{{ player.position }}</span> · ₹{{ '{:.0f}'.format(player.current_price / 100000) }} L</span>
+                            </div>
                         </td>
                         <td class="points-cell">
                             <span class="points-value" id="points-{{ player.id }}">{{ player.fantasy_points }}</span>
                         </td>
                         <td><span class="original-team-badge">{{ player.original_team or '-' }}</span></td>
-                        <td><span class="position-badge {{ player.position | lower }}">{{ player.position }}</span></td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -259,11 +258,11 @@
             <div class="add-points-form">
                 <div class="form-group">
                     <label for="matchNumber">WPL Match #</label>
-                    <input type="number" id="matchNumber" min="1" placeholder="WPL Match #">
+                    <input type="number" id="matchNumber" min="1" max="200" placeholder="WPL Match #">
                 </div>
                 <div class="form-group">
                     <label for="matchPoints">Points</label>
-                    <input type="number" id="matchPoints" step="0.5" placeholder="Points">
+                    <input type="number" id="matchPoints" step="0.5" min="-100" max="500" placeholder="Points">
                 </div>
                 <button class="btn btn-primary" onclick="addMatchPoints()">Add Points</button>
             </div>
@@ -879,7 +878,12 @@ function savePageState() {
         sortState: sortState,
         collapsedTeams: getCollapsedTeams()
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {
+        // localStorage may be full or disabled
+        console.warn('Could not save page state:', e);
+    }
 }
 
 function getCollapsedTeams() {
@@ -948,24 +952,33 @@ function restorePageState() {
     }
 }
 
-// Override functions to save state on change
-const originalToggleTeamCollapse = toggleTeamCollapse;
-toggleTeamCollapse = function(teamId) {
-    originalToggleTeamCollapse(teamId);
-    savePageState();
-};
+// Override functions to save state on change (guarded against double-wrapping)
+if (!toggleTeamCollapse._wrapped) {
+    const originalToggleTeamCollapse = toggleTeamCollapse;
+    toggleTeamCollapse = function(teamId) {
+        originalToggleTeamCollapse(teamId);
+        savePageState();
+    };
+    toggleTeamCollapse._wrapped = true;
+}
 
-const originalHandleFilterChange = handleFilterChange;
-handleFilterChange = function(checkbox) {
-    originalHandleFilterChange(checkbox);
-    savePageState();
-};
+if (!handleFilterChange._wrapped) {
+    const originalHandleFilterChange = handleFilterChange;
+    handleFilterChange = function(checkbox) {
+        originalHandleFilterChange(checkbox);
+        savePageState();
+    };
+    handleFilterChange._wrapped = true;
+}
 
-const originalSearchPlayers = searchPlayers;
-searchPlayers = function(query) {
-    originalSearchPlayers(query);
-    savePageState();
-};
+if (!searchPlayers._wrapped) {
+    const originalSearchPlayers = searchPlayers;
+    searchPlayers = function(query) {
+        originalSearchPlayers(query);
+        savePageState();
+    };
+    searchPlayers._wrapped = true;
+}
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
@@ -993,7 +1006,8 @@ document.addEventListener('DOMContentLoaded', function() {
             sortState[teamId].ascending = !ascending;
             sortTable(teamId, column);
         } else {
-            // Default sort by points
+            // Default sort by points descending
+            sortState[teamId] = { column: 'points', ascending: true };
             sortTable(teamId, 'points');
         }
     });

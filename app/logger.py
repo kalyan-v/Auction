@@ -13,7 +13,10 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 # Check if running in production for JSON logging
-USE_JSON_LOGGING = os.environ.get('FLASK_CONFIG') == 'production'
+USE_JSON_LOGGING = (
+    os.environ.get('FLASK_CONFIG') == 'production'
+    or os.environ.get('FLASK_ENV') == 'production'
+)
 
 
 class JSONFormatter(logging.Formatter):

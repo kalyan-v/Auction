@@ -88,16 +88,16 @@ class FantasyService(BaseService):
             if not player:
                 raise NotFoundError("Player not found")
 
-            # Check for existing entry (include soft-deleted to revive if needed)
+            # Check for existing entry with is_deleted filter
             existing = FantasyPointEntry.query.filter_by(
                 player_id=player_id,
                 match_number=match_number,
-                league_id=league_id
+                league_id=league_id,
+                is_deleted=False
             ).first()
 
             if existing:
                 existing.points = points
-                existing.is_deleted = False
             else:
                 entry = FantasyPointEntry(
                     player_id=player_id,
@@ -254,7 +254,9 @@ class FantasyService(BaseService):
             player_name = None
             if player_id:
                 player = db.session.get(Player, player_id)
-                player_name = player.name if player else None
+                if not player or player.is_deleted:
+                    raise ValidationError('Player not found or has been deleted')
+                player_name = player.name
 
             logger.info(f"Set {award_type} award to {player_name}")
 
@@ -277,9 +279,10 @@ class FantasyService(BaseService):
         awards = FantasyAward.query.filter_by(league_id=league_id).all()
         result = {}
         for award in awards:
+            player = award.player
             result[award.award_type] = {
                 'player_id': award.player_id,
-                'player_name': award.player.name if award.player else None
+                'player_name': player.name if player and not player.is_deleted else None
             }
         return {'success': True, 'awards': result}
 
@@ -316,6 +319,9 @@ class FantasyService(BaseService):
     ) -> Optional[Player]:
         """Find a player by name with fuzzy matching.
 
+        Uses SQL-level exact matches first (2 queries max),
+        then falls back to a single in-memory fuzzy match.
+
         Args:
             name: Player name to search for.
             league_id: ID of the league.
@@ -335,27 +341,21 @@ class FantasyService(BaseService):
         except Exception:
             mapped_name = search_name
 
-        # Try exact match with mapped name
+        # Try exact matches via SQL (mapped name and original name in one query)
+        names_to_try = [mapped_name]
+        if search_name != mapped_name:
+            names_to_try.append(search_name)
+
         player = Player.query.filter(
             Player.league_id == league_id,
             Player.is_deleted.is_(False),
-            db.func.lower(Player.name) == mapped_name
+            db.func.lower(Player.name).in_(names_to_try)
         ).first()
 
         if player:
             return player
 
-        # Try exact match with original name
-        player = Player.query.filter(
-            Player.league_id == league_id,
-            Player.is_deleted.is_(False),
-            db.func.lower(Player.name) == search_name
-        ).first()
-
-        if player:
-            return player
-
-        # Fuzzy matching
+        # Fuzzy matching — single query to load all players once
         normalized_search = normalize_player_name(search_name)
         players = Player.query.filter(
             Player.league_id == league_id,

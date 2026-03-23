@@ -121,7 +121,7 @@ class FantasyPointsCalculator:
             breakdown.append(f"25 runs bonus: {self.RUNS_25_BONUS} pts")
 
         # Duck penalty (excluding bowlers)
-        if runs == 0 and is_out and position != 'bowler':
+        if runs == 0 and is_out and position and position != 'bowler':
             points += self.DUCK_PENALTY
             breakdown.append(f"Duck: {self.DUCK_PENALTY} pts")
 

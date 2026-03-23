@@ -28,7 +28,19 @@ async function secureFetch(url, options = {}) {
         };
     }
 
-    return fetch(url, options);
+    const response = await fetch(url, options);
+
+    if (!response.ok) {
+        // Try to extract error message from JSON response
+        let errorMsg = `HTTP ${response.status}`;
+        try {
+            const errData = await response.clone().json();
+            if (errData.error) errorMsg = errData.error;
+        } catch (_) { /* not JSON */ }
+        throw new Error(errorMsg);
+    }
+
+    return response;
 }
 
 // Utility function to escape HTML to prevent XSS

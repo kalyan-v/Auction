@@ -18,7 +18,7 @@ class Config:
 
     # Session security
     SESSION_COOKIE_HTTPONLY: bool = True
-    SESSION_COOKIE_SAMESITE: str = 'Lax'
+    SESSION_COOKIE_SAMESITE: str = 'Strict'
     PERMANENT_SESSION_LIFETIME: timedelta = timedelta(hours=2)  # Reduced from 8 hours
 
     # CORS settings

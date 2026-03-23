@@ -128,7 +128,8 @@ class PlayerService(BaseService):
             ValidationError: If validation fails.
         """
         with self.transaction():
-            player = db.session.get(Player, player_id)
+            from app.db_utils import get_for_update
+            player = get_for_update(Player, player_id)
             if not player or player.is_deleted:
                 raise NotFoundError("Player not found")
 
@@ -618,6 +619,9 @@ class PlayerService(BaseService):
     def fetch_all_images(self, league_id: int) -> dict:
         """Fetch images for all players without images.
 
+        Network requests are performed outside the transaction to avoid
+        holding database locks during potentially slow HTTP calls.
+
         Args:
             league_id: ID of the league.
 
@@ -636,24 +640,33 @@ class PlayerService(BaseService):
 
         results = {'found': 0, 'not_found': 0, 'players': []}
 
-        with self.transaction():
-            for player in players:
-                local_path = self._search_and_download_image(player.id, player.name, league_type)
+        # Phase 1: Download images outside any transaction
+        image_updates = []
+        for player in players:
+            local_path = self._search_and_download_image(player.id, player.name, league_type)
 
-                if local_path:
-                    player.image_url = local_path
-                    results['found'] += 1
-                    results['players'].append({
-                        'name': player.name,
-                        'status': 'found',
-                        'image_url': local_path
-                    })
-                else:
-                    results['not_found'] += 1
-                    results['players'].append({
-                        'name': player.name,
-                        'status': 'not_found'
-                    })
+            if local_path:
+                image_updates.append((player.id, local_path))
+                results['found'] += 1
+                results['players'].append({
+                    'name': player.name,
+                    'status': 'found',
+                    'image_url': local_path
+                })
+            else:
+                results['not_found'] += 1
+                results['players'].append({
+                    'name': player.name,
+                    'status': 'not_found'
+                })
+
+        # Phase 2: Batch update DB in a single short transaction
+        if image_updates:
+            with self.transaction():
+                for player_id, local_path in image_updates:
+                    player = db.session.get(Player, player_id)
+                    if player:
+                        player.image_url = local_path
 
         return {
             'success': True,

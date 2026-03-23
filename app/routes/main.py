@@ -69,8 +69,8 @@ def get_current_league() -> Optional[League]:
 
 @main_bp.route('/')
 def index() -> WerkzeugResponse:
-    """Home page - redirects to Auction."""
-    return redirect(url_for('auction.auction_room'))
+    """Home page - redirects to Fantasy."""
+    return redirect(url_for('main.fantasy'))
 
 
 def is_safe_redirect_url(url: str) -> bool:
@@ -97,10 +97,14 @@ def switch_league(league_id: int) -> WerkzeugResponse:
     if league:
         session['current_league_id'] = league.id
         if is_admin():
-            # Set this league as the globally active one for non-admin users
-            League.query.filter_by(is_active=True, is_deleted=False).update({'is_active': False})
-            league.is_active = True
-            db.session.commit()
+            try:
+                # Set this league as the globally active one for non-admin users
+                League.query.filter_by(is_active=True, is_deleted=False).update({'is_active': False})
+                league.is_active = True
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+                logger.error("Failed to switch active league to %s", league_id, exc_info=True)
 
     # SECURITY: Validate referrer to prevent open redirect
     referrer = request.referrer
@@ -257,24 +261,18 @@ def fantasy() -> str:
             league_id=current_league.id, status='sold', is_deleted=False
         ).all()
 
-        # Get fantasy awards for this league (with eager loading for player)
-        mvp = FantasyAward.query.options(
+        # Get fantasy awards for this league in a single query
+        awards = FantasyAward.query.options(
             joinedload(FantasyAward.player)
         ).filter_by(
-            award_type=AwardType.MVP.value, league_id=current_league.id
-        ).first()
+            league_id=current_league.id
+        ).all()
 
-        orange_cap = FantasyAward.query.options(
-            joinedload(FantasyAward.player)
-        ).filter_by(
-            award_type=AwardType.ORANGE_CAP.value, league_id=current_league.id
-        ).first()
-
-        purple_cap = FantasyAward.query.options(
-            joinedload(FantasyAward.player)
-        ).filter_by(
-            award_type=AwardType.PURPLE_CAP.value, league_id=current_league.id
-        ).first()
+        # Organize awards by type
+        awards_by_type = {a.award_type: a for a in awards}
+        mvp = awards_by_type.get(AwardType.MVP.value)
+        orange_cap = awards_by_type.get(AwardType.ORANGE_CAP.value)
+        purple_cap = awards_by_type.get(AwardType.PURPLE_CAP.value)
     else:
         teams = []
         all_players = []

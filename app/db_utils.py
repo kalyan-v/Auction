@@ -19,6 +19,9 @@ from app import db
 
 # Application-level locks for critical sections
 # These work for single-process deployments (e.g., PythonAnywhere)
+# WARNING: These do NOT protect across multiple gunicorn workers or processes.
+# For multi-worker production deployments, migrate to PostgreSQL with
+# row-level locking (with_for_update) or use Redis-based distributed locks.
 # RLock allows the same thread to re-enter the lock without deadlocking
 _bid_lock = threading.RLock()
 _auction_lock = threading.RLock()
@@ -36,8 +39,10 @@ def get_for_update(model: Type[T], id_value: int) -> T | None:
     """
     Get a model instance with optional row-level locking.
 
-    For SQLite: Returns regular query (relies on application-level locks)
-    For PostgreSQL/MySQL: Uses with_for_update() for row-level locking
+    For SQLite: Returns regular query (relies on application-level locks).
+                IMPORTANT: Callers MUST wrap usage in BidLock()/AuctionLock()/PlayerLock()
+                to ensure thread safety. These locks only protect within a single process.
+    For PostgreSQL/MySQL: Uses with_for_update() for row-level locking.
 
     Args:
         model: The SQLAlchemy model class

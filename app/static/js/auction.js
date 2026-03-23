@@ -177,7 +177,7 @@ async function selectTeam(teamId, teamName) {
         }
     } catch (error) {
         console.error('Error:', error);
-        showNotification('Error placing bid', 'error');
+        showNotification(error.message || 'Error placing bid', 'error');
     } finally {
         isProcessingBid = false;
     }
@@ -277,7 +277,7 @@ function resetPrice() {
         }
     })
     .catch(error => {
-        showNotification('Error resetting price', 'error');
+        showNotification(error.message || 'Error resetting price', 'error');
     })
     .finally(() => {
         if (resetBtn) {
@@ -330,7 +330,7 @@ async function markSold() {
             }
         }
     } catch (error) {
-        showNotification('Error ending auction', 'error');
+        showNotification(error.message || 'Error ending auction', 'error');
         if (soldBtn) {
             soldBtn.disabled = false;
             soldBtn.textContent = '✅ SOLD!';
@@ -409,7 +409,7 @@ async function markUnsold() {
             }
         }
     } catch (error) {
-        showNotification('Error marking unsold', 'error');
+        showNotification(error.message || 'Error marking unsold', 'error');
         if (unsoldBtn) {
             unsoldBtn.disabled = false;
             unsoldBtn.textContent = '❌ UNSOLD';
@@ -445,11 +445,21 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Pick random player from selected position with animation
+let isPicking = false;
+let animationTimeouts = [];
+
 async function pickRandomPlayer() {
+    if (isPicking) return;
+    isPicking = true;
+
     const categoryEl = document.getElementById('categoryFilter');
     const category = categoryEl ? categoryEl.value : '';
     const resultDiv = document.getElementById('randomResult');
     const btn = document.getElementById('pickRandomBtn');
+    
+    // Clear any previous animation timeouts
+    animationTimeouts.forEach(id => clearTimeout(id));
+    animationTimeouts = [];
     
     // Disable button during animation
     btn.disabled = true;
@@ -498,7 +508,8 @@ async function pickRandomPlayer() {
             if (cycles < totalCycles) {
                 // Slow down gradually
                 delay = 50 + (cycles * 15);
-                setTimeout(animate, delay);
+                const timeoutId = setTimeout(animate, delay);
+                animationTimeouts.push(timeoutId);
             } else {
                 // Final selection - get actual random from server
                 selectFinalPlayer(category, resultDiv, btn);
@@ -509,9 +520,10 @@ async function pickRandomPlayer() {
         
     } catch (error) {
         console.error('Error:', error);
-        showNotification('Error picking random player', 'error');
+        showNotification(error.message || 'Error picking random player', 'error');
         btn.disabled = false;
         btn.innerHTML = '🎲 Pick Random Player';
+        isPicking = false;
     }
 }
 
@@ -556,6 +568,7 @@ async function selectFinalPlayer(category, resultDiv, btn) {
     } finally {
         btn.disabled = false;
         btn.innerHTML = '🎲 Pick Random Player';
+        isPicking = false;
     }
 }
 
@@ -593,7 +606,7 @@ async function startAuction(playerId) {
         }
     } catch (error) {
         console.error('Error:', error);
-        showNotification('Error starting auction', 'error');
+        showNotification(error.message || 'Error starting auction', 'error');
         if (btn) {
             btn.disabled = false;
             btn.textContent = btn.classList.contains('btn-retry') ? '🔄 Retry' : 'Start Auction';
@@ -634,7 +647,7 @@ document.getElementById('endAuctionBtn')?.addEventListener('click', async functi
         }
     } catch (error) {
         console.error('Error:', error);
-        showNotification('Error ending auction', 'error');
+        showNotification(error.message || 'Error ending auction', 'error');
         btn.disabled = false;
         btn.textContent = 'End Current Auction';
     }

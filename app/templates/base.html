@@ -185,13 +185,18 @@
         }
         
         // Tooltips
+        // Tooltips - use event delegation to avoid accumulating listeners
         function initTooltips() {
-            const tooltipElements = document.querySelectorAll('[data-tooltip]');
-            
-            tooltipElements.forEach(el => {
-                el.addEventListener('mouseenter', showTooltip);
-                el.addEventListener('mouseleave', hideTooltip);
-            });
+            document.addEventListener('mouseenter', function(e) {
+                if (e.target.dataset && e.target.dataset.tooltip) {
+                    showTooltip(e);
+                }
+            }, true);
+            document.addEventListener('mouseleave', function(e) {
+                if (e.target._tooltip) {
+                    hideTooltip(e);
+                }
+            }, true);
         }
         
         function showTooltip(e) {

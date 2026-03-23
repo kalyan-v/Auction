@@ -31,7 +31,7 @@ def place_bid() -> tuple[Response, int] | Response:
     """
     data = request.get_json()
     if not data:
-        return error_response('Request body is required')
+        return error_response('Request body is required', 400)
 
     # Validate inputs
     try:
@@ -39,7 +39,10 @@ def place_bid() -> tuple[Response, int] | Response:
         team_id = int(data.get('team_id'))
         amount = float(data.get('amount'))
     except (TypeError, ValueError):
-        return error_response('Invalid player_id, team_id, or amount')
+        return error_response('Invalid player_id, team_id, or amount', 400)
+
+    if amount <= 0:
+        return error_response('Bid amount must be positive', 400)
 
     result = auction_service.place_bid(player_id, team_id, amount)
     return jsonify(result)

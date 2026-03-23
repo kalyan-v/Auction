@@ -69,7 +69,7 @@ def create_app(config_name: str = 'default') -> Flask:
     @app.before_request
     def before_request():
         g.start_time = time.time()
-        g.request_id = str(uuid.uuid4())[:8]
+        g.request_id = str(uuid.uuid4())
 
     @app.after_request
     def after_request(response):

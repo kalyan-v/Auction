@@ -119,6 +119,15 @@ def get_mvp_stats() -> tuple[Response, int] | Response:
     })
 
 
+# Allowlist of valid stat types to prevent arbitrary scraper calls
+ALLOWED_STAT_TYPES = {
+    'most-runs', 'most-wickets', 'mvp', 'most-sixes',
+    'most-fours', 'best-batting-average', 'best-batting-strike-rate',
+    'best-bowling-average', 'best-bowling-economy', 'best-bowling-strike-rate',
+    'most-catches', 'most-stumpings',
+}
+
+
 @api_bp.route('/cricket/stats/<stat_type>', methods=['GET'])
 def get_cricket_stats(stat_type: str) -> tuple[Response, int] | Response:
     """Fetch cricket statistics from WPL website.
@@ -129,9 +138,11 @@ def get_cricket_stats(stat_type: str) -> tuple[Response, int] | Response:
     Returns:
         JSON response with requested statistics.
     """
+    if stat_type not in ALLOWED_STAT_TYPES:
+        return error_response(f"Stat type '{stat_type}' not supported", 400)
+
     try:
         with _get_current_scraper() as scraper:
-            # WPL scraper has a get_stats method for generic stat types
             if hasattr(scraper, 'get_stats'):
                 result = scraper.get_stats(stat_type)
                 return jsonify(result.to_dict())

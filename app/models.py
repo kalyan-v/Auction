@@ -33,7 +33,12 @@ class League(db.Model):
         try:
             tiers = json.loads(self.bid_increment_tiers or '[]')
             return sorted(tiers, key=lambda t: t.get('threshold', 0))
-        except (json.JSONDecodeError, TypeError):
+        except (json.JSONDecodeError, TypeError) as e:
+            from app.logger import get_logger
+            get_logger(__name__).error(
+                "League %s: bid_increment_tiers JSON parse failed: %s, using default",
+                self.id, e
+            )
             return [{'threshold': 0, 'increment': 2500000}]
 
     def get_bid_increment(self, current_price: int) -> int:
@@ -46,6 +51,8 @@ class League(db.Model):
             Increment amount in raw value.
         """
         tiers = self.bid_increment_tiers_parsed
+        if not tiers:
+            return 2500000
         # Find the highest threshold that current_price meets
         applicable = tiers[0]
         for tier in tiers:

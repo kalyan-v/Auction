@@ -8,11 +8,13 @@ Encapsulates all business logic related to:
 - Image management
 """
 
+import io
 import os
 from typing import List, Optional
 
 import requests
 from flask import current_app
+from PIL import Image
 
 from sqlalchemy.orm import joinedload
 
@@ -391,13 +393,13 @@ class PlayerService(BaseService):
         player_name: str,
         extension: str = 'jpg'
     ) -> Optional[str]:
-        """Save image bytes to the player images directory.
+        """Save image bytes as WebP to the player images directory.
 
         Args:
             content: Raw image bytes.
             player_id: Player's ID for filename.
             player_name: Player's name for filename.
-            extension: File extension (jpg or png).
+            extension: Original file extension (ignored, saved as webp).
 
         Returns:
             Local URL path to saved image, or None on failure.
@@ -411,7 +413,7 @@ class PlayerService(BaseService):
         os.makedirs(image_dir, exist_ok=True)
 
         safe_name = create_safe_filename(player_name)
-        filename = f"{player_id}_{safe_name}.{extension}"
+        filename = f"{player_id}_{safe_name}.webp"
         filepath = os.path.join(image_dir, filename)
 
         if not self._validate_image_path(filepath, image_dir):
@@ -419,8 +421,14 @@ class PlayerService(BaseService):
             return None
 
         try:
-            with open(filepath, 'wb') as f:
-                f.write(content)
+            img = Image.open(io.BytesIO(content))
+            if img.mode == 'RGBA':
+                bg = Image.new('RGB', img.size, (255, 255, 255))
+                bg.paste(img, mask=img.split()[3])
+                img = bg
+            else:
+                img = img.convert('RGB')
+            img.save(filepath, 'WEBP', quality=80)
             return f"/static/images/players/{filename}"
         except IOError as e:
             logger.error(f"File error saving image for {player_name}: {e}")

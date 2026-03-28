@@ -1,23 +1,37 @@
 """
 Fantasy Points Calculator
 
-Calculates fantasy points based on the scoring rules provided.
+Calculates fantasy points based on league-specific scoring rules.
+Supports WPL and IPL point systems.
 """
 
 from typing import Any, Dict, List, Tuple
 
 
 class FantasyPointsCalculator:
-    """Calculate fantasy points for cricket players based on match performance."""
+    """Calculate fantasy points for cricket players based on match performance.
+
+    Supports league-specific configurations. Default is WPL scoring.
+    Use IPLFantasyPointsCalculator for IPL-specific scoring.
+
+    Example:
+        # WPL (default)
+        result = calculate_fantasy_points(stats, played=True)
+
+        # IPL
+        result = calculate_fantasy_points(stats, played=True, league='ipl')
+    """
 
     # ==================== BATTING POINTS ====================
     POINTS_PER_RUN: int = 1
     FOUR_BONUS: int = 4
     SIX_BONUS: int = 6
-    RUNS_25_BONUS: int = 4
-    RUNS_50_BONUS: int = 8
-    RUNS_75_BONUS: int = 12
-    RUNS_100_BONUS: int = 16
+    RUNS_MILESTONES: List[Tuple[int, int]] = [
+        (100, 16),  # Century bonus
+        (75, 12),   # 75 runs bonus
+        (50, 8),    # Half century bonus
+        (25, 4),    # 25 runs bonus
+    ]
     DUCK_PENALTY: int = -2  # Excluding bowlers
 
     # Strike Rate bonuses/penalties (min 20 runs OR 10 balls)
@@ -37,12 +51,13 @@ class FantasyPointsCalculator:
     WICKET_POINTS: int = 30  # Except run-out
     MAIDEN_OVER_BONUS: int = 12
     LBW_BOWLED_BONUS: int = 8
-    WICKET_3_HAUL_BONUS: int = 4
-    WICKET_4_HAUL_BONUS: int = 8
-    WICKET_5_HAUL_BONUS: int = 12
+    WICKET_HAUL_BONUSES: List[Tuple[int, int]] = [
+        (5, 12),  # 5-wicket haul
+        (4, 8),   # 4-wicket haul
+        (3, 4),   # 3-wicket haul
+    ]
 
     # Economy Rate bonuses/penalties (min 2 overs)
-    # Using exclusive upper bound approach: min <= value < max (except for last threshold)
     ECONOMY_RATE_THRESHOLDS: List[Tuple[float, float, int]] = [
         (0, 5, 6),                 # <5 : +6
         (5, 6, 4),                 # 5-5.99 : +4
@@ -106,19 +121,12 @@ class FantasyPointsCalculator:
             points += six_points
             breakdown.append(f"Sixes ({sixes}): {six_points} pts")
 
-        # Milestone bonuses (cumulative - only highest applies)
-        if runs >= 100:
-            points += self.RUNS_100_BONUS
-            breakdown.append(f"100 runs bonus: {self.RUNS_100_BONUS} pts")
-        elif runs >= 75:
-            points += self.RUNS_75_BONUS
-            breakdown.append(f"75 runs bonus: {self.RUNS_75_BONUS} pts")
-        elif runs >= 50:
-            points += self.RUNS_50_BONUS
-            breakdown.append(f"50 runs bonus: {self.RUNS_50_BONUS} pts")
-        elif runs >= 25:
-            points += self.RUNS_25_BONUS
-            breakdown.append(f"25 runs bonus: {self.RUNS_25_BONUS} pts")
+        # Milestone bonuses (only highest applies)
+        for threshold, bonus in self.RUNS_MILESTONES:
+            if runs >= threshold:
+                points += bonus
+                breakdown.append(f"{threshold} runs bonus: {bonus} pts")
+                break
 
         # Duck penalty (excluding bowlers)
         if runs == 0 and is_out and position and position != 'bowler':
@@ -169,7 +177,7 @@ class FantasyPointsCalculator:
             breakdown.append(f"Wickets ({wickets}): {wicket_points} pts")
 
         # Dot ball bonus
-        if dot_balls > 0:
+        if dot_balls > 0 and self.DOT_BALL_BONUS > 0:
             dot_points = dot_balls * self.DOT_BALL_BONUS
             points += dot_points
             breakdown.append(f"Dot balls ({dot_balls}): {dot_points} pts")
@@ -186,16 +194,12 @@ class FantasyPointsCalculator:
             points += lbw_points
             breakdown.append(f"LBW/Bowled ({lbw_bowled}): {lbw_points} pts")
 
-        # Wicket haul bonuses
-        if wickets >= 5:
-            points += self.WICKET_5_HAUL_BONUS
-            breakdown.append(f"5-wicket haul bonus: {self.WICKET_5_HAUL_BONUS} pts")
-        elif wickets >= 4:
-            points += self.WICKET_4_HAUL_BONUS
-            breakdown.append(f"4-wicket haul bonus: {self.WICKET_4_HAUL_BONUS} pts")
-        elif wickets >= 3:
-            points += self.WICKET_3_HAUL_BONUS
-            breakdown.append(f"3-wicket haul bonus: {self.WICKET_3_HAUL_BONUS} pts")
+        # Wicket haul bonuses (only highest applies)
+        for threshold, bonus in self.WICKET_HAUL_BONUSES:
+            if wickets >= threshold:
+                points += bonus
+                breakdown.append(f"{threshold}-wicket haul bonus: {bonus} pts")
+                break
 
         # Economy rate bonus/penalty (min 2 overs)
         if overs >= 2:
@@ -335,9 +339,60 @@ class FantasyPointsCalculator:
 calculator = FantasyPointsCalculator()
 
 
+class IPLFantasyPointsCalculator(FantasyPointsCalculator):
+    """IPL-specific fantasy points calculator.
+
+    Differences from WPL (base):
+    - Four Bonus: 1 (vs 4)
+    - Six Bonus: 2 (vs 6)
+    - Milestone: 30 runs = 4 (no 25/75 milestones)
+    - Wicket: 25 (vs 30)
+    - No dot ball bonus
+    - 5-wicket haul: 16 (vs 12)
+    """
+
+    # ==================== BATTING POINTS ====================
+    FOUR_BONUS: int = 1
+    SIX_BONUS: int = 2
+    RUNS_MILESTONES: List[Tuple[int, int]] = [
+        (100, 16),  # Century bonus (no half-century bonus awarded alongside)
+        (50, 8),    # Half century bonus
+        (30, 4),    # 30 runs bonus
+    ]
+
+    # ==================== BOWLING POINTS ====================
+    DOT_BALL_BONUS: int = 0  # Not in IPL fantasy
+    WICKET_POINTS: int = 25
+    WICKET_HAUL_BONUSES: List[Tuple[int, int]] = [
+        (5, 16),  # 5-wicket haul
+        (4, 8),   # 4-wicket haul
+        (3, 4),   # 3-wicket haul
+    ]
+
+
+ipl_calculator = IPLFantasyPointsCalculator()
+
+# Registry of calculators by league
+_CALCULATORS = {
+    'wpl': calculator,
+    'ipl': ipl_calculator,
+}
+
+
 def calculate_fantasy_points(
     player_stats: Dict[str, Any],
-    played: bool = True
+    played: bool = True,
+    league: str = 'wpl'
 ) -> Dict[str, Any]:
-    """Convenience function to calculate fantasy points."""
-    return calculator.calculate_total_points(player_stats, played)
+    """Convenience function to calculate fantasy points.
+
+    Args:
+        player_stats: Player performance stats dict.
+        played: Whether the player was in the Playing XI.
+        league: League type ('wpl' or 'ipl').
+
+    Returns:
+        Dict with total_points, breakdown, and component scores.
+    """
+    calc = _CALCULATORS.get(league, calculator)
+    return calc.calculate_total_points(player_stats, played)

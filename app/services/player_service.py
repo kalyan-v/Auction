@@ -14,7 +14,6 @@ from typing import List, Optional
 
 import requests
 from flask import current_app
-from PIL import Image
 
 from sqlalchemy.orm import joinedload
 
@@ -421,6 +420,7 @@ class PlayerService(BaseService):
             return None
 
         try:
+            from PIL import Image
             img = Image.open(io.BytesIO(content))
             if img.mode == 'RGBA':
                 bg = Image.new('RGB', img.size, (255, 255, 255))

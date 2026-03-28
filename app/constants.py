@@ -52,6 +52,39 @@ WPL_STATS_URL_PATTERNS: Final[dict] = {
     'best-bowling-figures': '/stats/best-bowling-figures-12-{series_id}-statistics',
 }
 
+# ==================== IPL WEBSITE CONFIGURATION ====================
+IPL_BASE_URL: Final[str] = "https://www.iplt20.com"
+IPL_FEED_URL: Final[str] = "https://scores.iplt20.com/ipl/feeds"
+IPL_COMPETITION_ID: Final[str] = "284"  # IPL 2026 season
+
+# IPL Team IDs mapping (from scores feeds)
+IPL_TEAM_IDS: Final[dict] = {
+    '13': 'CSK',   # Chennai Super Kings
+    '14': 'DC',    # Delhi Capitals
+    '15': 'GT',    # Gujarat Titans
+    '16': 'KKR',   # Kolkata Knight Riders
+    '17': 'LSG',   # Lucknow Super Giants
+    '18': 'MI',    # Mumbai Indians
+    '21': 'PBKS',  # Punjab Kings
+    '22': 'RR',    # Rajasthan Royals
+    '19': 'RCB',   # Royal Challengers Bengaluru
+    '20': 'SRH',   # Sunrisers Hyderabad
+}
+
+# IPL Team code to URL slug mapping (for match URLs)
+IPL_TEAM_CODE_TO_SLUG: Final[dict] = {
+    'CSK': 'chennai-super-kings',
+    'DC': 'delhi-capitals',
+    'GT': 'gujarat-titans',
+    'KKR': 'kolkata-knight-riders',
+    'LSG': 'lucknow-super-giants',
+    'MI': 'mumbai-indians',
+    'PBKS': 'punjab-kings',
+    'RR': 'rajasthan-royals',
+    'RCB': 'royal-challengers-bengaluru',
+    'SRH': 'sunrisers-hyderabad',
+}
+
 # ==================== HTTP HEADERS ====================
 WIKI_HEADERS: Final[dict] = {
     'User-Agent': 'WPLAuctionApp/1.0 (https://github.com/auction; auction@example.com) python-requests'

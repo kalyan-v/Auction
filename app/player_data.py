@@ -333,6 +333,62 @@ WPL_PLAYER_IDS: Final[Dict[str, int]] = {
 }
 
 
+# ==================== IPL NAME MAPPINGS ====================
+# IPL feed name -> Database name mappings for known variations
+# Used when matching scraped data to database records
+
+IPL_NAME_MAPPINGS: Final[Dict[str, str]] = {
+    # Add IPL name variations as needed
+    'surya kumar yadav': 'suryakumar yadav',
+    'n. tilak varma': 'tilak varma',
+}
+
+
+# ==================== IPL KNOWN BOWLERS ====================
+# IPL players classified as bowlers (exempt from duck penalty in fantasy scoring)
+# Names should be lowercase for case-insensitive matching
+
+IPL_KNOWN_BOWLERS: Final[FrozenSet[str]] = frozenset({
+    # India bowlers
+    'jasprit bumrah',
+    'mohammed siraj',
+    'arshdeep singh',
+    'kuldeep yadav',
+    'yuzvendra chahal',
+    'harshal patel',
+    'khaleel ahmed',
+    'mukesh choudhary',
+    't. natarajan',
+    'avesh khan',
+    'tushar deshpande',
+    'yash dayal',
+    'varun chakaravarthy',
+    'harshit rana',
+    'rasikh dar',
+    'sandeep sharma',
+    'jaydev unadkat',
+    'bhuvneshwar kumar',
+    'sai kishore',
+    'mukesh kumar',
+    'mohsin khan',
+
+    # Overseas bowlers
+    'trent boult',
+    'josh hazlewood',
+    'mitchell starc',
+    'kagiso rabada',
+    'rashid khan',
+    'pat cummins',
+    'jofra archer',
+    'nathan ellis',
+    'noor ahmad',
+    'marco jansen',
+    'lungisani ngidi',
+    'dushmantha chameera',
+    'nuwan thushara',
+})
+
+
 # ==================== NAME MAPPINGS ====================
 # WPL website name -> Database name mappings for known variations
 # Used when matching scraped data to database records

@@ -1,0 +1,83 @@
+name: Scrape IPL Fantasy Points
+
+on:
+  workflow_dispatch:  # Manual trigger
+  schedule:
+    - cron: '50 17 * * *'  # 11:20 PM IST (17:50 UTC) daily
+
+permissions:
+  contents: write
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Show trigger source
+        run: |
+          echo "Event name: ${{ github.event_name }}"
+          echo "Ref: ${{ github.ref }}"
+
+      - name: Run IPL scraper
+        run: python scripts/scrape_ipl_fantasy.py
+
+      - name: Commit and push if changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          if [ ! -f "instance/auction.db" ]; then
+            echo "No database file found, nothing to commit"
+            exit 0
+          fi
+
+          git add instance/auction.db
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git pull --rebase origin main || true
+
+          LAST_MSG=$(git log -1 --pretty=%s 2>/dev/null || echo "")
+          if [[ "$LAST_MSG" == Auto-update\ IPL\ fantasy\ points* ]]; then
+            echo "Amending previous auto-update commit"
+            git commit --amend -m "Auto-update IPL fantasy points $(date +'%Y-%m-%d %H:%M UTC')"
+            for i in 1 2 3; do
+              if git push --force-with-lease; then
+                echo "Push successful"
+                break
+              fi
+              echo "Push failed, retrying ($i/3)..."
+              sleep 2
+              git pull --rebase origin main || true
+            done
+          else
+            echo "Creating new commit (preserving user commit)"
+            git commit -m "Auto-update IPL fantasy points $(date +'%Y-%m-%d %H:%M UTC')"
+            for i in 1 2 3; do
+              if git push; then
+                echo "Push successful"
+                break
+              fi
+              echo "Push failed, retrying ($i/3)..."
+              sleep 2
+              git pull --rebase origin main || true
+            done
+          fi

@@ -16,7 +16,7 @@ from app import db
 from app.constants import PLAYOFF_MATCH_NUMBERS
 from app.enums import AwardType
 from app.logger import get_logger
-from app.models import FantasyAward, FantasyPointEntry, Player
+from app.models import FantasyAward, FantasyPointEntry, League, Player
 from app.scrapers import get_scraper, ScraperType
 from app.services.base import BaseService, NotFoundError, ValidationError
 from app.utils import normalize_player_name
@@ -29,6 +29,26 @@ class FantasyService(BaseService):
 
     Handles points management, awards, and data fetching from external sources.
     """
+
+    def _get_scraper_type(self, league_id: int) -> ScraperType:
+        """Resolve the scraper type from a league's league_type field.
+
+        Args:
+            league_id: ID of the league.
+
+        Returns:
+            ScraperType matching the league.
+
+        Raises:
+            ValidationError: If league not found or unsupported type.
+        """
+        league = db.session.get(League, league_id)
+        if not league:
+            raise NotFoundError(f"League {league_id} not found")
+        try:
+            return ScraperType(league.league_type)
+        except ValueError:
+            raise ValidationError(f"Unsupported league type: {league.league_type}")
 
     # ==================== FANTASY POINTS ====================
 
@@ -336,7 +356,8 @@ class FantasyService(BaseService):
 
         # Get scraper for name mappings
         try:
-            scraper = get_scraper(ScraperType.WPL)
+            scraper_type = self._get_scraper_type(league_id)
+            scraper = get_scraper(scraper_type)
             mapped_name = scraper.name_mappings.get(search_name, search_name)
         except Exception:
             mapped_name = search_name
@@ -401,7 +422,10 @@ class FantasyService(BaseService):
         }
 
         try:
-            scraper = get_scraper(ScraperType.WPL)
+            scraper_type = self._get_scraper_type(league_id)
+            scraper = get_scraper(scraper_type)
+        except (NotFoundError, ValidationError):
+            raise
         except Exception as e:
             logger.error(f"Error creating scraper: {e}")
             raise ValidationError(f'Failed to initialize scraper: {str(e)}')
@@ -504,8 +528,11 @@ class FantasyService(BaseService):
             Dict with update results.
         """
         try:
-            with get_scraper(ScraperType.WPL) as scraper:
+            scraper_type = self._get_scraper_type(league_id)
+            with get_scraper(scraper_type) as scraper:
                 result = scraper.scrape_all_matches()
+        except (NotFoundError, ValidationError):
+            raise
         except Exception as e:
             logger.error(f"Error scraping matches: {e}")
             raise ValidationError(f'Failed to fetch match data: {str(e)}')

@@ -19,6 +19,7 @@ from typing import Optional, Type
 
 from app.enums import LeagueType
 from app.scrapers.base import BaseScraper
+from app.scrapers.ipl import IPLScraper
 from app.scrapers.wpl import WPLScraper
 
 # Alias for cleaner imports
@@ -27,9 +28,7 @@ ScraperType = LeagueType
 # Registry of available scrapers
 _SCRAPER_REGISTRY: dict[LeagueType, Type[BaseScraper]] = {
     LeagueType.WPL: WPLScraper,
-    # Add new scrapers here as they're implemented:
-    # LeagueType.IPL: IPLScraper,
-    # LeagueType.BBL: BBLScraper,
+    LeagueType.IPL: IPLScraper,
 }
 
 # Default scraper type
@@ -80,6 +79,7 @@ def get_scraper(
 # Export public API
 __all__ = [
     "BaseScraper",
+    "IPLScraper",
     "WPLScraper",
     "ScraperType",
     "get_scraper",

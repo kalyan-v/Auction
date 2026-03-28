@@ -247,7 +247,10 @@ class BaseScraper(ABC):
                     )
 
                 # Calculate fantasy points
-                fp_result = calculate_fantasy_points(stats.to_dict(), played=True)
+                fp_result = calculate_fantasy_points(
+                    stats.to_dict(), played=True,
+                    league=self.league_type.value
+                )
                 match_points = fp_result.get("total_points", 0)
 
                 # Aggregate stats

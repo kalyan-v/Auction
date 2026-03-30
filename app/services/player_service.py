@@ -453,9 +453,13 @@ class PlayerService(BaseService):
             Local path to saved image or None on failure.
         """
         try:
+            # Use browser-style headers for image downloads (Wikipedia CDN blocks bot user agents)
+            download_headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
             response = requests.get(
                 image_url,
-                headers=WIKI_HEADERS,
+                headers=download_headers,
                 timeout=IMAGE_REQUEST_TIMEOUT
             )
             if response.status_code != 200:

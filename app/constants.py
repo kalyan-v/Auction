@@ -106,7 +106,7 @@ PLAYOFF_MATCH_NUMBERS: Final[dict] = {
 MIN_VALID_IMAGE_SIZE: Final[int] = 1000  # bytes - images smaller than this are likely invalid
 WPL_IMAGE_URL_TEMPLATE: Final[str] = "https://www.wplt20.com/static-assets/images/players/series/{series_id}/{player_id}.png"
 IPL_IMAGE_URL_TEMPLATE: Final[str] = "https://documents.iplt20.com/ipl/IPLHeadshot{series_id}/{player_id}.png"
-IPL_HEADSHOT_YEAR: Final[str] = "2025"  # Year suffix for IPL headshot images on documents.iplt20.com
+IPL_HEADSHOT_YEAR: Final[str] = "2026"  # Year suffix for IPL headshot images on documents.iplt20.com
 
 # ==================== LEAGUE IMAGE CONFIG ====================
 # Maps league type to image URL template and series ID
@@ -118,6 +118,6 @@ LEAGUE_IMAGE_CONFIG: Final[dict] = {
     'ipl': {
         'template': IPL_IMAGE_URL_TEMPLATE,
         'series_id': IPL_HEADSHOT_YEAR,
-        'fallback_series_ids': ['2024'],
+        'fallback_series_ids': ['2025', '2024'],
     },
 }

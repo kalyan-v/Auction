@@ -133,8 +133,8 @@ class FantasyPointsCalculator:
             points += self.DUCK_PENALTY
             breakdown.append(f"Duck: {self.DUCK_PENALTY} pts")
 
-        # Strike rate bonus/penalty (min 20 runs OR 10 balls)
-        if runs >= 20 or balls_faced >= 10:
+        # Strike rate bonus/penalty (min 20 runs OR 10 balls, excluding bowlers)
+        if (runs >= 20 or balls_faced >= 10) and position != 'bowler':
             if balls_faced > 0:
                 strike_rate = (runs / balls_faced) * 100
                 sr_points = self._get_strike_rate_points(strike_rate)

@@ -56,6 +56,11 @@ WPL_STATS_URL_PATTERNS: Final[dict] = {
 IPL_BASE_URL: Final[str] = "https://www.iplt20.com"
 IPL_FEED_URL: Final[str] = "https://scores.iplt20.com/ipl/feeds"
 IPL_COMPETITION_ID: Final[str] = "284"  # IPL 2026 season
+CRICBUZZ_IPL_SERIES_ID: Final[str] = "9237"  # Cricbuzz series ID for IPL 2026
+CRICBUZZ_SCORECARD_URL: Final[str] = "https://www.cricbuzz.com/live-cricket-scorecard"
+CRICBUZZ_BASE_MATCH_ID: Final[int] = 149618  # Cricbuzz match ID for IPL 2026 Match 1
+CRICBUZZ_MATCH_ID_STEP: Final[int] = 11      # Approximate ID increment between consecutive matches
+CRICBUZZ_MIN_SCORECARD_SIZE: Final[int] = 400000  # bytes - valid scorecards are > 400KB
 
 # IPL Team IDs mapping (from scores feeds)
 IPL_TEAM_IDS: Final[dict] = {

@@ -263,6 +263,33 @@ def safe_float(value: Any, default: float = 0.0) -> float:
         return default
 
 
+def cricket_overs_to_decimal(overs: float) -> float:
+    """
+    Convert cricket notation overs to decimal overs.
+
+    In cricket, 3.4 means 3 overs and 4 balls (22 balls total = 3.667 overs).
+    This converts from that notation to actual decimal for math operations.
+
+    Args:
+        overs: Overs in cricket notation (e.g., 3.4 = 3 overs 4 balls)
+
+    Returns:
+        Decimal overs (e.g., 3.4 -> 3.6667)
+    """
+    if overs <= 0:
+        return 0.0
+    full_overs = int(overs)
+    balls = round((overs - full_overs) * 10)
+    if balls > 5:
+        from app.logger import get_logger
+        get_logger(__name__).warning(
+            f"Invalid cricket overs notation: {overs} "
+            f"(balls={balls}, max is 5). Clamping to 5."
+        )
+        balls = 5
+    return full_overs + balls / 6.0
+
+
 # ==================== STRING UTILITIES ====================
 
 def normalize_player_name(name: str) -> str:

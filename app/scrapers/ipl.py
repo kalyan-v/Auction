@@ -10,6 +10,11 @@ import re
 from typing import Any, Dict, List, Optional, Set
 
 from app.constants import (
+    CRICBUZZ_BASE_MATCH_ID,
+    CRICBUZZ_IPL_SERIES_ID,
+    CRICBUZZ_MATCH_ID_STEP,
+    CRICBUZZ_MIN_SCORECARD_SIZE,
+    CRICBUZZ_SCORECARD_URL,
     IPL_BASE_URL,
     IPL_COMPETITION_ID,
     IPL_FEED_URL,
@@ -28,7 +33,7 @@ from app.enums import LeagueType
 from app.logger import get_logger
 from app.player_data import IPL_KNOWN_BOWLERS, IPL_NAME_MAPPINGS
 from app.scrapers.base import BaseScraper
-from app.utils import safe_float, safe_int
+from app.utils import cricket_overs_to_decimal, normalize_player_name, safe_float, safe_int
 
 logger = get_logger(__name__)
 
@@ -60,6 +65,7 @@ class IPLScraper(BaseScraper):
         """
         super().__init__()
         self._competition_id = competition_id or IPL_COMPETITION_ID
+        self._cricbuzz_id_cache: Dict[str, str] = {}  # match_number -> cb_id
 
     # ==================== Abstract Property Implementations ====================
 
@@ -354,12 +360,15 @@ class IPLScraper(BaseScraper):
             return match.group(1)
         return None
 
-    def scrape_match_scorecard(self, match_url: str) -> ScorecardResult:
+    def scrape_match_scorecard(
+        self, match_url: str, match_number: Optional[str] = None
+    ) -> ScorecardResult:
         """
         Scrape detailed scorecard from an IPL match using JSONP feeds.
 
         Args:
             match_url: URL of the match page (e.g., /match/2026/2417)
+            match_number: Optional match number for Cricbuzz run out lookup.
 
         Returns:
             ScorecardResult with player stats
@@ -382,7 +391,9 @@ class IPLScraper(BaseScraper):
         summary = summary_list[0] if isinstance(summary_list, list) else summary_list
 
         match_info = MatchInfo(
-            match_number=str(summary.get("MatchOrder", "Unknown")),
+            match_number=match_number or str(
+                summary.get("MatchOrder", "Unknown")
+            ),
             home_team=summary.get("HomeTeamCode", "T1"),
             away_team=summary.get("AwayTeamCode", "T2"),
             date=summary.get("MatchDate", ""),
@@ -395,6 +406,10 @@ class IPLScraper(BaseScraper):
         # Determine number of innings (2 for normal, 4 for super over)
         is_super_over = summary.get("IsSuperOver", 0)
         max_innings = 4 if is_super_over else 2
+
+        # Collect all batting cards first to check for run outs
+        all_batting_cards: List[List[Dict[str, Any]]] = []
+        all_bowling_cards: List[List[Dict[str, Any]]] = []
 
         # Fetch each innings
         for inn_no in range(1, max_innings + 1):
@@ -412,10 +427,42 @@ class IPLScraper(BaseScraper):
 
             batting_card = innings.get("BattingCard", [])
             bowling_card = innings.get("BowlingCard", [])
+            all_batting_cards.append(batting_card)
+            all_bowling_cards.append(bowling_card)
 
+        # Check if any run outs have only 1 fielder in the IPL feed
+        has_single_fielder_runout = False
+        for bc in all_batting_cards:
+            for b in bc:
+                ro_match = re.search(
+                    r'run\s*out\s*\((.+?)\)',
+                    b.get("OutDesc", ""),
+                    re.IGNORECASE,
+                )
+                if ro_match and len(ro_match.group(1).split("/")) == 1:
+                    has_single_fielder_runout = True
+                    break
+            if has_single_fielder_runout:
+                break
+
+        # Fetch Cricbuzz run out details only when needed
+        cricbuzz_runouts: Optional[Dict[str, List[str]]] = None
+        if has_single_fielder_runout:
+            cricbuzz_runouts = self._fetch_cricbuzz_runout_details(
+                match_info.home_team,
+                match_info.away_team,
+                match_info.match_number,
+            )
+
+        # Now extract all stats
+        for batting_card, bowling_card in zip(
+            all_batting_cards, all_bowling_cards
+        ):
             self._extract_batting_stats(batting_card, player_stats)
             self._extract_bowling_stats(bowling_card, player_stats)
-            self._extract_fielding_stats(batting_card, player_stats)
+            self._extract_fielding_stats(
+                batting_card, player_stats, cricbuzz_runouts
+            )
 
         return ScorecardResult(
             success=True,
@@ -494,7 +541,9 @@ class IPLScraper(BaseScraper):
 
             stats = player_stats[name]
             stats.wickets += safe_int(bowler.get("Wickets", 0))
-            stats.overs += safe_float(bowler.get("Overs", 0))
+            stats.overs += cricket_overs_to_decimal(
+                safe_float(bowler.get("Overs", 0))
+            )
             stats.runs_conceded += safe_int(bowler.get("Runs", 0))
             stats.maidens += safe_int(bowler.get("Maidens", 0))
             stats.dot_balls += safe_int(bowler.get("DotBalls", 0))
@@ -527,12 +576,192 @@ class IPLScraper(BaseScraper):
         elif action == "run_out_indirect":
             player_stats[fielder].run_outs_indirect += 1
 
+    def _find_cricbuzz_match_id(
+        self, home_team: str, away_team: str, match_number: str
+    ) -> Optional[str]:
+        """Find the Cricbuzz match ID for a given IPL match.
+
+        Uses a two-step approach:
+        1. Try the Cricbuzz series page for recent matches.
+        2. If not found, predict the ID from a known base and verify
+           by checking page size (valid scorecards are >400KB).
+
+        Args:
+            home_team: Home team code (e.g., 'CSK')
+            away_team: Away team code (e.g., 'PBKS')
+            match_number: Match number string (e.g., '7')
+
+        Returns:
+            Cricbuzz match ID string, or None if not found.
+        """
+        t1 = home_team.lower()
+        t2 = away_team.lower()
+
+        try:
+            num = int(match_number)
+        except (ValueError, TypeError):
+            return None
+
+        # Check cache first
+        if match_number in self._cricbuzz_id_cache:
+            return self._cricbuzz_id_cache[match_number]
+
+        # Step 1: Check the series page for recent matches
+        series_url = (
+            f"https://www.cricbuzz.com/cricket-series/"
+            f"{CRICBUZZ_IPL_SERIES_ID}/indian-premier-league-2026/matches"
+        )
+        response = self._make_request(series_url)
+        if response:
+            for ta, tb in [(t1, t2), (t2, t1)]:
+                pattern = (
+                    rf'/live-cricket-scores/(\d+)/'
+                    rf'{ta}-vs-{tb}-{match_number}\w*-match'
+                )
+                match = re.search(pattern, response.text)
+                if match:
+                    self._cricbuzz_id_cache[match_number] = match.group(1)
+                    return match.group(1)
+
+        # Step 2: Predict ID and scan nearby range to find it
+        predicted_id = CRICBUZZ_BASE_MATCH_ID + (num - 1) * CRICBUZZ_MATCH_ID_STEP
+
+        slug = self._build_cricbuzz_slug(t1, t2, match_number)
+        # Try predicted ID first, then scan ±10 around it
+        candidates = [predicted_id]
+        for offset in range(1, 11):
+            candidates.append(predicted_id - offset)
+            candidates.append(predicted_id + offset)
+
+        for cb_id in candidates:
+            url = f"{CRICBUZZ_SCORECARD_URL}/{cb_id}/{slug}"
+            resp = self._make_request(url)
+            if resp and len(resp.text) > CRICBUZZ_MIN_SCORECARD_SIZE:
+                self._cricbuzz_id_cache[match_number] = str(cb_id)
+                return str(cb_id)
+
+        return None
+
+    @staticmethod
+    def _build_cricbuzz_slug(
+        t1: str, t2: str, match_number: str
+    ) -> str:
+        """Build a Cricbuzz URL slug from team codes and match number.
+
+        Args:
+            t1: First team code lowercase (e.g., 'csk')
+            t2: Second team code lowercase (e.g., 'pbks')
+            match_number: Match number string (e.g., '7')
+
+        Returns:
+            URL slug string.
+        """
+        try:
+            n = int(match_number)
+        except (ValueError, TypeError):
+            return f"{t1}-vs-{t2}-match-indian-premier-league-2026"
+
+        if n % 10 == 1 and n % 100 != 11:
+            suffix = "st"
+        elif n % 10 == 2 and n % 100 != 12:
+            suffix = "nd"
+        elif n % 10 == 3 and n % 100 != 13:
+            suffix = "rd"
+        else:
+            suffix = "th"
+
+        return (
+            f"{t1}-vs-{t2}-{n}{suffix}-match-"
+            f"indian-premier-league-2026"
+        )
+
+    def _fetch_cricbuzz_runout_details(
+        self, home_team: str, away_team: str, match_number: str
+    ) -> Dict[str, List[str]]:
+        """Fetch detailed run out fielder info from Cricbuzz scorecard.
+
+        The IPL feed often only lists one fielder per run out even when
+        multiple fielders were involved. Cricbuzz provides the full list
+        (e.g., 'run out (Sarfaraz Khan/Ruturaj Gaikwad)').
+
+        Only called when the current IPL feed data shows a run out.
+
+        Args:
+            home_team: Home team code (e.g., 'CSK')
+            away_team: Away team code (e.g., 'PBKS')
+            match_number: Match number string (e.g., '7')
+
+        Returns:
+            Dict mapping batter name (lowercase) to list of fielder names.
+            Empty dict if fetch fails.
+        """
+        cb_id = self._find_cricbuzz_match_id(
+            home_team, away_team, match_number
+        )
+        if not cb_id:
+            logger.warning(
+                f"Could not find Cricbuzz match ID for "
+                f"{home_team} vs {away_team} Match {match_number}"
+            )
+            return {}
+
+        t1 = home_team.lower()
+        t2 = away_team.lower()
+        slug = self._build_cricbuzz_slug(t1, t2, match_number)
+        url = f"{CRICBUZZ_SCORECARD_URL}/{cb_id}/{slug}"
+        response = self._make_request(url)
+        if not response:
+            return {}
+
+        # Extract all "run out (fielder1/fielder2)" patterns with
+        # the batter name from embedded JSON in the page
+        result: Dict[str, List[str]] = {}
+        for match in re.finditer(
+            r'"batName"\s*:\s*"([^"]+)".*?'
+            r'"outDesc"\s*:\s*"run out \(([^)]+)\)"',
+            response.text,
+        ):
+            batter_name = match.group(1).strip()
+            fielders = [f.strip() for f in match.group(2).split("/")]
+            if len(fielders) >= 2:
+                result[batter_name.lower()] = fielders
+
+        # Fallback: extract from rendered HTML if JSON parsing missed any.
+        # Note: HTML doesn't pair batter with fielders, so keys here are
+        # fielder strings — only the secondary fielder-name lookup in
+        # _extract_fielding_stats will match these entries.
+        if not result:
+            for match in re.finditer(
+                r'run out \(([^)]+)\)', response.text
+            ):
+                fielders_str = match.group(1).strip()
+                fielders = [f.strip() for f in fielders_str.split("/")]
+                if len(fielders) >= 2:
+                    result[fielders_str.lower()] = fielders
+
+        if result:
+            logger.info(
+                f"Cricbuzz run out details for Match {match_number}: "
+                f"{result}"
+            )
+
+        return result
+
     def _extract_fielding_stats(
         self,
         batting_card: List[Dict[str, Any]],
-        player_stats: Dict[str, PlayerStats]
+        player_stats: Dict[str, PlayerStats],
+        cricbuzz_runouts: Optional[Dict[str, List[str]]] = None,
     ) -> None:
-        """Extract fielding stats from IPL dismissal descriptions."""
+        """Extract fielding stats from IPL dismissal descriptions.
+
+        Args:
+            batting_card: List of batting card entries from the feed.
+            player_stats: Mutable dict of player stats to update.
+            cricbuzz_runouts: Optional dict mapping batter name (lowercase)
+                to full fielder list from Cricbuzz, used to supplement
+                single-fielder run outs from the IPL feed.
+        """
         for batsman in batting_card:
             out_desc = batsman.get("OutDesc", "")
             if not out_desc:
@@ -565,20 +794,55 @@ class IPLScraper(BaseScraper):
                 fielders_str = ro_match.group(1)
                 fielders = [f.strip() for f in fielders_str.split("/")]
 
+                # If only 1 fielder from IPL feed, check Cricbuzz for
+                # the full fielder list (IPL feed often drops 2nd fielder)
+                if len(fielders) == 1 and cricbuzz_runouts:
+                    batter_raw = batsman.get("PlayerName", "")
+                    batter_clean = re.sub(
+                        r'\s*\([^)]*\)', '', batter_raw
+                    ).strip().lower()
+
+                    # Try lookup by batter name first (normalize to
+                    # handle name differences between feeds, e.g.,
+                    # IPL "K L Rahul" vs Cricbuzz "KL Rahul")
+                    batter_normalized = normalize_player_name(batter_clean)
+                    cb_fielders = cricbuzz_runouts.get(batter_clean)
+                    if not cb_fielders:
+                        # Try normalized batter name against normalized keys
+                        for key, flds in cricbuzz_runouts.items():
+                            if normalize_player_name(key) == batter_normalized:
+                                cb_fielders = flds
+                                break
+
+                    # Fallback: find entry where the IPL fielder appears
+                    if not cb_fielders:
+                        ipl_fielder = fielders[0].lower()
+                        for key, cb_flds in cricbuzz_runouts.items():
+                            if any(
+                                ipl_fielder in f.lower()
+                                for f in cb_flds
+                            ):
+                                cb_fielders = cb_flds
+                                break
+
+                    if cb_fielders and len(cb_fielders) >= 2:
+                        logger.info(
+                            f"Cricbuzz corrected run out for "
+                            f"{batter_clean}: {fielders} -> {cb_fielders}"
+                        )
+                        fielders = cb_fielders
+
                 if len(fielders) == 1:
-                    # Direct hit
+                    # Solo run out - full credit (direct hit)
                     self._credit_fielding_action(
                         fielders[0], player_stats, "run_out_direct"
                     )
                 elif len(fielders) >= 2:
-                    # Indirect: last fielder gets direct, others get indirect
-                    for f in fielders[:-1]:
+                    # Multiple fielders involved - each gets indirect credit
+                    for f in fielders:
                         self._credit_fielding_action(
                             f, player_stats, "run_out_indirect"
                         )
-                    self._credit_fielding_action(
-                        fielders[-1], player_stats, "run_out_direct"
-                    )
 
     # ==================== Override scrape_all_matches ====================
 
@@ -615,15 +879,14 @@ class IPLScraper(BaseScraper):
 
         for match_data in matches_data:
             url = match_data["url"]
-            result = self.scrape_match_scorecard(url)
+            match_num = self._parse_match_number(
+                match_data.get("match_order", "")
+            )
+            result = self.scrape_match_scorecard(url, match_number=match_num)
             if not result.success or not result.match_info:
                 continue
 
             match_info = result.match_info
-            # Override empty match_number with schedule's MatchOrder
-            match_info.match_number = self._parse_match_number(
-                match_data.get("match_order", "")
-            )
             matches_processed.append(match_info.to_dict())
 
             for player_name, stats in result.player_stats.items():

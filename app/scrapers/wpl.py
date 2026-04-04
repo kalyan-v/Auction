@@ -27,7 +27,7 @@ from app.enums import LeagueType
 from app.logger import get_logger
 from app.player_data import KNOWN_BOWLERS, NAME_MAPPINGS
 from app.scrapers.base import BaseScraper
-from app.utils import safe_float, safe_int
+from app.utils import cricket_overs_to_decimal, safe_float, safe_int
 
 logger = get_logger(__name__)
 
@@ -438,7 +438,9 @@ class WPLScraper(BaseScraper):
             stats = player_stats[name]
             # Accumulate stats (player may bowl in multiple innings, e.g., super over)
             stats.wickets += safe_int(bowler.get("Wickets", 0))
-            stats.overs += safe_float(bowler.get("Overs", 0))
+            stats.overs += cricket_overs_to_decimal(
+                safe_float(bowler.get("Overs", 0))
+            )
             stats.runs_conceded += safe_int(bowler.get("Runs", 0))
             stats.maidens += safe_int(bowler.get("Maidens", 0))
             stats.dot_balls += safe_int(bowler.get("Dots", 0))

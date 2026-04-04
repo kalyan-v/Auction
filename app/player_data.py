@@ -409,6 +409,7 @@ IPL_NAME_MAPPINGS: Final[Dict[str, str]] = {
     # Add IPL name variations as needed
     'surya kumar yadav': 'suryakumar yadav',
     'n. tilak varma': 'tilak varma',
+    'k l rahul': 'kl rahul',
 }
 
 

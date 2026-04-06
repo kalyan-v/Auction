@@ -156,7 +156,7 @@ class TestAuctionStart:
             response = client.post(f'/api/auction/start/{sample_player.id}')
             assert response.status_code == 403
 
-    def test_start_auction_sets_player_to_bidding(self, auth_client, app, sample_player):
+    def test_start_auction_sets_player_to_bidding(self, auth_client, app, sample_league, sample_player):
         """Test that starting auction sets player status to bidding."""
         with app.app_context():
             player = db.session.get(Player, sample_player.id)
@@ -169,7 +169,7 @@ class TestAuctionStart:
             db.session.expire(player)
             assert player.status == 'bidding'
 
-    def test_start_auction_creates_auction_state(self, auth_client, app, sample_player):
+    def test_start_auction_creates_auction_state(self, auth_client, app, sample_league, sample_player):
         """Test that starting auction creates/updates auction state."""
         with app.app_context():
             player = db.session.get(Player, sample_player.id)
@@ -177,12 +177,12 @@ class TestAuctionStart:
             response = auth_client.post(f'/api/auction/start/{player.id}')
             assert response.status_code == 200
 
-            state = AuctionState.query.first()
+            state = AuctionState.query.filter_by(league_id=sample_league.id).first()
             assert state is not None
             assert state.current_player_id == player.id
             assert state.is_active is True
 
-    def test_start_auction_resets_price_to_base(self, auth_client, app, sample_player):
+    def test_start_auction_resets_price_to_base(self, auth_client, app, sample_league, sample_player):
         """Test that starting auction resets player price to base price."""
         with app.app_context():
             player = db.session.get(Player, sample_player.id)
@@ -235,7 +235,7 @@ class TestAuctionEnd:
             assert player.team_id == team2.id
             assert team2.budget == 500_000_000 - 6_000_000
 
-    def test_end_auction_marks_unsold_when_no_bids(self, auth_client, app, auction_state):
+    def test_end_auction_marks_unsold_when_no_bids(self, auth_client, app, sample_league, auction_state):
         """Test that ending auction marks player unsold when no bids."""
         with app.app_context():
             state = db.session.get(AuctionState, auction_state.id)
@@ -249,13 +249,13 @@ class TestAuctionEnd:
             assert player.status == 'unsold'
             assert player.team_id is None
 
-    def test_end_auction_clears_state(self, auth_client, app, auction_state):
+    def test_end_auction_clears_state(self, auth_client, app, sample_league, auction_state):
         """Test that ending auction clears the auction state."""
         with app.app_context():
             response = auth_client.post('/api/auction/end')
             assert response.status_code == 200
 
-            state = AuctionState.query.first()
+            state = AuctionState.query.filter_by(league_id=sample_league.id).first()
             assert state.is_active is False
             assert state.current_player_id is None
 
@@ -268,7 +268,7 @@ class TestMarkUnsold:
         response = client.post('/api/auction/unsold')
         assert response.status_code == 403
 
-    def test_mark_unsold_sets_status(self, auth_client, app, auction_state):
+    def test_mark_unsold_sets_status(self, auth_client, app, sample_league, auction_state):
         """Test that marking unsold sets player status correctly."""
         with app.app_context():
             state = db.session.get(AuctionState, auction_state.id)

@@ -26,12 +26,14 @@ from app.constants import (
     WIKI_REQUEST_TIMEOUT,
 )
 from app.db_utils import PlayerLock, get_for_update
+from app.enums import PlayerStatus
 from app.logger import get_logger
 from app.models import AuctionState, Bid, Player, Team
 from app.player_data import get_player_id_for_league
 from app.repositories.bid_repository import BidRepository
+from app.repositories.player_repository import PlayerRepository
 from app.services.base import BaseService, NotFoundError, ValidationError
-from app.utils import create_safe_filename
+from app.utils import create_safe_filename, validate_url
 
 logger = get_logger(__name__)
 
@@ -42,13 +44,19 @@ class PlayerService(BaseService):
     Handles player CRUD, team release, queries, and image management.
     """
 
-    def __init__(self, bid_repo: Optional[BidRepository] = None):
+    def __init__(
+        self,
+        bid_repo: Optional[BidRepository] = None,
+        player_repo: Optional[PlayerRepository] = None
+    ):
         """Initialize service with optional repository injection.
 
         Args:
             bid_repo: BidRepository instance (defaults to new instance).
+            player_repo: PlayerRepository instance (defaults to new instance).
         """
         self.bid_repo = bid_repo or BidRepository()
+        self.player_repo = player_repo or PlayerRepository()
 
     def create_player(
         self,
@@ -129,7 +137,6 @@ class PlayerService(BaseService):
             ValidationError: If validation fails.
         """
         with self.transaction():
-            from app.db_utils import get_for_update
             player = get_for_update(Player, player_id)
             if not player or player.is_deleted:
                 raise NotFoundError("Player not found")
@@ -170,16 +177,22 @@ class PlayerService(BaseService):
             if not player or player.is_deleted:
                 raise NotFoundError("Player not found")
 
-            # Check if player is in active auction
-            auction_state = AuctionState.query.first()
-            if auction_state and auction_state.current_player_id == player_id:
-                auction_state.current_player_id = None
-                auction_state.is_active = False
+            league_id = player.league_id
+
+            # Check if player is in active auction for this league
+            if league_id is not None:
+                auction_state = AuctionState.query.filter_by(
+                    league_id=league_id
+                ).first()
+                if auction_state and auction_state.current_player_id == player_id:
+                    auction_state.current_player_id = None
+                    auction_state.is_active = False
 
             player.is_deleted = True
 
             # Soft delete any associated bids
-            self.bid_repo.soft_delete_for_player(player_id)
+            if league_id is not None:
+                self.bid_repo.soft_delete_for_player(player_id, league_id)
 
             logger.info(f"Deleted player: {player.name}")
 
@@ -205,7 +218,7 @@ class PlayerService(BaseService):
                 if not player or player.is_deleted:
                     raise NotFoundError("Player not found")
 
-                if player.status != 'sold':
+                if player.status != PlayerStatus.SOLD:
                     raise ValidationError("Player is not currently sold to a team")
 
                 player_name = player.name
@@ -217,13 +230,13 @@ class PlayerService(BaseService):
                         team.budget += player.current_price
 
                 # Reset player to available status
-                player.status = 'available'
+                player.status = PlayerStatus.AVAILABLE
                 player.team_id = None
                 player.current_price = player.base_price
                 player.is_rtm = False
 
                 # Soft delete all bids for this player
-                self.bid_repo.soft_delete_for_player(player_id)
+                self.bid_repo.soft_delete_for_player(player_id, player.league_id)
 
                 logger.info(f"Released player: {player_name}")
 
@@ -244,13 +257,13 @@ class PlayerService(BaseService):
         Raises:
             NotFoundError: If player not found.
         """
-        player = db.session.get(Player, player_id)
+        player = self.player_repo.get(player_id)
         if not player:
             raise NotFoundError('Player not found')
 
         bids = (
             Bid.query
-            .filter_by(player_id=player_id, is_deleted=False)
+            .filter_by(player_id=player_id, league_id=player.league_id, is_deleted=False)
             .options(joinedload(Bid.team))
             .order_by(Bid.amount.desc())
             .all()
@@ -280,9 +293,7 @@ class PlayerService(BaseService):
         Returns:
             List of player dictionaries.
         """
-        players = Player.query.filter_by(
-            league_id=league_id, is_deleted=False
-        ).all()
+        players = self.player_repo.get_by_league(league_id)
 
         return [{
             'id': p.id,
@@ -313,26 +324,12 @@ class PlayerService(BaseService):
         Returns:
             List of Player objects.
         """
-        if include_unsold:
-            query = Player.query.filter(
-                Player.league_id == league_id,
-                Player.is_deleted.is_(False),
-                Player.status.in_(['available', 'unsold'])
-            )
-        else:
-            query = Player.query.filter_by(
-                league_id=league_id,
-                is_deleted=False,
-                status='available'
-            )
-
-        if position:
-            query = query.filter_by(position=position)
-
-        if auction_category:
-            query = query.filter_by(auction_category=auction_category)
-
-        return query.all()
+        return self.player_repo.get_available(
+            league_id=league_id,
+            position=position,
+            include_unsold=include_unsold,
+            auction_category=auction_category
+        )
 
     def get_random_player(
         self,
@@ -352,26 +349,12 @@ class PlayerService(BaseService):
         Returns:
             Random Player object or None if none available.
         """
-        if include_unsold:
-            query = Player.query.filter(
-                Player.league_id == league_id,
-                Player.is_deleted.is_(False),
-                Player.status.in_(['available', 'unsold'])
-            )
-        else:
-            query = Player.query.filter_by(
-                league_id=league_id,
-                is_deleted=False,
-                status='available'
-            )
-
-        if position:
-            query = query.filter_by(position=position)
-
-        if auction_category:
-            query = query.filter_by(auction_category=auction_category)
-
-        return query.order_by(db.func.random()).first()
+        return self.player_repo.get_random(
+            league_id=league_id,
+            position=position,
+            include_unsold=include_unsold,
+            auction_category=auction_category
+        )
 
     # ==================== IMAGE MANAGEMENT ====================
 
@@ -614,11 +597,15 @@ class PlayerService(BaseService):
 
         Raises:
             NotFoundError: If player not found.
+            ValidationError: If URL is invalid.
         """
         with self.transaction():
             player = db.session.get(Player, player_id)
             if not player or player.is_deleted:
                 raise NotFoundError("Player not found")
+
+            if image_url and not validate_url(image_url):
+                raise ValidationError("Invalid image URL")
 
             player.image_url = image_url if image_url else None
 

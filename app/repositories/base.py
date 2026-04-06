@@ -3,7 +3,7 @@ Base repository class with common CRUD operations.
 
 Provides a foundation for all repository classes with:
 - Common query methods (get, get_all, filter_by)
-- Soft delete support
+- Soft delete support (automatically filters is_deleted=False)
 - Row-level locking for concurrent access
 """
 
@@ -19,6 +19,9 @@ T = TypeVar('T')
 class BaseRepository(Generic[T]):
     """Base repository providing common data access operations.
 
+    All query methods automatically filter out soft-deleted records
+    for models that have an `is_deleted` column.
+
     Attributes:
         model: The SQLAlchemy model class this repository manages.
     """
@@ -31,16 +34,36 @@ class BaseRepository(Generic[T]):
         """
         self.model = model
 
+    @property
+    def _has_soft_delete(self) -> bool:
+        """Check if model supports soft delete."""
+        return hasattr(self.model, 'is_deleted')
+
+    def _apply_soft_delete_filter(self, query):
+        """Apply is_deleted=False filter if model supports soft delete.
+
+        Args:
+            query: SQLAlchemy query to filter.
+
+        Returns:
+            Filtered query.
+        """
+        if self._has_soft_delete:
+            query = query.where(self.model.is_deleted.is_(False))
+        return query
+
     def get(self, id: int) -> Optional[T]:
-        """Get a single entity by ID.
+        """Get a single entity by ID (excludes soft-deleted).
 
         Args:
             id: Primary key value.
 
         Returns:
-            Entity instance or None if not found.
+            Entity instance or None if not found or soft-deleted.
         """
-        return db.session.get(self.model, id)
+        query = select(self.model).where(self.model.id == id)
+        query = self._apply_soft_delete_filter(query)
+        return db.session.execute(query).scalars().first()
 
     def get_for_update(self, id: int) -> Optional[T]:
         """Get entity with row-level locking for updates.
@@ -58,15 +81,17 @@ class BaseRepository(Generic[T]):
         return get_for_update(self.model, id)
 
     def get_all(self) -> List[T]:
-        """Get all entities.
+        """Get all non-deleted entities.
 
         Returns:
-            List of all entity instances.
+            List of all active entity instances.
         """
-        return db.session.execute(select(self.model)).scalars().all()
+        query = select(self.model)
+        query = self._apply_soft_delete_filter(query)
+        return db.session.execute(query).scalars().all()
 
     def filter_by(self, **kwargs) -> List[T]:
-        """Get entities matching filter criteria.
+        """Get entities matching filter criteria (auto-excludes soft-deleted).
 
         Args:
             **kwargs: Filter conditions as keyword arguments.
@@ -74,12 +99,14 @@ class BaseRepository(Generic[T]):
         Returns:
             List of matching entity instances.
         """
-        return db.session.execute(
-            select(self.model).filter_by(**kwargs)
-        ).scalars().all()
+        query = select(self.model).filter_by(**kwargs)
+        # Only add soft-delete filter if not explicitly provided
+        if self._has_soft_delete and 'is_deleted' not in kwargs:
+            query = query.where(self.model.is_deleted.is_(False))
+        return db.session.execute(query).scalars().all()
 
     def first_by(self, **kwargs) -> Optional[T]:
-        """Get first entity matching filter criteria.
+        """Get first entity matching filter criteria (auto-excludes soft-deleted).
 
         Args:
             **kwargs: Filter conditions as keyword arguments.
@@ -87,9 +114,10 @@ class BaseRepository(Generic[T]):
         Returns:
             First matching entity or None.
         """
-        return db.session.execute(
-            select(self.model).filter_by(**kwargs)
-        ).scalars().first()
+        query = select(self.model).filter_by(**kwargs)
+        if self._has_soft_delete and 'is_deleted' not in kwargs:
+            query = query.where(self.model.is_deleted.is_(False))
+        return db.session.execute(query).scalars().first()
 
     def create(self, **kwargs) -> T:
         """Create a new entity.
@@ -122,7 +150,7 @@ class BaseRepository(Generic[T]):
             instance.is_deleted = True
 
     def count(self, **kwargs) -> int:
-        """Count entities matching filter criteria.
+        """Count entities matching filter criteria (auto-excludes soft-deleted).
 
         Args:
             **kwargs: Filter conditions as keyword arguments.
@@ -130,10 +158,12 @@ class BaseRepository(Generic[T]):
         Returns:
             Count of matching entities.
         """
+        if self._has_soft_delete and 'is_deleted' not in kwargs:
+            kwargs['is_deleted'] = False
         return db.session.query(self.model).filter_by(**kwargs).count()
 
     def exists(self, **kwargs) -> bool:
-        """Check if any entity matches filter criteria.
+        """Check if any entity matches filter criteria (auto-excludes soft-deleted).
 
         Args:
             **kwargs: Filter conditions as keyword arguments.

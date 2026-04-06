@@ -10,6 +10,7 @@ import io
 
 from flask import Response, jsonify, request, make_response
 
+from app.extensions import limiter
 from app.logger import get_logger
 from app.models import Player
 from app.routes import api_bp
@@ -107,7 +108,7 @@ def manage_players() -> tuple[Response, int] | Response:
     else:
         players = []
 
-    return jsonify(players)
+    return jsonify({'success': True, 'players': players})
 
 
 @api_bp.route('/players/<int:player_id>', methods=['PUT', 'DELETE'])
@@ -181,6 +182,7 @@ def release_player(player_id: int) -> tuple[Response, int] | Response:
 # ==================== PLAYER QUERIES ====================
 
 @api_bp.route('/players/random', methods=['GET'])
+@limiter.limit("60 per minute")
 def get_random_player() -> tuple[Response, int] | Response:
     """Get a random available player, optionally filtered by position.
 
@@ -219,6 +221,7 @@ def get_random_player() -> tuple[Response, int] | Response:
 
 
 @api_bp.route('/players/available', methods=['GET'])
+@limiter.limit("60 per minute")
 def get_available_players() -> tuple[Response, int] | Response:
     """Get all available players for animation, optionally filtered by position.
 
@@ -261,6 +264,7 @@ def get_available_players() -> tuple[Response, int] | Response:
 
 
 @api_bp.route('/players/<int:player_id>/bids', methods=['GET'])
+@limiter.limit("60 per minute")
 def get_player_bids(player_id: int) -> tuple[Response, int] | Response:
     """Get bid history for a specific player.
 

@@ -50,9 +50,10 @@ class TestAuctionService:
             db.session.add(player)
             db.session.flush()
 
-            # Create auction state
+            # Create league-scoped auction state
             auction_state = AuctionState(
                 current_player_id=player.id,
+                league_id=league.id,
                 is_active=True,
                 time_remaining=600
             )
@@ -138,7 +139,7 @@ class TestAuctionService:
             db.session.add(player)
             db.session.commit()
 
-            result = service.start_auction(player.id)
+            result = service.start_auction(player.id, league_id=league.id)
             assert result['success'] is True
 
             # Verify player status changed
@@ -149,8 +150,12 @@ class TestAuctionService:
     def test_start_auction_not_found(self, app, service):
         """Test starting auction for non-existent player."""
         with app.app_context():
+            league = League(name='Test League')
+            db.session.add(league)
+            db.session.commit()
+
             with pytest.raises(NotFoundError):
-                service.start_auction(99999)
+                service.start_auction(99999, league_id=league.id)
 
     def test_end_auction_with_bids(self, app, service, setup_auction):
         """Test ending auction assigns player to highest bidder."""
@@ -162,7 +167,7 @@ class TestAuctionService:
                 amount=10_000_000
             )
 
-            result = service.end_auction()
+            result = service.end_auction(league_id=setup_auction['league_id'])
             assert result['success'] is True
 
             # Verify player is sold
@@ -177,7 +182,7 @@ class TestAuctionService:
     def test_end_auction_no_bids(self, app, service, setup_auction):
         """Test ending auction with no bids marks player as unsold."""
         with app.app_context():
-            result = service.end_auction()
+            result = service.end_auction(league_id=setup_auction['league_id'])
             assert result['success'] is True
 
             # Verify player is unsold
@@ -187,7 +192,7 @@ class TestAuctionService:
     def test_mark_unsold(self, app, service, setup_auction):
         """Test marking player as unsold."""
         with app.app_context():
-            result = service.mark_unsold()
+            result = service.mark_unsold(league_id=setup_auction['league_id'])
             assert result['success'] is True
 
             player = db.session.get(Player, setup_auction['player_id'])
@@ -205,7 +210,7 @@ class TestAuctionService:
             )
 
             # Reset to lower price
-            result = service.reset_price(7_000_000)
+            result = service.reset_price(league_id=setup_auction['league_id'], new_price=7_000_000)
             assert result['success'] is True
             assert result['new_price'] == 7_000_000
 

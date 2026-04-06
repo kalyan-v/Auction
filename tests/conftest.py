@@ -39,10 +39,11 @@ def runner(app):
 
 
 @pytest.fixture
-def auth_client(client, app):
-    """Authenticated test client with admin session."""
-    with client.session_transaction() as session:
-        session['is_admin'] = True
+def auth_client(client, app, sample_league):
+    """Authenticated test client with admin session and current league set."""
+    with client.session_transaction() as sess:
+        sess['is_admin'] = True
+        sess['current_league_id'] = sample_league.id
     return client
 
 
@@ -55,7 +56,8 @@ def sample_league(app):
             display_name='Test League',
             default_purse=500_000_000,
             max_squad_size=15,
-            min_squad_size=11
+            min_squad_size=11,
+            is_active=True
         )
         db.session.add(league)
         db.session.commit()
@@ -141,7 +143,7 @@ def sample_players(app, sample_league):
 
 
 @pytest.fixture
-def auction_state(app, sample_player):
+def auction_state(app, sample_league, sample_player):
     """Create an active auction state with a player in bidding."""
     with app.app_context():
         player = db.session.get(Player, sample_player.id)
@@ -149,6 +151,7 @@ def auction_state(app, sample_player):
 
         state = AuctionState(
             current_player_id=player.id,
+            league_id=sample_league.id,
             is_active=True,
             time_remaining=600
         )

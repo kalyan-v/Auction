@@ -97,12 +97,12 @@ class FantasyPointsCalculator:
         points = 0
         breakdown: List[str] = []
 
-        runs = stats.get('runs', 0)
-        fours = stats.get('fours', 0)
-        sixes = stats.get('sixes', 0)
-        balls_faced = stats.get('balls_faced', 0)
+        runs = max(stats.get('runs', 0), 0)
+        fours = max(stats.get('fours', 0), 0)
+        sixes = max(stats.get('sixes', 0), 0)
+        balls_faced = max(stats.get('balls_faced', 0), 0)
         is_out = stats.get('is_out', False)
-        position = stats.get('position', '').lower()
+        position = (stats.get('position', '') or '').lower()
 
         # Base run points
         if runs > 0:
@@ -163,12 +163,12 @@ class FantasyPointsCalculator:
         points = 0
         breakdown: List[str] = []
 
-        wickets = stats.get('wickets', 0)
-        dot_balls = stats.get('dot_balls', 0)
-        maidens = stats.get('maidens', 0)
-        overs = stats.get('overs', 0)
-        runs_conceded = stats.get('runs_conceded', 0)
-        lbw_bowled = stats.get('lbw_bowled', 0)
+        wickets = max(stats.get('wickets', 0), 0)
+        dot_balls = max(stats.get('dot_balls', 0), 0)
+        maidens = max(stats.get('maidens', 0), 0)
+        overs = max(stats.get('overs', 0), 0)
+        runs_conceded = max(stats.get('runs_conceded', 0), 0)
+        lbw_bowled = max(stats.get('lbw_bowled', 0), 0)
 
         # Wicket points
         if wickets > 0:
@@ -228,10 +228,10 @@ class FantasyPointsCalculator:
         points = 0
         breakdown: List[str] = []
 
-        catches = stats.get('catches', 0)
-        stumpings = stats.get('stumpings', 0)
-        run_outs_direct = stats.get('run_outs_direct', 0)
-        run_outs_indirect = stats.get('run_outs_indirect', 0)
+        catches = max(stats.get('catches', 0), 0)
+        stumpings = max(stats.get('stumpings', 0), 0)
+        run_outs_direct = max(stats.get('run_outs_direct', 0), 0)
+        run_outs_indirect = max(stats.get('run_outs_indirect', 0), 0)
 
         # Catch points
         if catches > 0:

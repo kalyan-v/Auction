@@ -223,7 +223,7 @@ class IPLScraper(BaseScraper):
         Note: IPL MVP feed may not be available early in the season.
         """
         url = f"{self.feed_url}/stats/{self._competition_id}-mvpPlayersList.js"
-        data = self._fetch_jsonp(url, "onmvpplayerslist")
+        data = self._fetch_jsonp(url, "onMvp")
 
         if not data:
             return StatsResult(

@@ -6,6 +6,7 @@ Handles CRUD operations for leagues by delegating to LeagueService.
 
 from flask import Response, jsonify, request
 
+from app.constants import DEFAULT_PURSE
 from app.routes import api_bp
 from app.services.league_service import league_service
 from app.utils import error_response, is_admin, validate_positive_int
@@ -27,7 +28,7 @@ def manage_leagues() -> tuple[Response, int] | Response:
             return error_response('Request body is required')
 
         # Parse and validate numeric fields before passing to service
-        default_purse = data.get('default_purse', 500000000)
+        default_purse = data.get('default_purse', DEFAULT_PURSE)
         try:
             default_purse = float(default_purse)
         except (TypeError, ValueError):

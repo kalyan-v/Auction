@@ -61,8 +61,10 @@ def start_auction(player_id: int) -> tuple[Response, int] | Response:
         JSON response with auction start result.
     """
     current_league = get_current_league()
-    league_id = current_league.id if current_league else None
-    result = auction_service.start_auction(player_id, league_id=league_id)
+    if not current_league:
+        return error_response('No league selected', 400)
+
+    result = auction_service.start_auction(player_id, league_id=current_league.id)
     return jsonify(result)
 
 
@@ -75,9 +77,13 @@ def end_auction() -> tuple[Response, int] | Response:
     Returns:
         JSON response with auction end result.
     """
+    current_league = get_current_league()
+    if not current_league:
+        return error_response('No league selected', 400)
+
     data = request.get_json(silent=True) or {}
     is_rtm = bool(data.get('is_rtm', False))
-    result = auction_service.end_auction(is_rtm=is_rtm)
+    result = auction_service.end_auction(league_id=current_league.id, is_rtm=is_rtm)
     return jsonify(result)
 
 
@@ -90,7 +96,11 @@ def mark_unsold() -> tuple[Response, int] | Response:
     Returns:
         JSON response with unsold result.
     """
-    result = auction_service.mark_unsold()
+    current_league = get_current_league()
+    if not current_league:
+        return error_response('No league selected', 400)
+
+    result = auction_service.mark_unsold(league_id=current_league.id)
     return jsonify(result)
 
 
@@ -103,6 +113,10 @@ def reset_price() -> tuple[Response, int] | Response:
     Returns:
         JSON response with price reset result.
     """
+    current_league = get_current_league()
+    if not current_league:
+        return error_response('No league selected', 400)
+
     data, error = get_json_body()
     if error:
         return error
@@ -111,7 +125,7 @@ def reset_price() -> tuple[Response, int] | Response:
     if price_error:
         return error_response(price_error)
 
-    result = auction_service.reset_price(new_price)
+    result = auction_service.reset_price(league_id=current_league.id, new_price=new_price)
     return jsonify(result)
 
 
@@ -157,4 +171,4 @@ def manage_teams() -> tuple[Response, int] | Response:
     else:
         teams = []
 
-    return jsonify(teams)
+    return jsonify({'success': True, 'teams': teams})

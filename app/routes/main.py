@@ -24,7 +24,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import joinedload
 
 from app import db
-from app.enums import AwardType
+from app.enums import AwardType, PlayerStatus
 from app.extensions import limiter
 from app.models import FantasyAward, League, Player, Team
 from app.logger import get_logger
@@ -258,7 +258,7 @@ def fantasy() -> str:
         ).all()
 
         all_players = Player.query.filter_by(
-            league_id=current_league.id, status='sold', is_deleted=False
+            league_id=current_league.id, status=PlayerStatus.SOLD, is_deleted=False
         ).all()
 
         # Get fantasy awards for this league in a single query

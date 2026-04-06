@@ -7,6 +7,8 @@ Handles the main auction room interface.
 from flask import render_template
 from sqlalchemy.orm import joinedload
 
+from app.constants import DEFAULT_BID_INCREMENT
+from app.enums import PlayerStatus
 from app.models import AuctionCategory, AuctionState, Bid, League, Player, Team
 from app.routes import auction_bp
 from app.routes.main import get_current_league
@@ -27,7 +29,7 @@ def auction_room() -> str:
         all_pool = Player.query.filter(
             Player.league_id == current_league.id,
             Player.is_deleted.is_(False),
-            Player.status.in_(['available', 'unsold'])
+            Player.status.in_([PlayerStatus.AVAILABLE, PlayerStatus.UNSOLD])
         ).all()
 
         # Build category sort order lookup from AuctionCategory
@@ -42,16 +44,18 @@ def auction_room() -> str:
             return (cat_ord, p.original_team or '', p.name)
 
         players = sorted(
-            [p for p in all_pool if p.status == 'available'],
+            [p for p in all_pool if p.status == PlayerStatus.AVAILABLE],
             key=player_sort_key
         )
-        unsold_players = [p for p in all_pool if p.status == 'unsold']
+        unsold_players = [p for p in all_pool if p.status == PlayerStatus.UNSOLD]
     else:
         teams = []
         players = []
         unsold_players = []
 
-    auction_state = AuctionState.query.first()
+    auction_state = AuctionState.query.filter_by(
+        league_id=current_league.id
+    ).first() if current_league else None
 
     # Get highest bid for current player (if auction is active)
     highest_bid = None
@@ -74,7 +78,7 @@ def auction_room() -> str:
         admin_mode=is_admin(),
         current_league=current_league,
         all_leagues=all_leagues,
-        bid_increment_tiers=current_league.bid_increment_tiers_parsed if current_league else [{'threshold': 0, 'increment': 2500000}],
+        bid_increment_tiers=current_league.bid_increment_tiers_parsed if current_league else [{'threshold': 0, 'increment': DEFAULT_BID_INCREMENT}],
         auction_categories=(
             [c for c in current_league.auction_categories if not c.is_deleted]
             if current_league else []

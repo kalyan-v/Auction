@@ -10,6 +10,13 @@ from typing import Final
 # ==================== TIMEZONE ====================
 DEFAULT_TIMEZONE: Final[str] = 'America/Los_Angeles'
 
+# ==================== AUCTION DEFAULTS ====================
+DEFAULT_PURSE: Final[int] = 500_000_000           # 50 Crore default team budget
+DEFAULT_BID_INCREMENT: Final[int] = 2_500_000     # 25 Lakh default bid increment
+DEFAULT_AUCTION_TIMER: Final[int] = 600           # 10 minutes auction timer (seconds)
+DEFAULT_MAX_SQUAD_SIZE: Final[int] = 20
+DEFAULT_MIN_SQUAD_SIZE: Final[int] = 16
+
 # ==================== HTTP REQUEST SETTINGS ====================
 IMAGE_REQUEST_TIMEOUT: Final[int] = 15    # seconds
 WIKI_REQUEST_TIMEOUT: Final[int] = 10     # seconds

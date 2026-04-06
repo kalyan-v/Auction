@@ -11,7 +11,9 @@ Encapsulates all business logic related to:
 from typing import Optional
 
 from app import db
+from app.constants import DEFAULT_AUCTION_TIMER
 from app.db_utils import AuctionLock, BidLock, get_for_update
+from app.enums import PlayerStatus
 from app.logger import get_logger
 from app.models import AuctionState, Bid, League, Player, Team
 from app.repositories.bid_repository import BidRepository
@@ -56,7 +58,7 @@ class AuctionService(BaseService):
             NotFoundError: If player or team not found.
         """
         # Validate inputs
-        if not player_id or not team_id:
+        if player_id is None or team_id is None:
             raise ValidationError("player_id and team_id are required")
 
         if not amount or amount <= 0:
@@ -76,12 +78,14 @@ class AuctionService(BaseService):
                 if player.league_id != team.league_id:
                     raise ValidationError("Player and team must belong to the same league")
 
+                league_id = player.league_id
+
                 # Check player is in active auction
-                if player.status != 'bidding':
+                if player.status != PlayerStatus.BIDDING:
                     raise ValidationError("Player is not up for auction")
 
                 # Check if this is a base price bid (first bid) or a raise
-                existing_bids = self.bid_repo.count_for_player(player_id)
+                existing_bids = self.bid_repo.count_for_player(player_id, league_id)
 
                 if existing_bids == 0:
                     # First bid - allow base price (equal to current price)
@@ -96,8 +100,13 @@ class AuctionService(BaseService):
                 if amount > team.budget:
                     raise ValidationError("Insufficient budget")
 
-                # Record bid
-                bid = Bid(player_id=player_id, team_id=team_id, amount=amount)
+                # Record bid with league_id
+                bid = Bid(
+                    player_id=player_id,
+                    team_id=team_id,
+                    league_id=league_id,
+                    amount=amount
+                )
                 player.current_price = amount
                 db.session.add(bid)
 
@@ -121,27 +130,30 @@ class AuctionService(BaseService):
             NotFoundError: If player not found.
             ValidationError: If player doesn't belong to the current league.
         """
+        if league_id is None:
+            raise ValidationError("league_id is required to start an auction")
+
         with AuctionLock():
             with self.transaction():
-                player = db.session.get(Player, player_id)
-                if not player:
+                player = get_for_update(Player, player_id)
+                if not player or player.is_deleted:
                     raise NotFoundError("Player not found")
 
                 # Validate player belongs to the current league
-                if league_id is not None and player.league_id != league_id:
+                if player.league_id != league_id:
                     raise ValidationError("Player does not belong to the current league")
 
-                # Get or create auction state
-                auction_state = AuctionState.query.first()
+                # Get or create league-scoped auction state
+                auction_state = AuctionState.query.filter_by(league_id=league_id).first()
                 if not auction_state:
-                    auction_state = AuctionState()
+                    auction_state = AuctionState(league_id=league_id)
                     db.session.add(auction_state)
 
                 # Clean up any previously active auction to avoid orphaned 'bidding' players
                 if auction_state.is_active and auction_state.current_player_id:
                     prev_player = db.session.get(Player, auction_state.current_player_id)
-                    if prev_player and prev_player.status == 'bidding':
-                        prev_player.status = 'available'
+                    if prev_player and prev_player.status == PlayerStatus.BIDDING:
+                        prev_player.status = PlayerStatus.AVAILABLE
                         prev_player.current_price = prev_player.base_price
                         logger.warning(
                             f"Cleaned up stale auction for {prev_player.name} "
@@ -150,22 +162,23 @@ class AuctionService(BaseService):
 
                 auction_state.current_player_id = player_id
                 auction_state.is_active = True
-                auction_state.time_remaining = 600
+                auction_state.time_remaining = DEFAULT_AUCTION_TIMER
 
                 player.current_price = player.base_price
-                player.status = 'bidding'
+                player.status = PlayerStatus.BIDDING
 
                 # Soft-delete any old bids for this player (from previous auction rounds)
-                self.bid_repo.soft_delete_for_player(player_id)
+                self.bid_repo.soft_delete_for_player(player_id, league_id)
 
                 logger.info(f"Auction started for player: {player.name}")
 
                 return {'success': True}
 
-    def end_auction(self, is_rtm: bool = False) -> dict:
+    def end_auction(self, league_id: int, is_rtm: bool = False) -> dict:
         """End current auction and assign player to highest bidder.
 
         Args:
+            league_id: ID of the league whose auction to end.
             is_rtm: Whether this sale uses a Right to Match (RTM).
 
         Returns:
@@ -177,7 +190,9 @@ class AuctionService(BaseService):
         """
         with AuctionLock():
             with self.transaction():
-                auction_state = AuctionState.query.first()
+                auction_state = AuctionState.query.filter_by(
+                    league_id=league_id
+                ).first()
                 if not auction_state or not auction_state.is_active:
                     raise ValidationError("No active auction")
 
@@ -188,7 +203,7 @@ class AuctionService(BaseService):
                     raise NotFoundError("Player not found")
 
                 # Find highest active bid
-                highest_bid = self.bid_repo.get_highest_for_player(player.id)
+                highest_bid = self.bid_repo.get_highest_for_player(player.id, league_id)
 
                 result = {'success': True}
 
@@ -200,11 +215,7 @@ class AuctionService(BaseService):
 
                     # Validate RTM limit if RTM is being used
                     if is_rtm:
-                        if not player.league_id:
-                            raise ValidationError(
-                                "Cannot use RTM: player has no league assigned"
-                            )
-                        league = db.session.get(League, player.league_id)
+                        league = db.session.get(League, league_id)
                         if league:
                             max_rtm = league.max_rtm or 0
                             if max_rtm <= 0:
@@ -214,9 +225,9 @@ class AuctionService(BaseService):
                             # Count existing RTMs used by this team in this league
                             rtm_used = Player.query.filter_by(
                                 team_id=team.id,
-                                league_id=player.league_id,
+                                league_id=league_id,
                                 is_rtm=True,
-                                status='sold',
+                                status=PlayerStatus.SOLD,
                                 is_deleted=False
                             ).count()
                             if rtm_used >= max_rtm:
@@ -232,7 +243,7 @@ class AuctionService(BaseService):
 
                     team.budget -= highest_bid.amount
                     player.team_id = team.id
-                    player.status = 'sold'
+                    player.status = PlayerStatus.SOLD
                     player.is_rtm = is_rtm
                     result['sold_to'] = team.name
                     result['amount'] = highest_bid.amount
@@ -243,7 +254,7 @@ class AuctionService(BaseService):
                         f"{' (RTM)' if is_rtm else ''}"
                     )
                 else:
-                    player.status = 'unsold'
+                    player.status = PlayerStatus.UNSOLD
                     result['sold_to'] = None
                     logger.info(f"Player {player.name} went unsold")
 
@@ -252,8 +263,11 @@ class AuctionService(BaseService):
 
                 return result
 
-    def mark_unsold(self) -> dict:
+    def mark_unsold(self, league_id: int) -> dict:
         """Mark current player as unsold without accepting bids.
+
+        Args:
+            league_id: ID of the league whose auction to mark unsold.
 
         Returns:
             Dict with success status.
@@ -264,7 +278,9 @@ class AuctionService(BaseService):
         """
         with AuctionLock():
             with self.transaction():
-                auction_state = AuctionState.query.first()
+                auction_state = AuctionState.query.filter_by(
+                    league_id=league_id
+                ).first()
                 if not auction_state or not auction_state.is_active:
                     raise ValidationError("No active auction")
 
@@ -272,11 +288,11 @@ class AuctionService(BaseService):
                 if not player:
                     raise NotFoundError("Player not found")
 
-                player.status = 'unsold'
+                player.status = PlayerStatus.UNSOLD
                 player.current_price = 0
 
                 # Soft delete any bids from this auction round
-                self.bid_repo.soft_delete_for_player(player.id)
+                self.bid_repo.soft_delete_for_player(player.id, league_id)
 
                 auction_state.is_active = False
                 auction_state.current_player_id = None
@@ -285,10 +301,11 @@ class AuctionService(BaseService):
 
                 return {'success': True}
 
-    def reset_price(self, new_price: float) -> dict:
+    def reset_price(self, league_id: int, new_price: float) -> dict:
         """Reset the current player's price to a specific amount.
 
         Args:
+            league_id: ID of the league.
             new_price: The new price to set.
 
         Returns:
@@ -303,7 +320,9 @@ class AuctionService(BaseService):
 
         with AuctionLock():
             with self.transaction():
-                auction_state = AuctionState.query.first()
+                auction_state = AuctionState.query.filter_by(
+                    league_id=league_id
+                ).first()
                 if not auction_state or not auction_state.is_active:
                     raise ValidationError("No active auction")
 
@@ -315,7 +334,7 @@ class AuctionService(BaseService):
 
                 # Soft delete ALL bids for this player so the next bid is
                 # treated as a first bid (allowed at the reset price).
-                self.bid_repo.soft_delete_for_player(player.id)
+                self.bid_repo.soft_delete_for_player(player.id, league_id)
 
                 logger.info(f"Price reset to {new_price} for player {player.name}")
 

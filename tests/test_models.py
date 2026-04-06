@@ -141,10 +141,12 @@ class TestBidModel:
         with app.app_context():
             team = db.session.get(Team, sample_teams[0].id)
             player = db.session.get(Player, sample_player.id)
+            league = db.session.get(League, sample_league.id)
 
             bid = Bid(
                 player_id=player.id,
                 team_id=team.id,
+                league_id=league.id,
                 amount=5_000_000
             )
             db.session.add(bid)
@@ -158,10 +160,12 @@ class TestBidModel:
         with app.app_context():
             team = db.session.get(Team, sample_teams[0].id)
             player = db.session.get(Player, sample_player.id)
+            league = db.session.get(League, sample_league.id)
 
             bid = Bid(
                 player_id=player.id,
                 team_id=team.id,
+                league_id=league.id,
                 amount=5_000_000
             )
             db.session.add(bid)

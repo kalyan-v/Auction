@@ -11,6 +11,7 @@ import re
 from typing import List, Optional
 
 from app import db
+from app.constants import DEFAULT_BID_INCREMENT, DEFAULT_MAX_SQUAD_SIZE, DEFAULT_MIN_SQUAD_SIZE, DEFAULT_PURSE
 from app.enums import LeagueType
 from app.logger import get_logger
 from app.models import AuctionCategory, League
@@ -159,9 +160,9 @@ class LeagueService(BaseService):
         self,
         name: str,
         display_name: Optional[str] = None,
-        default_purse: float = 500000000,
-        max_squad_size: int = 20,
-        min_squad_size: int = 16,
+        default_purse: float = DEFAULT_PURSE,
+        max_squad_size: int = DEFAULT_MAX_SQUAD_SIZE,
+        min_squad_size: int = DEFAULT_MIN_SQUAD_SIZE,
         bid_increment_tiers: Optional[list] = None,
         max_rtm: int = 0,
         league_type: str = 'wpl',
@@ -202,7 +203,7 @@ class LeagueService(BaseService):
 
         # Validate and serialize bid increment tiers
         if bid_increment_tiers is None:
-            bid_increment_tiers = [{'threshold': 0, 'increment': 2500000}]
+            bid_increment_tiers = [{'threshold': 0, 'increment': DEFAULT_BID_INCREMENT}]
         self._validate_bid_increment_tiers(bid_increment_tiers)
         bid_increment_tiers_json = json.dumps(bid_increment_tiers)
 

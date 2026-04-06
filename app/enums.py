@@ -15,6 +15,14 @@ class PlayerPosition(str, Enum):
     KEEPER = "Keeper"
 
 
+class PlayerStatus(str, Enum):
+    """Player auction statuses."""
+    AVAILABLE = "available"
+    SOLD = "sold"
+    UNSOLD = "unsold"
+    BIDDING = "bidding"
+
+
 class AwardType(str, Enum):
     """Fantasy award types."""
     MVP = "mvp"

@@ -10,8 +10,10 @@ Encapsulates all business logic related to:
 from typing import List, Optional
 
 from app import db
+from app.constants import DEFAULT_PURSE
 from app.logger import get_logger
 from app.models import Team
+from app.repositories.team_repository import TeamRepository
 from app.services.base import BaseService, ValidationError
 
 logger = get_logger(__name__)
@@ -23,12 +25,20 @@ class TeamService(BaseService):
     Handles team CRUD, budget tracking, and squad management.
     """
 
+    def __init__(self, team_repo: Optional[TeamRepository] = None):
+        """Initialize service with optional repository injection.
+
+        Args:
+            team_repo: TeamRepository instance (defaults to new instance).
+        """
+        self.team_repo = team_repo or TeamRepository()
+
     def create_team(
         self,
         name: str,
         league_id: int,
         budget: Optional[float] = None,
-        default_purse: float = 500000000
+        default_purse: float = DEFAULT_PURSE
     ) -> dict:
         """Create a new team.
 
@@ -80,9 +90,7 @@ class TeamService(BaseService):
         Returns:
             List of team dictionaries.
         """
-        teams = Team.query.filter_by(
-            league_id=league_id, is_deleted=False
-        ).all()
+        teams = self.team_repo.get_by_league(league_id)
 
         return [{
             'id': t.id,

@@ -12,6 +12,8 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
+from app.enums import PlayerStatus
+from app.extensions import limiter
 from app.logger import get_logger
 from app.models import FantasyAward, Team
 from app.routes import api_bp
@@ -114,6 +116,7 @@ def add_match_points() -> tuple[Response, int] | Response:
 
 
 @api_bp.route('/fantasy/points/<int:player_id>', methods=['GET'])
+@limiter.limit("60 per minute")
 def get_player_match_points(player_id: int) -> tuple[Response, int] | Response:
     """Get all match point entries for a player.
 
@@ -184,6 +187,7 @@ def set_fantasy_award() -> tuple[Response, int] | Response:
 
 
 @api_bp.route('/fantasy/awards', methods=['GET'])
+@limiter.limit("60 per minute")
 def get_fantasy_awards() -> tuple[Response, int] | Response:
     """Get all fantasy awards for current league.
 
@@ -199,6 +203,7 @@ def get_fantasy_awards() -> tuple[Response, int] | Response:
 
 
 @api_bp.route('/fantasy/players', methods=['GET'])
+@limiter.limit("60 per minute")
 def get_fantasy_players() -> tuple[Response, int] | Response:
     """Get all sold players with fantasy points.
 
@@ -327,7 +332,7 @@ def export_fantasy_csv() -> Response:
     # Build per-team data
     team_data: list[dict] = []
     for team in teams:
-        sold = [p for p in team.players if p.status == 'sold' and not p.is_deleted]
+        sold = [p for p in team.players if p.status == PlayerStatus.SOLD and not p.is_deleted]
         by_pos: dict[str, list] = {pos: [] for pos in _POSITION_ORDER}
         for p in sold:
             pos = p.position or 'Batter'

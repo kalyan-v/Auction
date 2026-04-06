@@ -14,7 +14,7 @@ from sqlalchemy.orm import joinedload
 
 from app import db
 from app.constants import PLAYOFF_MATCH_NUMBERS
-from app.enums import AwardType
+from app.enums import AwardType, PlayerStatus
 from app.logger import get_logger
 from app.models import FantasyAward, FantasyPointEntry, League, Player
 from app.scrapers import get_scraper, ScraperType
@@ -317,7 +317,7 @@ class FantasyService(BaseService):
         """
         players = Player.query.filter_by(
             league_id=league_id,
-            status='sold',
+            status=PlayerStatus.SOLD,
             is_deleted=False
         ).options(joinedload(Player.team)).all()
 
@@ -446,6 +446,10 @@ class FantasyService(BaseService):
                 league_id, results, 'points'
             )
 
+        # Fallback: if MVP feed unavailable, use player with highest fantasy points
+        if not mvp_result:
+            mvp_result = self._compute_mvp_from_points(league_id, results)
+
         # Now write all awards in a single short transaction
         with self.transaction():
             for award_data in [orange_result, purple_result, mvp_result]:
@@ -515,6 +519,51 @@ class FantasyService(BaseService):
         except Exception as e:
             logger.error(f"Error fetching {result_key}: {e}")
             results['errors'].append(f"{result_key}: {str(e)}")
+
+        return None
+
+    def _compute_mvp_from_points(
+        self,
+        league_id: int,
+        results: dict
+    ) -> Optional[dict]:
+        """Compute MVP from the player with the highest fantasy points.
+
+        Used as a fallback when the external MVP feed is unavailable.
+
+        Args:
+            league_id: ID of the league.
+            results: Mutable results dict (updated in place).
+
+        Returns:
+            Dict with award_type and player_id if found, None otherwise.
+        """
+        top_player = Player.query.filter(
+            Player.league_id == league_id,
+            Player.is_deleted.is_(False),
+            Player.fantasy_points > 0
+        ).order_by(Player.fantasy_points.desc()).first()
+
+        if top_player:
+            # Remove any MVP error from the feed failure since we have a fallback
+            results['errors'] = [
+                e for e in results['errors']
+                if not e.lower().startswith('mvp')
+            ]
+            results['mvp'] = {
+                'player_name': top_player.name,
+                'player_id': top_player.id,
+                'points': top_player.fantasy_points,
+                'source': 'fantasy_points'
+            }
+            logger.info(
+                f"MVP fallback: {top_player.name} "
+                f"({top_player.fantasy_points} pts)"
+            )
+            return {
+                'award_type': AwardType.MVP.value,
+                'player_id': top_player.id
+            }
 
         return None
 

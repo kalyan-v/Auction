@@ -18,6 +18,7 @@ from app.constants import (
     IPL_BASE_URL,
     IPL_COMPETITION_ID,
     IPL_FEED_URL,
+    IPL_SEASON_YEAR,
     IPL_TEAM_IDS,
 )
 from app.dataclasses import (
@@ -220,9 +221,10 @@ class IPLScraper(BaseScraper):
         """
         Get MVP (most valuable player).
 
-        Note: IPL MVP feed may not be available early in the season.
+        Note: The MVP feed uses the season year (e.g. '2026') not the
+        competition ID. The data key is 'mvp' with 'IndexValue' for points.
         """
-        url = f"{self.feed_url}/stats/{self._competition_id}-mvpPlayersList.js"
+        url = f"{self.feed_url}/stats/{IPL_SEASON_YEAR}-mvpPlayersList.js"
         data = self._fetch_jsonp(url, "onMvp")
 
         if not data:
@@ -231,16 +233,16 @@ class IPLScraper(BaseScraper):
                 error="MVP data not available"
             )
 
-        entries = data.get("mvpplayerslist", [])
+        entries = data.get("mvp", [])
         players = []
         for player in entries:
             players.append(LeaderboardEntry(
-                player_id=str(player.get("ClientPlayerID", "")),
+                player_id=str(player.get("PlayerID", "")),
                 player_name=player.get("PlayerName", ""),
                 team_name=player.get("TeamName", ""),
                 team_short_name=player.get("TeamCode", ""),
                 matches_played=safe_int(player.get("Matches", 0)),
-                stats={"points": safe_float(player.get("Points", 0))},
+                stats={"points": safe_float(player.get("IndexValue", 0))},
             ))
 
         return StatsResult(

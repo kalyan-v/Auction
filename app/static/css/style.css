@@ -4102,6 +4102,8 @@ textarea:focus {
     border-radius: 20px;
     max-width: 600px;
     width: 90%;
+    max-height: 85vh;
+    overflow-y: auto;
     box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3);
     border: 1px solid rgba(255, 255, 255, 0.3);
     animation: slideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);

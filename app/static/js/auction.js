@@ -208,6 +208,7 @@ function addToBidHistory(teamName, amount) {
         bidItem.className = 'bid-history-item';
         bidItem.textContent = `${teamName}: ₹${amount} L`;
         bidList.insertBefore(bidItem, bidList.firstChild);
+        bidList.scrollTop = 0;
     }
 }
 
@@ -271,6 +272,7 @@ function resetPrice() {
                 bidItem.className = 'bid-history-item price-reset';
                 bidItem.textContent = `⚠️ Price reset to ₹${newPrice} L`;
                 bidList.insertBefore(bidItem, bidList.firstChild);
+                bidList.scrollTop = 0;
             }
         } else {
             showNotification(data.error || 'Failed to reset price', 'error');

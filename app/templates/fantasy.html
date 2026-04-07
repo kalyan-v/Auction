@@ -23,7 +23,18 @@
 </div>
 {% endif %}
 
-<!-- Special Awards Section -->
+<!-- Pre-compute team data for layout decisions -->
+{% set all_team_data = [] %}
+{% for team in teams %}
+    {% set team_players = team.players | selectattr('status', 'equalto', 'sold') | list %}
+    {% if team_players %}
+        {% set total = team_players | sum(attribute='fantasy_points') | round(1) %}
+        {% if all_team_data.append({'team': team, 'players': team_players, 'total': total}) %}{% endif %}
+    {% endif %}
+{% endfor %}
+
+<!-- Standalone Awards (only when no leaderboard - i.e. no sold players) -->
+{% if not all_team_data %}
 <div class="awards-section">
     <h3>🏆 Special Awards</h3>
     <div class="awards-actions">
@@ -115,6 +126,155 @@
         </div>
     </div>
 </div>
+{% endif %}
+
+<!-- Team Leaderboard + Awards side-by-side -->
+{% if all_team_data %}
+{% set max_points = all_team_data[0].total if all_team_data[0].total > 0 else 1 %}
+
+<!-- Standings + Awards side-by-side layout -->
+<div class="standings-awards-row">
+<div class="leaderboard-section">
+    <h3>📊 Team Standings</h3>
+    <table class="leaderboard-table" style="min-width: 0; overflow: visible;">
+        <thead>
+            <tr>
+                <th class="rank-col">Rank</th>
+                <th>Team</th>
+                <th class="num-col">Total Points</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in all_team_data %}
+            {% set team_class = entry.team.name | lower | replace(' ', '-') %}
+            <tr class="leaderboard-row {% if loop.index <= 3 %}rank-{{ loop.index }}{% endif %}"
+                data-team-id="{{ entry.team.id }}"
+                onclick="scrollToTeam({{ entry.team.id }})"
+                role="button" tabindex="0"
+                onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();scrollToTeam({{ entry.team.id }});}">
+                <td class="rank-cell">
+                    {% if loop.index == 1 %}
+                    <span class="rank-badge gold">🥇</span>
+                    {% elif loop.index == 2 %}
+                    <span class="rank-badge silver">🥈</span>
+                    {% elif loop.index == 3 %}
+                    <span class="rank-badge bronze">🥉</span>
+                    {% else %}
+                    <span class="rank-badge default">{{ loop.index }}</span>
+                    {% endif %}
+                </td>
+                <td class="team-name-cell">
+                    <span class="leaderboard-team-dot team-{{ team_class }}"></span>
+                    {{ entry.team.name }}
+                </td>
+                <td class="num-col points-highlight">{{ entry.total }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="awards-section awards-sidebar">
+    <h3>🏆 Awards</h3>
+    <div class="awards-actions">
+        {% if admin_mode %}
+        <button class="btn btn-small btn-primary" onclick="fetchAllData()" id="fetchAllBtn">📡 Fetch Data</button>
+        {% endif %}
+        <button class="btn btn-small btn-secondary" onclick="downloadStandingsCSV()">📥 Download Excel</button>
+    </div>
+    <div class="awards-container">
+        <div class="award-card mvp">
+            <div class="award-image-container">
+                {% if mvp and mvp.player and mvp.player.image_url %}
+                <img src="{{ mvp.player.image_url }}" alt="{{ mvp.player.name }}" class="award-player-image">
+                <div class="award-icon fallback" style="display:none;">🏅</div>
+                {% else %}
+                <div class="award-icon">🏅</div>
+                {% endif %}
+            </div>
+            <div class="award-info">
+                <h4>MVP</h4>
+                <p class="award-description">Most Valuable Player</p>
+                {% if admin_mode %}
+                <select id="mvp-select2" class="award-select" onchange="setAward('mvp', this.value)">
+                    <option value="">-- Select Player --</option>
+                    {% for player in all_players %}
+                    <option value="{{ player.id }}" {% if mvp and mvp.player_id == player.id %}selected{% endif %}>
+                        {{ player.name }} ({{ player.team.name if player.team else 'No Team' }})
+                    </option>
+                    {% endfor %}
+                </select>
+                {% else %}
+                <p class="award-winner">{{ mvp.player.name if mvp and mvp.player else 'N/A' }}</p>
+                {% endif %}
+            </div>
+        </div>
+        <div class="award-card orange-cap">
+            <div class="award-image-container">
+                {% if orange_cap and orange_cap.player and orange_cap.player.image_url %}
+                <img src="{{ orange_cap.player.image_url }}" alt="{{ orange_cap.player.name }}" class="award-player-image">
+                <div class="award-icon fallback" style="display:none;">🧢</div>
+                {% else %}
+                <div class="award-icon">🧢</div>
+                {% endif %}
+            </div>
+            <div class="award-info">
+                <h4>Orange Cap</h4>
+                <p class="award-description">Most Runs</p>
+                {% if admin_mode %}
+                <select id="orange-cap-select2" class="award-select" onchange="setAward('orange_cap', this.value)">
+                    <option value="">-- Select Player --</option>
+                    {% for player in all_players %}
+                    <option value="{{ player.id }}" {% if orange_cap and orange_cap.player_id == player.id %}selected{% endif %}>
+                        {{ player.name }} ({{ player.team.name if player.team else 'No Team' }})
+                    </option>
+                    {% endfor %}
+                </select>
+                {% else %}
+                <p class="award-winner">{{ orange_cap.player.name if orange_cap and orange_cap.player else 'N/A' }}</p>
+                {% endif %}
+            </div>
+        </div>
+        <div class="award-card purple-cap">
+            <div class="award-image-container">
+                {% if purple_cap and purple_cap.player and purple_cap.player.image_url %}
+                <img src="{{ purple_cap.player.image_url }}" alt="{{ purple_cap.player.name }}" class="award-player-image">
+                <div class="award-icon fallback" style="display:none;">🧢</div>
+                {% else %}
+                <div class="award-icon">🧢</div>
+                {% endif %}
+            </div>
+            <div class="award-info">
+                <h4>Purple Cap</h4>
+                <p class="award-description">Most Wickets</p>
+                {% if admin_mode %}
+                <select id="purple-cap-select2" class="award-select" onchange="setAward('purple_cap', this.value)">
+                    <option value="">-- Select Player --</option>
+                    {% for player in all_players %}
+                    <option value="{{ player.id }}" {% if purple_cap and purple_cap.player_id == player.id %}selected{% endif %}>
+                        {{ player.name }} ({{ player.team.name if player.team else 'No Team' }})
+                    </option>
+                    {% endfor %}
+                </select>
+                {% else %}
+                <p class="award-winner">{{ purple_cap.player.name if purple_cap and purple_cap.player else 'N/A' }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+</div><!-- end standings-awards-row -->
+{% endif %}
+
+<!-- Match-by-Match Chart -->
+{% if all_team_data %}
+<div class="chart-section">
+    <h3>📈 Points Progression</h3>
+    <div class="chart-container">
+        <canvas id="pointsChart"></canvas>
+    </div>
+</div>
+{% endif %}
 
 <!-- Filter Section -->
 <div class="filter-section">
@@ -274,6 +434,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script>
 let currentPlayerId = null;
 let currentTeamId = null;
@@ -1012,5 +1173,103 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+// Scroll to team card from leaderboard
+function scrollToTeam(teamId) {
+    const card = document.querySelector(`.team-card[data-team-id="${teamId}"]`);
+    if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        card.style.transition = 'box-shadow 0.3s ease';
+        card.style.boxShadow = '0 0 20px rgba(102,126,234,0.5)';
+        setTimeout(() => { card.style.boxShadow = ''; }, 1500);
+    }
+}
+
+// Match-by-match points progression chart
+(async function loadPointsChart() {
+    const canvas = document.getElementById('pointsChart');
+    if (!canvas) return;
+
+    try {
+        const resp = await secureFetch('/api/fantasy/team-chart-data');
+        const data = await resp.json();
+        if (!data.success || !data.teams || data.teams.length === 0) return;
+
+        // Collect all unique match labels in order
+        const matchSet = new Map();
+        data.teams.forEach(t => t.data.forEach(d => {
+            if (!matchSet.has(d.label)) matchSet.set(d.label, d.match);
+        }));
+        // Sort by underlying match number so M1 < M2 < ... < M22 < E(100) < Q1(101) < Q2(102) < F(200)
+        const sorted = Array.from(matchSet.entries()).sort((a, b) => a[1] - b[1]);
+        const labels = sorted.map(e => e[0]);
+
+        const datasets = data.teams.map(team => {
+            const cumByLabel = {};
+            team.data.forEach(d => { cumByLabel[d.label] = d.cumulative; });
+            // Fill gaps: carry forward the last known cumulative value
+            let lastVal = 0;
+            const filled = labels.map(l => {
+                if (cumByLabel[l] !== undefined) lastVal = cumByLabel[l];
+                return lastVal;
+            });
+            return {
+                label: team.name,
+                data: filled,
+                borderColor: team.color,
+                backgroundColor: team.color + '20',
+                borderWidth: 2.5,
+                pointRadius: 3,
+                pointHoverRadius: 6,
+                tension: 0.3,
+            };
+        });
+
+        new Chart(canvas, {
+            type: 'line',
+            data: { labels, datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { usePointStyle: true, padding: 16, font: { family: 'Poppins', size: 12 } }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(26,26,46,0.9)',
+                        titleFont: { family: 'Poppins', weight: '600' },
+                        bodyFont: { family: 'Poppins' },
+                        padding: 12,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: ctx => {
+                                const team = data.teams[ctx.datasetIndex];
+                                const matchData = team.data.find(d => d.label === labels[ctx.dataIndex]);
+                                if (!matchData) return `${ctx.dataset.label}: ${ctx.parsed.y}`;
+                                return `${ctx.dataset.label}: ${matchData.points} pts (Total: ${matchData.cumulative})`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: { display: true, text: 'Match', font: { family: 'Poppins', weight: '600' } },
+                        ticks: { font: { family: 'Poppins', size: 11 } },
+                        grid: { display: false }
+                    },
+                    y: {
+                        title: { display: true, text: 'Cumulative Points', font: { family: 'Poppins', weight: '600' } },
+                        ticks: { font: { family: 'Poppins', size: 11 } },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    } catch (e) {
+        console.error('Failed to load points chart:', e);
+    }
+})();
 </script>
 {% endblock %}

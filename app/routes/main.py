@@ -273,6 +273,14 @@ def fantasy() -> str:
         mvp = awards_by_type.get(AwardType.MVP.value)
         orange_cap = awards_by_type.get(AwardType.ORANGE_CAP.value)
         purple_cap = awards_by_type.get(AwardType.PURPLE_CAP.value)
+
+        # Sort teams by total fantasy points (descending) for the leaderboard
+        teams.sort(
+            key=lambda t: sum(
+                p.fantasy_points for p in t.players if p.status == PlayerStatus.SOLD
+            ),
+            reverse=True
+        )
     else:
         teams = []
         all_players = []

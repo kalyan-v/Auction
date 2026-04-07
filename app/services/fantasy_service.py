@@ -10,13 +10,14 @@ Encapsulates all business logic related to:
 
 from typing import Dict, List, Optional
 
+from sqlalchemy import func as sa_func
 from sqlalchemy.orm import joinedload
 
 from app import db
-from app.constants import PLAYOFF_MATCH_NUMBERS
+from app.constants import PLAYOFF_MATCH_NUMBERS, TEAM_COLORS
 from app.enums import AwardType, PlayerStatus
 from app.logger import get_logger
-from app.models import FantasyAward, FantasyPointEntry, League, Player
+from app.models import FantasyAward, FantasyPointEntry, League, Player, Team
 from app.scrapers import get_scraper, ScraperType
 from app.services.base import BaseService, NotFoundError, ValidationError
 from app.utils import normalize_player_name
@@ -329,6 +330,87 @@ class FantasyService(BaseService):
             'team_name': p.team.name if p.team else None,
             'fantasy_points': p.fantasy_points
         } for p in players]
+
+    # ==================== CHART DATA ====================
+
+    def get_team_points_by_match(self, league_id: int) -> dict:
+        """Get cumulative fantasy points per team per match for charting.
+
+        Args:
+            league_id: ID of the league.
+
+        Returns:
+            Dict with success flag and list of team data with per-match cumulative points.
+        """
+        # Reverse map: high match numbers back to display labels
+        playoff_labels = {v: k for k, v in PLAYOFF_MATCH_NUMBERS.items()}
+        # Deduplicate (qualifier1 and qualifier 1 both map to 101)
+        playoff_display = {
+            100: 'E',
+            101: 'Q1',
+            102: 'Q2',
+            200: 'F',
+        }
+
+        # Query: sum points per team per match_number
+        rows = (
+            db.session.query(
+                Team.id,
+                Team.name,
+                FantasyPointEntry.match_number,
+                sa_func.sum(FantasyPointEntry.points).label('total')
+            )
+            .join(Player, FantasyPointEntry.player_id == Player.id)
+            .join(Team, Player.team_id == Team.id)
+            .filter(
+                FantasyPointEntry.league_id == league_id,
+                FantasyPointEntry.is_deleted == False,
+                Player.status == PlayerStatus.SOLD,
+                Player.is_deleted == False,
+                Team.is_deleted == False,
+            )
+            .group_by(Team.id, Team.name, FantasyPointEntry.match_number)
+            .order_by(Team.name, FantasyPointEntry.match_number)
+            .all()
+        )
+
+        # Organize by team
+        teams_data: Dict[int, dict] = {}
+        for team_id, team_name, match_number, total in rows:
+            if team_id not in teams_data:
+                slug = team_name.lower().replace(' ', '-')
+                teams_data[team_id] = {
+                    'name': team_name,
+                    'color': TEAM_COLORS.get(slug, '#667eea'),
+                    'matches': []
+                }
+            label = playoff_display.get(match_number, f'M{match_number}')
+            teams_data[team_id]['matches'].append({
+                'match_number': match_number,
+                'label': label,
+                'points': round(float(total), 1)
+            })
+
+        # Compute cumulative totals
+        result = []
+        for team_id, tdata in teams_data.items():
+            cumulative = 0
+            data_points = []
+            for m in tdata['matches']:
+                cumulative += m['points']
+                data_points.append({
+                    'match': m['match_number'],
+                    'label': m['label'],
+                    'points': m['points'],
+                    'cumulative': round(cumulative, 1)
+                })
+            result.append({
+                'name': tdata['name'],
+                'color': tdata['color'],
+                'data': data_points
+            })
+
+        return {'success': True, 'teams': result}
 
     # ==================== PLAYER MATCHING ====================
 

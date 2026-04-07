@@ -2964,6 +2964,295 @@ input:checked + .toggle-slider:before {
     color: white;
 }
 
+/* ==================== TEAM LEADERBOARD ==================== */
+
+/* Side-by-side layout: Standings (left) + Awards (right) */
+.standings-awards-row {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+    align-items: stretch;
+}
+
+.standings-awards-row .leaderboard-section {
+    flex: 0 0 50%;
+    min-width: 0;
+    margin-bottom: 0;
+}
+
+.standings-awards-row .awards-sidebar {
+    flex: 1 1 auto;
+    margin-bottom: 0;
+}
+
+/* Awards sidebar: stack cards vertically */
+.awards-sidebar .awards-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.awards-sidebar h3 {
+    font-size: 1.3rem;
+    margin-bottom: 0.8rem;
+}
+
+.awards-sidebar .awards-actions {
+    margin-bottom: 0.8rem;
+}
+
+.awards-sidebar .award-card {
+    padding: 0.9rem 1rem;
+}
+
+.awards-sidebar .award-player-image {
+    width: 55px;
+    height: 55px;
+}
+
+.awards-sidebar .award-icon {
+    font-size: 2rem;
+}
+
+.awards-sidebar .award-info h4 {
+    font-size: 0.95rem;
+    margin-bottom: 0.1rem;
+}
+
+.awards-sidebar .award-description {
+    font-size: 0.75rem;
+    margin-bottom: 0.2rem;
+}
+
+.awards-sidebar .award-winner {
+    font-size: 0.9rem;
+}
+
+/* Hide standalone awards when leaderboard is present (sidebar takes over) */
+.leaderboard-section {
+    background: #fff;
+    border-radius: 16px;
+    padding: 1.5rem 2rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+}
+
+.leaderboard-section h3 {
+    text-align: center;
+    margin-bottom: 1rem;
+    color: #2c3e50;
+    font-size: 1.3rem;
+}
+
+.leaderboard-table {
+    width: 100%;
+    border-collapse: collapse;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.leaderboard-table thead tr {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+}
+
+.leaderboard-table th {
+    padding: 0.75rem 1rem;
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.leaderboard-table td {
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.leaderboard-row {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.leaderboard-row:hover {
+    background: #f0f4ff;
+    transform: scale(1.005);
+}
+
+.leaderboard-row:last-child td {
+    border-bottom: none;
+}
+
+/* Rank badges */
+.rank-cell {
+    text-align: center;
+    width: 50px;
+}
+
+.rank-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+
+.rank-badge.gold {
+    font-size: 1.3rem;
+    filter: drop-shadow(0 2px 4px rgba(255,215,0,0.4));
+}
+
+.rank-badge.silver {
+    font-size: 1.3rem;
+    filter: drop-shadow(0 2px 4px rgba(192,192,192,0.4));
+}
+
+.rank-badge.bronze {
+    font-size: 1.3rem;
+    filter: drop-shadow(0 2px 4px rgba(205,127,50,0.4));
+}
+
+.rank-badge.default {
+    background: linear-gradient(135deg, #e8ecf1, #d5dbe3);
+    color: #555;
+    font-size: 0.85rem;
+}
+
+/* Top-3 row accents */
+.leaderboard-row.rank-1 {
+    background: linear-gradient(90deg, rgba(255,215,0,0.08) 0%, transparent 40%);
+    border-left: 4px solid #ffd700;
+}
+
+.leaderboard-row.rank-2 {
+    background: linear-gradient(90deg, rgba(192,192,192,0.08) 0%, transparent 40%);
+    border-left: 4px solid #c0c0c0;
+}
+
+.leaderboard-row.rank-3 {
+    background: linear-gradient(90deg, rgba(205,127,50,0.08) 0%, transparent 40%);
+    border-left: 4px solid #cd7f32;
+}
+
+/* Team name with color dot */
+.team-name-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.leaderboard-team-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+}
+
+/* Team-specific dot colors */
+.leaderboard-team-dot.team-mumbai-indians,
+.leaderboard-team-dot.team-mi { background: linear-gradient(135deg, #004BA0, #0078D7); }
+.leaderboard-team-dot.team-royal-challengers-bengaluru,
+.leaderboard-team-dot.team-royal-challengers-bangalore,
+.leaderboard-team-dot.team-rcb { background: linear-gradient(135deg, #a6192e, #d4213d); }
+.leaderboard-team-dot.team-delhi-capitals { background: linear-gradient(135deg, #004C93, #17479E); }
+.leaderboard-team-dot.team-gujarat-giants { background: linear-gradient(135deg, #1C1C1C, #6b3fa0); }
+.leaderboard-team-dot.team-up-warriorz { background: linear-gradient(135deg, #4b0082, #6a0dad); }
+.leaderboard-team-dot.team-chennai-super-kings,
+.leaderboard-team-dot.team-csk { background: linear-gradient(135deg, #FCCA06, #F7A721); }
+.leaderboard-team-dot.team-kolkata-knight-riders,
+.leaderboard-team-dot.team-kkr { background: linear-gradient(135deg, #3A225D, #B28CD0); }
+.leaderboard-team-dot.team-sunrisers-hyderabad,
+.leaderboard-team-dot.team-srh { background: linear-gradient(135deg, #FF822A, #E95D0F); }
+.leaderboard-team-dot.team-rajasthan-royals,
+.leaderboard-team-dot.team-rr { background: linear-gradient(135deg, #EA1A85, #254AA5); }
+.leaderboard-team-dot.team-punjab-kings,
+.leaderboard-team-dot.team-pbks { background: linear-gradient(135deg, #D71920, #84171B); }
+.leaderboard-team-dot.team-lucknow-super-giants,
+.leaderboard-team-dot.team-lsg { background: linear-gradient(135deg, #A72056, #59C1E8); }
+
+.num-col {
+    text-align: center;
+}
+
+.points-highlight {
+    font-weight: 700;
+    color: #27ae60;
+    font-size: 1.05rem;
+}
+
+/* Progress bar in leaderboard */
+.leaderboard-bar-track {
+    width: 100%;
+    min-width: 80px;
+    height: 8px;
+    background: #e8ecf1;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.leaderboard-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    transition: width 1s ease-out;
+}
+
+/* Team-specific bar colors */
+.leaderboard-bar-fill.team-mumbai-indians,
+.leaderboard-bar-fill.team-mi { background: linear-gradient(90deg, #004BA0, #0078D7); }
+.leaderboard-bar-fill.team-royal-challengers-bengaluru,
+.leaderboard-bar-fill.team-royal-challengers-bangalore,
+.leaderboard-bar-fill.team-rcb { background: linear-gradient(90deg, #a6192e, #d4213d); }
+.leaderboard-bar-fill.team-delhi-capitals { background: linear-gradient(90deg, #004C93, #17479E); }
+.leaderboard-bar-fill.team-gujarat-giants { background: linear-gradient(90deg, #1C1C1C, #6b3fa0); }
+.leaderboard-bar-fill.team-up-warriorz { background: linear-gradient(90deg, #4b0082, #6a0dad); }
+.leaderboard-bar-fill.team-chennai-super-kings,
+.leaderboard-bar-fill.team-csk { background: linear-gradient(90deg, #FCCA06, #F7A721); }
+.leaderboard-bar-fill.team-kolkata-knight-riders,
+.leaderboard-bar-fill.team-kkr { background: linear-gradient(90deg, #3A225D, #B28CD0); }
+.leaderboard-bar-fill.team-sunrisers-hyderabad,
+.leaderboard-bar-fill.team-srh { background: linear-gradient(90deg, #FF822A, #E95D0F); }
+.leaderboard-bar-fill.team-rajasthan-royals,
+.leaderboard-bar-fill.team-rr { background: linear-gradient(90deg, #EA1A85, #254AA5); }
+.leaderboard-bar-fill.team-punjab-kings,
+.leaderboard-bar-fill.team-pbks { background: linear-gradient(90deg, #D71920, #84171B); }
+.leaderboard-bar-fill.team-lucknow-super-giants,
+.leaderboard-bar-fill.team-lsg { background: linear-gradient(90deg, #A72056, #59C1E8); }
+
+.bar-col {
+    min-width: 120px;
+}
+
+/* ==================== POINTS CHART ==================== */
+
+.chart-section {
+    background: #fff;
+    border-radius: 16px;
+    padding: 1.5rem 2rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+}
+
+.chart-section h3 {
+    text-align: center;
+    margin-bottom: 1rem;
+    color: #2c3e50;
+    font-size: 1.3rem;
+}
+
+.chart-container {
+    position: relative;
+    height: 350px;
+    width: 100%;
+}
+
 .fantasy-container {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
@@ -4036,5 +4325,41 @@ textarea:focus {
     .modal-content {
         margin: 10% auto;
         padding: 1.5rem;
+    }
+
+    /* Leaderboard + Awards: stack vertically on mobile */
+    .standings-awards-row {
+        flex-direction: column;
+    }
+
+    .standings-awards-row .awards-sidebar {
+        flex: 1 1 auto;
+    }
+
+    .awards-sidebar .awards-container {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    .awards-sidebar .award-card {
+        flex: 1 1 200px;
+    }
+
+    .leaderboard-section {
+        padding: 1rem;
+    }
+
+    .leaderboard-table th,
+    .leaderboard-table td {
+        padding: 0.5rem 0.6rem;
+        font-size: 0.85rem;
+    }
+
+    .chart-container {
+        height: 250px;
+    }
+
+    .chart-section {
+        padding: 1rem;
     }
 }

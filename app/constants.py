@@ -102,6 +102,33 @@ WIKI_HEADERS: Final[dict] = {
     'User-Agent': 'WPLAuctionApp/1.0 (https://github.com/auction; auction@example.com) python-requests'
 }
 
+# ==================== TEAM COLORS (for charts) ====================
+TEAM_COLORS: Final[dict] = {
+    'mumbai-indians': '#004BA0',
+    'mi': '#004BA0',
+    'royal-challengers-bengaluru': '#D4213D',
+    'royal-challengers-bangalore': '#D4213D',
+    'rcb': '#D4213D',
+    'delhi-capitals': '#004C93',
+    'dc': '#004C93',
+    'gujarat-giants': '#6b3fa0',
+    'gujarat-titans': '#1C1C1C',
+    'gt': '#1C1C1C',
+    'up-warriorz': '#6a0dad',
+    'chennai-super-kings': '#FCCA06',
+    'csk': '#FCCA06',
+    'kolkata-knight-riders': '#3A225D',
+    'kkr': '#3A225D',
+    'sunrisers-hyderabad': '#FF822A',
+    'srh': '#FF822A',
+    'rajasthan-royals': '#EA1A85',
+    'rr': '#EA1A85',
+    'punjab-kings': '#D71920',
+    'pbks': '#D71920',
+    'lucknow-super-giants': '#A72056',
+    'lsg': '#A72056',
+}
+
 # ==================== PLAYOFF MATCH NUMBERS ====================
 # Playoff matches use special match numbers to distinguish from league matches
 # These high numbers ensure no collision with regular league matches (1-70+)

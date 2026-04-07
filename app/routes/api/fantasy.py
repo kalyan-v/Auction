@@ -218,6 +218,22 @@ def get_fantasy_players() -> tuple[Response, int] | Response:
     return jsonify({'success': True, 'players': players})
 
 
+@api_bp.route('/fantasy/team-chart-data', methods=['GET'])
+@limiter.limit("60 per minute")
+def get_team_chart_data() -> tuple[Response, int] | Response:
+    """Get per-match cumulative fantasy points per team for charting.
+
+    Returns:
+        JSON response with team chart data.
+    """
+    current_league = get_current_league()
+    if not current_league:
+        return jsonify({'success': True, 'teams': []})
+
+    result = fantasy_service.get_team_points_by_match(current_league.id)
+    return jsonify(result)
+
+
 # ==================== DATA FETCHING ====================
 
 @api_bp.route('/fantasy/fetch-awards', methods=['POST'])

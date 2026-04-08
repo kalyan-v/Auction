@@ -2679,6 +2679,21 @@ input:checked + .toggle-slider:before {
     padding: 1rem 2rem;
     margin-bottom: 1.5rem;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+}
+
+.filter-result-count {
+    font-size: 0.85rem;
+    color: #666;
+    font-weight: 500;
+    margin-left: auto;
+    white-space: nowrap;
+}
+
+.filter-result-count strong {
+    color: #2c3e50;
 }
 
 .filter-group {
@@ -2962,6 +2977,124 @@ input:checked + .toggle-slider:before {
 
 .award-card.purple-cap .award-winner {
     color: white;
+}
+
+/* ---- Award Top-5 Leaderboard ---- */
+.award-leaderboard {
+    margin-top: 0.75rem;
+    border-top: 1px solid rgba(0,0,0,0.08);
+    padding-top: 0.5rem;
+}
+
+.award-top5-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+}
+
+.award-top5-table th {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: rgba(0,0,0,0.45);
+    font-weight: 600;
+    padding: 0.2rem 0.4rem;
+    text-align: left;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+
+.award-top5-table th:last-child,
+.award-top5-table td.top5-stat {
+    text-align: right;
+}
+
+.award-top5-table td {
+    padding: 0.3rem 0.4rem;
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+}
+
+.top5-rank {
+    width: 20px;
+    font-weight: 700;
+    color: rgba(0,0,0,0.35);
+    font-size: 0.75rem;
+}
+
+.top5-leader .top5-rank {
+    color: rgba(0,0,0,0.6);
+}
+
+.top5-name {
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.top5-team {
+    margin-left: 0.35rem;
+    font-size: 0.7rem;
+    color: rgba(0,0,0,0.4);
+    font-weight: 400;
+}
+
+.top5-stat {
+    font-weight: 700;
+    color: #2c3e50;
+    font-size: 0.82rem;
+}
+
+.top5-leader {
+    background: rgba(0,0,0,0.03);
+}
+
+.top5-leader .top5-name {
+    font-weight: 700;
+}
+
+/* Purple cap: light text within dark card */
+.award-card.purple-cap .award-top5-table th {
+    color: rgba(255,255,255,0.5);
+}
+
+.award-card.purple-cap .top5-name,
+.award-card.purple-cap .top5-stat {
+    color: white;
+}
+
+.award-card.purple-cap .top5-team {
+    color: rgba(255,255,255,0.55);
+}
+
+.award-card.purple-cap .top5-rank {
+    color: rgba(255,255,255,0.4);
+}
+
+.award-card.purple-cap .top5-leader .top5-rank {
+    color: rgba(255,255,255,0.7);
+}
+
+.award-card.purple-cap .award-leaderboard {
+    border-top-color: rgba(255,255,255,0.15);
+}
+
+.award-card.purple-cap .award-top5-table th {
+    border-bottom-color: rgba(255,255,255,0.1);
+}
+
+.award-card.purple-cap .award-top5-table td {
+    border-bottom-color: rgba(255,255,255,0.06);
+}
+
+.award-card.purple-cap .top5-leader {
+    background: rgba(255,255,255,0.08);
+}
+
+/* Sidebar compact variant */
+.awards-sidebar .award-top5-table {
+    font-size: 0.73rem;
+}
+
+.awards-sidebar .award-top5-table td {
+    padding: 0.25rem 0.3rem;
 }
 
 /* ==================== TEAM LEADERBOARD ==================== */
@@ -3255,15 +3388,32 @@ input:checked + .toggle-slider:before {
 
 .fantasy-container {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(400px, 100%), 1fr));
     gap: 2rem;
 }
 
-.fantasy-card .team-header {
-    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+/* Fantasy card headers inherit team-specific colors from ENHANCED VISUAL STYLES section */
+/* .fantasy-card .team-header uses the .team-{slug} .team-header rules */
+
+/* Rank badge overlay on team cards */
+.fantasy-rank-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    font-size: 0.8rem;
+    font-weight: 700;
+    background: rgba(255,255,255,0.2);
+    color: white;
+    flex-shrink: 0;
+    margin-right: 0.25rem;
 }
 
-/* Team-specific header colors defined in ENHANCED VISUAL STYLES section */
+.fantasy-rank-badge.top-1 { background: linear-gradient(135deg, #ffd700, #ffed4e); color: #1a1a2e; font-size: 1rem; }
+.fantasy-rank-badge.top-2 { background: linear-gradient(135deg, #c0c0c0, #e0e0e0); color: #1a1a2e; font-size: 1rem; }
+.fantasy-rank-badge.top-3 { background: linear-gradient(135deg, #cd7f32, #e8a960); color: #1a1a2e; font-size: 1rem; }
 
 .fantasy-total {
     color: #ffd700 !important;
@@ -3274,6 +3424,18 @@ input:checked + .toggle-slider:before {
     font-weight: bold;
     color: #27ae60;
     font-size: 1.1rem;
+}
+
+.fantasy-table .points-cell .points-negative {
+    color: #e74c3c;
+}
+
+.fantasy-table .points-cell .points-zero {
+    color: #95a5a6;
+}
+
+.fantasy-table .points-cell .points-positive {
+    color: #27ae60;
 }
 
 .points-input {
@@ -3338,6 +3500,47 @@ input:checked + .toggle-slider:before {
     outline-offset: -1px;
 }
 
+/* Custom Confirm Dialog */
+.confirm-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 3000;
+    justify-content: center;
+    align-items: center;
+}
+
+.confirm-card {
+    background: white;
+    border-radius: 14px;
+    padding: 1.5rem 2rem;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+    text-align: center;
+    max-width: 340px;
+    width: 90%;
+    animation: slideUp 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.confirm-card p {
+    font-size: 1.05rem;
+    font-weight: 500;
+    color: #2c3e50;
+    margin: 0 0 1.25rem;
+}
+
+.confirm-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+}
+
+.confirm-actions .btn {
+    min-width: 90px;
+}
+
 /* Fantasy Modal Styles */
 .fantasy-modal-content {
     max-width: 500px;
@@ -3397,6 +3600,102 @@ input:checked + .toggle-slider:before {
     color: #999;
     padding: 2rem;
     font-style: italic;
+}
+
+/* Skeleton loader for modal */
+.skeleton-row {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.skeleton-row .skeleton {
+    height: 16px;
+    border-radius: 4px;
+}
+
+.skeleton-row .skeleton:first-child { width: 60px; }
+.skeleton-row .skeleton:last-child { width: 80px; }
+
+/* No results from filter */
+.no-filter-results {
+    display: none;
+    text-align: center;
+    padding: 3rem 2rem;
+    color: #999;
+    font-size: 1.1rem;
+}
+
+.no-filter-results .no-results-icon {
+    font-size: 3rem;
+    margin-bottom: 0.75rem;
+}
+
+.no-filter-results .no-results-text {
+    font-weight: 500;
+    color: #666;
+}
+
+.no-filter-results .no-results-hint {
+    font-size: 0.9rem;
+    margin-top: 0.3rem;
+}
+
+/* Page header dashboard style */
+.fantasy-page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding: 1.25rem 2rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 16px;
+    color: white;
+    box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
+}
+
+.fantasy-page-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: white;
+}
+
+.fantasy-page-header .header-meta {
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+.fantasy-page-header .header-meta .meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.fantasy-page-header .header-meta .meta-value {
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+/* Clickable team header area */
+.team-header-clickable {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    flex: 1;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.team-header-clickable h3 {
+    margin: 0;
 }
 
 .add-points-section {
@@ -3477,6 +3776,16 @@ input:checked + .toggle-slider:before {
     transform: scale(1.2);
 }
 
+.sortable.sort-active {
+    background: rgba(102, 126, 234, 0.08);
+    border-bottom: 2px solid #667eea;
+}
+
+.sortable.sort-active .sort-icon {
+    color: #667eea;
+    font-weight: 700;
+}
+
 /* Responsive for fantasy page */
 @media (max-width: 768px) {
     .awards-container {
@@ -3503,6 +3812,40 @@ input:checked + .toggle-slider:before {
     .add-points-form .form-group {
         width: 100%;
     }
+
+    .fantasy-page-header {
+        padding: 1rem 1.25rem;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .fantasy-page-header h2 {
+        font-size: 1.25rem;
+    }
+
+    .fantasy-page-header .header-meta {
+        gap: 1rem;
+        font-size: 0.8rem;
+    }
+
+    .filter-result-count {
+        margin-left: 0;
+        width: 100%;
+        text-align: center;
+        padding-top: 0.5rem;
+        border-top: 1px solid #eee;
+    }
+}
+
+/* Highlight pulse when scrolling to a team card */
+@keyframes highlightPulse {
+    0% { box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.6); }
+    50% { box-shadow: 0 0 24px 4px rgba(102, 126, 234, 0.3); }
+    100% { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08); }
+}
+
+.team-card.highlight-pulse {
+    animation: highlightPulse 1.5s ease;
 }
 
 /* ==================== ENHANCED VISUAL STYLES ==================== */
@@ -3581,9 +3924,18 @@ input:checked + .toggle-slider:before {
     transform: rotate(-90deg);
 }
 
-/* Collapsed players list */
+/* Animated collapse for players list */
+.players-list {
+    max-height: 2000px;
+    overflow: hidden;
+    transition: max-height 0.35s ease, opacity 0.25s ease;
+    opacity: 1;
+}
+
 .players-list.collapsed {
-    display: none;
+    max-height: 0 !important;
+    opacity: 0;
+    pointer-events: none;
 }
 
 .team-header::before {

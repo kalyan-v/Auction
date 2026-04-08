@@ -15,12 +15,6 @@
 {% block content %}
 <h2>Team Squads</h2>
 
-{% if not admin_mode %}
-<div class="readonly-banner">
-    🔒 <strong>View Only Mode</strong> - <a href="{{ url_for('main.login') }}">Login as admin</a> to release players back to auction
-</div>
-{% endif %}
-
 <div class="squads-container">
     {% for team in teams %}
     {% set sold_players = team.players | selectattr('status', 'equalto', 'sold') | rejectattr('is_deleted', 'equalto', true) | list %}

@@ -144,6 +144,7 @@ class FantasyAward(db.Model):
     award_type = db.Column(db.String(50), nullable=False)  # 'mvp', 'orange_cap', 'purple_cap'
     player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=True)
     league_id = db.Column(db.Integer, db.ForeignKey('league.id'), nullable=True)
+    leaderboard_json = db.Column(db.Text, nullable=True)  # JSON: top-5 leaderboard from scraper
     
     player = db.relationship('Player', backref='awards')
     league = db.relationship('League', backref='awards')

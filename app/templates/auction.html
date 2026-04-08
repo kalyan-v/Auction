@@ -15,12 +15,6 @@
 {% block title %}Auction Room - Player Auction System{% endblock %}
 
 {% block content %}
-{% if not admin_mode %}
-<div class="readonly-banner">
-    🔒 <strong>View Only Mode</strong> - <a href="{{ url_for('main.login', next=request.path) }}">Login as Admin</a> to manage the auction.
-</div>
-{% endif %}
-
 <div class="auction-container">
     <!-- Current Player Section -->
     <div class="current-player-section">

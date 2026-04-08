@@ -14,6 +14,7 @@ Handles:
 from datetime import datetime, timezone
 from typing import Optional, Union
 from urllib.parse import urlparse
+import json
 
 from flask import (
     Response, current_app, jsonify, redirect, render_template, request, session, url_for
@@ -274,6 +275,19 @@ def fantasy() -> str:
         orange_cap = awards_by_type.get(AwardType.ORANGE_CAP.value)
         purple_cap = awards_by_type.get(AwardType.PURPLE_CAP.value)
 
+        # Parse leaderboard JSON for each award (top-5 from scraper)
+        def _parse_leaderboard(award):
+            if award and award.leaderboard_json:
+                try:
+                    return json.loads(award.leaderboard_json)
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            return []
+
+        mvp_leaderboard = _parse_leaderboard(mvp)
+        orange_leaderboard = _parse_leaderboard(orange_cap)
+        purple_leaderboard = _parse_leaderboard(purple_cap)
+
         # Sort teams by total fantasy points (descending) for the leaderboard
         teams.sort(
             key=lambda t: sum(
@@ -285,14 +299,19 @@ def fantasy() -> str:
         teams = []
         all_players = []
         mvp = orange_cap = purple_cap = None
+        mvp_leaderboard = orange_leaderboard = purple_leaderboard = []
 
     return render_template(
         'fantasy.html',
         teams=teams,
         all_players=all_players,
+        total_sold_count=len(all_players) if all_players else 0,
         mvp=mvp,
         orange_cap=orange_cap,
         purple_cap=purple_cap,
+        mvp_leaderboard=mvp_leaderboard,
+        orange_leaderboard=orange_leaderboard,
+        purple_leaderboard=purple_leaderboard,
         admin_mode=is_admin(),
         current_league=current_league,
         all_leagues=all_leagues

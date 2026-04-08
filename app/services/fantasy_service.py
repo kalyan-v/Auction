@@ -8,6 +8,7 @@ Encapsulates all business logic related to:
 - External data fetching
 """
 
+import json
 from typing import Dict, List, Optional
 
 from sqlalchemy import func as sa_func
@@ -540,6 +541,10 @@ class FantasyService(BaseService):
                         award_data['award_type'], league_id
                     )
                     award.player_id = award_data['player_id']
+                    if award_data.get('leaderboard'):
+                        award.leaderboard_json = json.dumps(
+                            award_data['leaderboard'], ensure_ascii=False
+                        )
 
         return {
             'success': len(results['errors']) == 0,
@@ -584,9 +589,15 @@ class FantasyService(BaseService):
                         stat_key: fetch_result.leader.stats.get(stat_key, 0),
                         'wpl_name': player_name
                     }
+                    # Serialize top-5 leaderboard entries
+                    top5 = [
+                        entry.to_dict()
+                        for entry in fetch_result.players[:5]
+                    ]
                     return {
                         'award_type': award_type.value,
-                        'player_id': player.id
+                        'player_id': player.id,
+                        'leaderboard': top5
                     }
                 else:
                     results['errors'].append(

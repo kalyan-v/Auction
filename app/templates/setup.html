@@ -20,12 +20,6 @@
         <p class="setup-subtitle">Configure your league, add teams, and register players before starting the auction.</p>
     </div>
 
-    {% if not admin_mode %}
-    <div class="readonly-banner">
-        🔒 <strong>View Only Mode</strong> — Adding/editing is disabled. Contact admin for changes.
-    </div>
-    {% endif %}
-
     {% if admin_mode %}
     <!-- ═══════════════ STEP 1: LEAGUE ═══════════════ -->
     <div class="setup-step">

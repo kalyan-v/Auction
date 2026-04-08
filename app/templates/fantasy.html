@@ -15,13 +15,60 @@
 {% block title %}Fantasy Points - Player Auction System{% endblock %}
 
 {% block content %}
-<h2>Fantasy Points</h2>
 
-{% if not admin_mode %}
-<div class="readonly-banner">
-    🔒 <strong>View Only Mode</strong> - <a href="{{ url_for('main.login') }}">Login as admin</a> to manage fantasy points
+{# ---- Reusable award card macro to avoid duplication ---- #}
+{# award_type: API name (e.g. 'orange_cap'), css_class: CSS class (e.g. 'orange-cap') #}
+{# stat_key: which field to show (runs/wickets/points), leaderboard: list of top-5 dicts #}
+{% macro award_card(award_type, css_class, emoji, title, award_obj, all_players, admin_mode, suffix='', stat_key='', stat_label='', leaderboard=None) %}
+<div class="award-card {{ css_class }}">
+    <div class="award-image-container">
+        {% if award_obj and award_obj.player and award_obj.player.image_url %}
+        <img src="{{ award_obj.player.image_url }}" alt="{{ award_obj.player.name }}" class="award-player-image" loading="lazy">
+        <div class="award-icon fallback" style="display:none;">{{ emoji }}</div>
+        {% else %}
+        <div class="award-icon">{{ emoji }}</div>
+        {% endif %}
+    </div>
+    <div class="award-info">
+        <h4>{{ title }}</h4>
+        {% if admin_mode %}
+        <select id="{{ css_class }}-select{{ suffix }}" class="award-select" onchange="setAward('{{ award_type }}', this.value)">
+            <option value="">-- Select Player --</option>
+            {% for player in all_players %}
+            <option value="{{ player.id }}" {% if award_obj and award_obj.player_id == player.id %}selected{% endif %}>
+                {{ player.name }} ({{ player.team.name if player.team else 'No Team' }})
+            </option>
+            {% endfor %}
+        </select>
+        {% else %}
+        <p class="award-winner">{{ award_obj.player.name if award_obj and award_obj.player else 'N/A' }}</p>
+        {% endif %}
+    </div>
+    {# Top-5 leaderboard #}
+    {% if leaderboard and leaderboard | length > 0 %}
+    <div class="award-leaderboard">
+        <table class="award-top5-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Player</th>
+                    <th>{{ stat_label }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in leaderboard %}
+                <tr{% if loop.index == 1 %} class="top5-leader"{% endif %}>
+                    <td class="top5-rank">{{ loop.index }}</td>
+                    <td class="top5-name">{{ entry.player_name }}<span class="top5-team">{{ entry.team_short_name }}</span></td>
+                    <td class="top5-stat">{{ entry.get(stat_key, '—') }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
 </div>
-{% endif %}
+{% endmacro %}
 
 <!-- Pre-compute team data for layout decisions -->
 {% set all_team_data = [] %}
@@ -33,6 +80,17 @@
     {% endif %}
 {% endfor %}
 
+<!-- Dashboard-style page header -->
+<div class="fantasy-page-header">
+    <h2>⭐ Fantasy Points{% if current_league %} — {{ current_league.name }}{% endif %}</h2>
+    <div class="header-meta">
+        {% if all_team_data %}
+        <span class="meta-item">🏏 <span class="meta-value" id="headerTeamCount">{{ all_team_data | length }}</span> Teams</span>
+        <span class="meta-item">👤 <span class="meta-value" id="headerPlayerCount">{{ total_sold_count }}</span> Players</span>
+        {% endif %}
+    </div>
+</div>
+
 <!-- Standalone Awards (only when no leaderboard - i.e. no sold players) -->
 {% if not all_team_data %}
 <div class="awards-section">
@@ -41,89 +99,11 @@
         {% if admin_mode %}
         <button class="btn btn-small btn-primary" onclick="fetchAllData()" id="fetchAllBtn">📡 Fetch Data</button>
         {% endif %}
-        <button class="btn btn-small btn-secondary" onclick="downloadStandingsCSV()">📥 Download Excel</button>
     </div>
     <div class="awards-container">
-        <div class="award-card mvp">
-            <div class="award-image-container">
-                {% if mvp and mvp.player and mvp.player.image_url %}
-                <img src="{{ mvp.player.image_url }}" alt="{{ mvp.player.name }}" class="award-player-image">
-                <div class="award-icon fallback" style="display:none;">🏅</div>
-                {% else %}
-                <div class="award-icon">🏅</div>
-                {% endif %}
-            </div>
-            <div class="award-info">
-                <h4>MVP</h4>
-                <p class="award-description">Most Valuable Player</p>
-                {% if admin_mode %}
-                <select id="mvp-select" class="award-select" onchange="setAward('mvp', this.value)">
-                    <option value="">-- Select Player --</option>
-                    {% for player in all_players %}
-                    <option value="{{ player.id }}" {% if mvp and mvp.player_id == player.id %}selected{% endif %}>
-                        {{ player.name }} ({{ player.team.name if player.team else 'No Team' }})
-                    </option>
-                    {% endfor %}
-                </select>
-                {% else %}
-                <p class="award-winner">{{ mvp.player.name if mvp and mvp.player else 'N/A' }}</p>
-                {% endif %}
-            </div>
-        </div>
-        
-        <div class="award-card orange-cap">
-            <div class="award-image-container">
-                {% if orange_cap and orange_cap.player and orange_cap.player.image_url %}
-                <img src="{{ orange_cap.player.image_url }}" alt="{{ orange_cap.player.name }}" class="award-player-image">
-                <div class="award-icon fallback" style="display:none;">🧢</div>
-                {% else %}
-                <div class="award-icon">🧢</div>
-                {% endif %}
-            </div>
-            <div class="award-info">
-                <h4>Orange Cap</h4>
-                <p class="award-description">Most Runs</p>
-                {% if admin_mode %}
-                <select id="orange-cap-select" class="award-select" onchange="setAward('orange_cap', this.value)">
-                    <option value="">-- Select Player --</option>
-                    {% for player in all_players %}
-                    <option value="{{ player.id }}" {% if orange_cap and orange_cap.player_id == player.id %}selected{% endif %}>
-                        {{ player.name }} ({{ player.team.name if player.team else 'No Team' }})
-                    </option>
-                    {% endfor %}
-                </select>
-                {% else %}
-                <p class="award-winner">{{ orange_cap.player.name if orange_cap and orange_cap.player else 'N/A' }}</p>
-                {% endif %}
-            </div>
-        </div>
-        
-        <div class="award-card purple-cap">
-            <div class="award-image-container">
-                {% if purple_cap and purple_cap.player and purple_cap.player.image_url %}
-                <img src="{{ purple_cap.player.image_url }}" alt="{{ purple_cap.player.name }}" class="award-player-image">
-                <div class="award-icon fallback" style="display:none;">🧢</div>
-                {% else %}
-                <div class="award-icon">🧢</div>
-                {% endif %}
-            </div>
-            <div class="award-info">
-                <h4>Purple Cap</h4>
-                <p class="award-description">Most Wickets</p>
-                {% if admin_mode %}
-                <select id="purple-cap-select" class="award-select" onchange="setAward('purple_cap', this.value)">
-                    <option value="">-- Select Player --</option>
-                    {% for player in all_players %}
-                    <option value="{{ player.id }}" {% if purple_cap and purple_cap.player_id == player.id %}selected{% endif %}>
-                        {{ player.name }} ({{ player.team.name if player.team else 'No Team' }})
-                    </option>
-                    {% endfor %}
-                </select>
-                {% else %}
-                <p class="award-winner">{{ purple_cap.player.name if purple_cap and purple_cap.player else 'N/A' }}</p>
-                {% endif %}
-            </div>
-        </div>
+        {{ award_card('mvp', 'mvp', '🏅', 'MVP', mvp, all_players, admin_mode, stat_key='points', stat_label='Pts', leaderboard=mvp_leaderboard) }}
+        {{ award_card('orange_cap', 'orange-cap', '🧢', 'Orange Cap', orange_cap, all_players, admin_mode, stat_key='runs', stat_label='Runs', leaderboard=orange_leaderboard) }}
+        {{ award_card('purple_cap', 'purple-cap', '🧢', 'Purple Cap', purple_cap, all_players, admin_mode, stat_key='wickets', stat_label='Wkts', leaderboard=purple_leaderboard) }}
     </div>
 </div>
 {% endif %}
@@ -141,7 +121,7 @@
             <tr>
                 <th class="rank-col">Rank</th>
                 <th>Team</th>
-                <th class="num-col">Total Points</th>
+                <th class="num-col">Points</th>
             </tr>
         </thead>
         <tbody>
@@ -149,6 +129,7 @@
             {% set team_class = entry.team.name | lower | replace(' ', '-') %}
             <tr class="leaderboard-row {% if loop.index <= 3 %}rank-{{ loop.index }}{% endif %}"
                 data-team-id="{{ entry.team.id }}"
+                data-team-points="{{ entry.total }}"
                 onclick="scrollToTeam({{ entry.team.id }})"
                 role="button" tabindex="0"
                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();scrollToTeam({{ entry.team.id }});}">
@@ -167,7 +148,7 @@
                     <span class="leaderboard-team-dot team-{{ team_class }}"></span>
                     {{ entry.team.name }}
                 </td>
-                <td class="num-col points-highlight">{{ entry.total }}</td>
+                <td class="num-col points-highlight" data-leaderboard-points="{{ entry.team.id }}">{{ entry.total }}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -178,89 +159,13 @@
     <h3>🏆 Awards</h3>
     <div class="awards-actions">
         {% if admin_mode %}
-        <button class="btn btn-small btn-primary" onclick="fetchAllData()" id="fetchAllBtn">📡 Fetch Data</button>
+        <button class="btn btn-small btn-primary" onclick="fetchAllData()" id="fetchAllBtnSidebar">📡 Fetch Data</button>
         {% endif %}
-        <button class="btn btn-small btn-secondary" onclick="downloadStandingsCSV()">📥 Download Excel</button>
     </div>
     <div class="awards-container">
-        <div class="award-card mvp">
-            <div class="award-image-container">
-                {% if mvp and mvp.player and mvp.player.image_url %}
-                <img src="{{ mvp.player.image_url }}" alt="{{ mvp.player.name }}" class="award-player-image">
-                <div class="award-icon fallback" style="display:none;">🏅</div>
-                {% else %}
-                <div class="award-icon">🏅</div>
-                {% endif %}
-            </div>
-            <div class="award-info">
-                <h4>MVP</h4>
-                <p class="award-description">Most Valuable Player</p>
-                {% if admin_mode %}
-                <select id="mvp-select2" class="award-select" onchange="setAward('mvp', this.value)">
-                    <option value="">-- Select Player --</option>
-                    {% for player in all_players %}
-                    <option value="{{ player.id }}" {% if mvp and mvp.player_id == player.id %}selected{% endif %}>
-                        {{ player.name }} ({{ player.team.name if player.team else 'No Team' }})
-                    </option>
-                    {% endfor %}
-                </select>
-                {% else %}
-                <p class="award-winner">{{ mvp.player.name if mvp and mvp.player else 'N/A' }}</p>
-                {% endif %}
-            </div>
-        </div>
-        <div class="award-card orange-cap">
-            <div class="award-image-container">
-                {% if orange_cap and orange_cap.player and orange_cap.player.image_url %}
-                <img src="{{ orange_cap.player.image_url }}" alt="{{ orange_cap.player.name }}" class="award-player-image">
-                <div class="award-icon fallback" style="display:none;">🧢</div>
-                {% else %}
-                <div class="award-icon">🧢</div>
-                {% endif %}
-            </div>
-            <div class="award-info">
-                <h4>Orange Cap</h4>
-                <p class="award-description">Most Runs</p>
-                {% if admin_mode %}
-                <select id="orange-cap-select2" class="award-select" onchange="setAward('orange_cap', this.value)">
-                    <option value="">-- Select Player --</option>
-                    {% for player in all_players %}
-                    <option value="{{ player.id }}" {% if orange_cap and orange_cap.player_id == player.id %}selected{% endif %}>
-                        {{ player.name }} ({{ player.team.name if player.team else 'No Team' }})
-                    </option>
-                    {% endfor %}
-                </select>
-                {% else %}
-                <p class="award-winner">{{ orange_cap.player.name if orange_cap and orange_cap.player else 'N/A' }}</p>
-                {% endif %}
-            </div>
-        </div>
-        <div class="award-card purple-cap">
-            <div class="award-image-container">
-                {% if purple_cap and purple_cap.player and purple_cap.player.image_url %}
-                <img src="{{ purple_cap.player.image_url }}" alt="{{ purple_cap.player.name }}" class="award-player-image">
-                <div class="award-icon fallback" style="display:none;">🧢</div>
-                {% else %}
-                <div class="award-icon">🧢</div>
-                {% endif %}
-            </div>
-            <div class="award-info">
-                <h4>Purple Cap</h4>
-                <p class="award-description">Most Wickets</p>
-                {% if admin_mode %}
-                <select id="purple-cap-select2" class="award-select" onchange="setAward('purple_cap', this.value)">
-                    <option value="">-- Select Player --</option>
-                    {% for player in all_players %}
-                    <option value="{{ player.id }}" {% if purple_cap and purple_cap.player_id == player.id %}selected{% endif %}>
-                        {{ player.name }} ({{ player.team.name if player.team else 'No Team' }})
-                    </option>
-                    {% endfor %}
-                </select>
-                {% else %}
-                <p class="award-winner">{{ purple_cap.player.name if purple_cap and purple_cap.player else 'N/A' }}</p>
-                {% endif %}
-            </div>
-        </div>
+        {{ award_card('mvp', 'mvp', '🏅', 'MVP', mvp, all_players, admin_mode, '2', stat_key='points', stat_label='Pts', leaderboard=mvp_leaderboard) }}
+        {{ award_card('orange_cap', 'orange-cap', '🧢', 'Orange Cap', orange_cap, all_players, admin_mode, '2', stat_key='runs', stat_label='Runs', leaderboard=orange_leaderboard) }}
+        {{ award_card('purple_cap', 'purple-cap', '🧢', 'Purple Cap', purple_cap, all_players, admin_mode, '2', stat_key='wickets', stat_label='Wkts', leaderboard=purple_leaderboard) }}
     </div>
 </div>
 </div><!-- end standings-awards-row -->
@@ -282,7 +187,7 @@
         <!-- Player Search -->
         <div class="search-box">
             <input type="text" id="playerSearch" placeholder="Search players..."
-                   onkeyup="searchPlayers(this.value)" aria-label="Search players by name">
+                   oninput="debouncedSearch(this.value)" aria-label="Search players by name">
         </div>
         <span class="filter-divider">|</span>
         <label>Filter by:</label>
@@ -302,7 +207,16 @@
             </div>
         </div>
         <button class="btn btn-secondary" onclick="clearFilter()">Clear</button>
+        <button class="btn btn-small btn-secondary" onclick="downloadStandingsCSV()">📥 Download Excel</button>
+        <span class="filter-result-count" id="filterResultCount"></span>
     </div>
+</div>
+
+<!-- No filter results message -->
+<div class="no-filter-results" id="noFilterResults">
+    <div class="no-results-icon">🔍</div>
+    <p class="no-results-text">No players match your filters</p>
+    <p class="no-results-hint">Try a different search term or clear filters</p>
 </div>
 
 <!-- Team Fantasy Points Section -->
@@ -311,13 +225,28 @@
     {% set team_players = team.players | selectattr('status', 'equalto', 'sold') | list %}
     {% if team_players %}
     {% set team_class = team.name | lower | replace(' ', '-') %}
+    {# Determine rank of this team in sorted order #}
+    {% set ns = namespace(rank=0) %}
+    {% for entry in all_team_data %}
+        {% if entry.team.id == team.id %}{% set ns.rank = loop.index %}{% endif %}
+    {% endfor %}
     <div class="team-card fantasy-card team-{{ team_class }}" data-team-id="{{ team.id }}">
-        <div class="team-header">
-            <button class="collapse-toggle" onclick="toggleTeamCollapse({{ team.id }})"
-                    aria-expanded="true" aria-label="Toggle {{ team.name }} players list">
-                ▼
-            </button>
-            <h3>{{ team.name }}</h3>
+        <div class="team-header" onclick="toggleTeamCollapse({{ team.id }})" style="cursor:pointer;"
+             role="button" tabindex="0"
+             aria-expanded="true" aria-label="Toggle {{ team.name }} players list"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleTeamCollapse({{ team.id }});}">
+            <div class="team-header-clickable">
+                <button class="collapse-toggle"
+                        aria-hidden="true" tabindex="-1">
+                    ▼
+                </button>
+                {% if ns.rank <= 3 %}
+                <span class="fantasy-rank-badge top-{{ ns.rank }}">{% if ns.rank == 1 %}🥇{% elif ns.rank == 2 %}🥈{% elif ns.rank == 3 %}🥉{% endif %}</span>
+                {% elif ns.rank > 0 %}
+                <span class="fantasy-rank-badge">#{{ ns.rank }}</span>
+                {% endif %}
+                <h3>{{ team.name }}</h3>
+            </div>
             <div class="team-stats">
                 <div class="stat">
                     <span class="stat-label">Players</span>
@@ -343,7 +272,6 @@
                         <th class="sortable" tabindex="0" role="button" aria-label="Sort by total points" onclick="sortTable({{ team.id }}, 'points')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();sortTable({{ team.id }}, 'points');}">
                             Total Points <span class="sort-icon" id="sort-points-{{ team.id }}" aria-hidden="true">⇅</span>
                         </th>
-                        <th>Original Team</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -369,13 +297,12 @@
                             {% endif %}
                             <div class="sp-text">
                                 <span class="player-name-text">{{ player.name }}</span>
-                                <span class="sp-meta"><span class="sp-pos {{ player.position | lower }}">{{ player.position }}</span> · ₹{{ '{:.0f}'.format(player.current_price / 100000) }} L</span>
+                                <span class="sp-meta"><span class="sp-pos {{ player.position | lower }}">{{ player.position }}</span> · ₹{{ '{:.0f}'.format(player.current_price / 100000) }} L{% if player.original_team %} · {{ player.original_team }}{% endif %}</span>
                             </div>
                         </td>
                         <td class="points-cell">
-                            <span class="points-value" id="points-{{ player.id }}">{{ player.fantasy_points }}</span>
+                            <span class="points-value {% if player.fantasy_points > 0 %}points-positive{% elif player.fantasy_points < 0 %}points-negative{% else %}points-zero{% endif %}" id="points-{{ player.id }}">{{ player.fantasy_points }}</span>
                         </td>
-                        <td><span class="original-team-badge">{{ player.original_team or '-' }}</span></td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -431,17 +358,35 @@
     </div>
 </div>
 
+<!-- Custom Confirm Dialog -->
+<div id="confirmDialog" class="confirm-overlay" role="alertdialog" aria-labelledby="confirmMsg" aria-modal="true">
+    <div class="confirm-card">
+        <p id="confirmMsg">Are you sure?</p>
+        <div class="confirm-actions">
+            <button class="btn btn-secondary btn-small" id="confirmCancel">Cancel</button>
+            <button class="btn btn-danger btn-small" id="confirmOk">Delete</button>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script>
 let currentPlayerId = null;
 let currentTeamId = null;
 const isAdmin = {{ 'true' if admin_mode else 'false' }};
+const totalPlayerCount = document.querySelectorAll('.player-row').length;
 
 // Cache for lowercase player names (performance optimization)
 const playerNameCache = new Map();
+
+// Debounced search
+let searchTimer = null;
+function debouncedSearch(query) {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => searchPlayers(query), 150);
+}
 
 // Download standings as CSV
 function downloadStandingsCSV() {
@@ -450,7 +395,7 @@ function downloadStandingsCSV() {
 
 // Fetch all WPL data (awards + fantasy points)
 async function fetchAllData() {
-    const btn = document.getElementById('fetchAllBtn');
+    const btn = document.getElementById('fetchAllBtn') || document.getElementById('fetchAllBtnSidebar');
     const originalText = btn.innerHTML;
     btn.disabled = true;
 
@@ -476,23 +421,22 @@ async function fetchAllData() {
         });
         const awardsData = await awardsResponse.json();
 
-        // Step 3: Fetch images for award winners
+        // Step 3: Fetch images for award winners in parallel
         if (awardsData.results) {
             btn.innerHTML = '⏳ Fetching images...';
-            const playerIds = [];
-            if (awardsData.results.orange_cap) playerIds.push(awardsData.results.orange_cap.player_id);
-            if (awardsData.results.purple_cap) playerIds.push(awardsData.results.purple_cap.player_id);
-            if (awardsData.results.mvp) playerIds.push(awardsData.results.mvp.player_id);
+            const playerIds = [
+                awardsData.results.orange_cap?.player_id,
+                awardsData.results.purple_cap?.player_id,
+                awardsData.results.mvp?.player_id
+            ].filter(Boolean);
 
-            for (const playerId of playerIds) {
-                if (playerId) {
-                    try {
-                        await secureFetch(`/api/players/${playerId}/fetch-image`, { method: 'POST' });
-                    } catch (e) {
-                        console.error('Error fetching image:', e);
-                    }
+            await Promise.all(playerIds.map(async (playerId) => {
+                try {
+                    await secureFetch(`/api/players/${playerId}/fetch-image`, { method: 'POST' });
+                } catch (e) {
+                    console.error('Error fetching image:', e);
                 }
-            }
+            }));
         }
 
         // Show summary and reload
@@ -575,16 +519,20 @@ function sortTable(teamId, sortBy) {
 }
 
 function updateSortIcons(teamId, activeColumn, ascending) {
-    // Reset all sort icons for this team
+    // Reset all sort icons and active state for this team
     ['name', 'points', 'position'].forEach(col => {
         const icon = document.getElementById(`sort-${col}-${teamId}`);
-        if (icon) icon.textContent = '⇅';
+        if (icon) {
+            icon.textContent = '⇅';
+            icon.closest('.sortable')?.classList.remove('sort-active');
+        }
     });
 
-    // Set active icon with direction
+    // Set active icon with direction and mark column active
     const activeIcon = document.getElementById(`sort-${activeColumn}-${teamId}`);
     if (activeIcon) {
         activeIcon.textContent = ascending ? '↑' : '↓';
+        activeIcon.closest('.sortable')?.classList.add('sort-active');
     }
 }
 
@@ -597,8 +545,15 @@ async function showPointsModal(playerId, playerName, teamId) {
     const containerEl = document.getElementById('matchPointsContainer');
     
     playerNameEl.textContent = playerName + ' - Fantasy Points';
-    containerEl.innerHTML = '<p>Loading...</p>';
+    // Skeleton loader instead of plain text
+    containerEl.innerHTML = `
+        <div class="skeleton-row"><div class="skeleton" style="width:60px;height:16px;"></div><div class="skeleton" style="flex:1;height:16px;"></div><div class="skeleton" style="width:80px;height:16px;"></div></div>
+        <div class="skeleton-row"><div class="skeleton" style="width:60px;height:16px;"></div><div class="skeleton" style="flex:1;height:16px;"></div><div class="skeleton" style="width:80px;height:16px;"></div></div>
+        <div class="skeleton-row"><div class="skeleton" style="width:60px;height:16px;"></div><div class="skeleton" style="flex:1;height:16px;"></div><div class="skeleton" style="width:80px;height:16px;"></div></div>
+    `;
+    document.getElementById('modalTotalPoints').textContent = '—';
     modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
     
     try {
         const response = await secureFetch(`/api/fantasy/points/${playerId}`);
@@ -625,7 +580,7 @@ async function showPointsModal(playerId, playerName, teamId) {
                         <tr>
                             <td>Match ${index + 1} <span class="match-actual">(#${entry.match_number})</span></td>
                             <td class="points-cell">${entry.points}</td>
-                            ${isAdmin ? `<td><button class="btn btn-small btn-danger" onclick="deleteMatchPoints(${entry.id})">🗑️</button></td>` : ''}
+                            ${isAdmin ? `<td><button class="btn btn-small btn-danger" data-entry-id="${entry.id}" onclick="deleteMatchPoints(${entry.id})">🗑️</button></td>` : ''}
                         </tr>
                     `;
                 });
@@ -653,18 +608,22 @@ async function showPointsModal(playerId, playerName, teamId) {
 }
 
 function closeModal() {
-    document.getElementById('fantasyModal').style.display = 'none';
+    const modal = document.getElementById('fantasyModal');
+    if (modal.style.display !== 'none') {
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+    }
     currentPlayerId = null;
     currentTeamId = null;
 }
 
 // Close modal when clicking outside
-window.onclick = function(event) {
+document.addEventListener('click', function(event) {
     const modal = document.getElementById('fantasyModal');
     if (event.target === modal) {
         closeModal();
     }
-}
+});
 
 // Close modal on ESC key and handle focus
 document.addEventListener('keydown', function(event) {
@@ -740,6 +699,9 @@ async function addMatchPoints() {
             // Update the main table
             const pointsEl = document.getElementById(`points-${currentPlayerId}`);
             if (pointsEl) pointsEl.textContent = data.total_points;
+            // Keep data-points in sync for sorting
+            const playerRow = document.querySelector(`tr[data-player-id="${currentPlayerId}"]`);
+            if (playerRow) playerRow.dataset.points = data.total_points;
             updateTeamTotal(currentTeamId);
             showNotification('Points added successfully!', 'success');
         } else {
@@ -756,13 +718,40 @@ async function addMatchPoints() {
     }
 }
 
+// Custom confirm dialog (replaces window.confirm)
+function showConfirm(message) {
+    return new Promise(resolve => {
+        const dialog = document.getElementById('confirmDialog');
+        document.getElementById('confirmMsg').textContent = message;
+        dialog.style.display = 'flex';
+        const ok = document.getElementById('confirmOk');
+        const cancel = document.getElementById('confirmCancel');
+        function cleanup(result) {
+            dialog.style.display = 'none';
+            ok.removeEventListener('click', onOk);
+            cancel.removeEventListener('click', onCancel);
+            dialog.removeEventListener('click', onOverlay);
+            document.removeEventListener('keydown', onEsc);
+            resolve(result);
+        }
+        function onOk() { cleanup(true); }
+        function onCancel() { cleanup(false); }
+        function onOverlay(e) { if (e.target === dialog) cleanup(false); }
+        function onEsc(e) { if (e.key === 'Escape') cleanup(false); }
+        ok.addEventListener('click', onOk);
+        cancel.addEventListener('click', onCancel);
+        dialog.addEventListener('click', onOverlay);
+        document.addEventListener('keydown', onEsc);
+        cancel.focus();
+    });
+}
+
 async function deleteMatchPoints(entryId) {
-    if (!confirm('Are you sure you want to delete this match entry?')) {
-        return;
-    }
+    const confirmed = await showConfirm('Delete this match entry?');
+    if (!confirmed) return;
 
     // Find and disable the delete button
-    const deleteBtn = document.querySelector(`button[onclick="deleteMatchPoints(${entryId})"]`);
+    const deleteBtn = document.querySelector(`button[data-entry-id="${entryId}"]`);
     if (deleteBtn) {
         deleteBtn.disabled = true;
         deleteBtn.textContent = '⏳';
@@ -785,6 +774,9 @@ async function deleteMatchPoints(entryId) {
             // Update the main table
             const pointsEl = document.getElementById(`points-${currentPlayerId}`);
             if (pointsEl) pointsEl.textContent = data.total_points;
+            // Keep data-points in sync for sorting
+            const playerRow = document.querySelector(`tr[data-player-id="${currentPlayerId}"]`);
+            if (playerRow) playerRow.dataset.points = data.total_points;
             updateTeamTotal(currentTeamId);
             showNotification('Match entry deleted', 'success');
         } else {
@@ -797,7 +789,9 @@ async function deleteMatchPoints(entryId) {
 
 function updateTeamTotal(teamId) {
     if (!teamId) return;
-    const rows = document.querySelectorAll(`tr[data-team-id="${teamId}"]`);
+    const card = document.querySelector(`.fantasy-card[data-team-id="${teamId}"]`);
+    if (!card) return;
+    const rows = card.querySelectorAll('tr[data-player-id]');
     let total = 0;
 
     rows.forEach(row => {
@@ -811,6 +805,12 @@ function updateTeamTotal(teamId) {
     const totalEl = document.getElementById(`team-total-${teamId}`);
     if (totalEl) {
         totalEl.textContent = total.toFixed(1);
+    }
+
+    // Also sync the leaderboard row
+    const leaderboardCell = document.querySelector(`[data-leaderboard-points="${teamId}"]`);
+    if (leaderboardCell) {
+        leaderboardCell.textContent = total.toFixed(1);
     }
 }
 
@@ -856,7 +856,7 @@ function getUniqueValues(attribute) {
     return Array.from(values).sort();
 }
 
-const positions = ['Batter', 'Keeper', 'Allrounder', 'Bowler'];
+const POSITIONS = ['Batter', 'Keeper', 'Allrounder', 'Bowler'];
 let selectedFilters = new Set();
 let isDropdownOpen = false;
 
@@ -880,7 +880,7 @@ function updateFilterOptions() {
     dropdown.classList.remove('show');
 
     // Get dynamic values from page data
-    const options = filterType === 'team' ? getUniqueValues('originalTeam') : positions;
+    const options = filterType === 'team' ? getUniqueValues('originalTeam') : POSITIONS;
 
     options.forEach(opt => {
         const label = document.createElement('label');
@@ -927,7 +927,8 @@ function handleFilterChange(checkbox) {
         selectedFilters.delete(checkbox.value);
     }
     updateMultiSelectLabel();
-    applyFilter();
+    applyAllFilters();
+    savePageState();
 }
 
 function updateMultiSelectLabel() {
@@ -941,21 +942,18 @@ function updateMultiSelectLabel() {
     }
 }
 
-function applyFilter() {
-    // Use combined filter that respects both search and dropdown filters
-    applyAllFilters();
-}
-
 // Player search functionality
 let currentSearchQuery = '';
 
 function searchPlayers(query) {
     currentSearchQuery = query.toLowerCase().trim();
     applyAllFilters();
+    savePageState();
 }
 
 function applyAllFilters() {
     const filterType = document.getElementById('filterType').value;
+    let visibleCount = 0;
 
     document.querySelectorAll('.player-row').forEach(row => {
         // Use cached lowercase name for better performance
@@ -971,10 +969,13 @@ function applyAllFilters() {
             }
         }
 
-        row.style.display = (matchesSearch && matchesFilter) ? '' : 'none';
+        const visible = matchesSearch && matchesFilter;
+        row.style.display = visible ? '' : 'none';
+        if (visible) visibleCount++;
     });
 
     updateTeamCardVisibility();
+    updateFilterResultCount(visibleCount);
 }
 
 function clearFilter() {
@@ -999,18 +1000,44 @@ function clearFilter() {
         card.style.display = '';
     });
 
+    // Clear result count + no-results
+    const countEl = document.getElementById('filterResultCount');
+    if (countEl) countEl.innerHTML = '';
+    const noResults = document.getElementById('noFilterResults');
+    if (noResults) noResults.style.display = 'none';
+
     // Persist cleared state
     savePageState();
 }
 
 function updateTeamCardVisibility() {
+    let anyVisible = false;
     document.querySelectorAll('.fantasy-card').forEach(card => {
         // Check if all rows in this card are hidden
         const allRows = card.querySelectorAll('.player-row');
         const allHidden = Array.from(allRows).every(row => row.style.display === 'none');
 
         card.style.display = allHidden ? 'none' : '';
+        if (!allHidden) anyVisible = true;
     });
+
+    // Show/hide no-results message
+    const noResults = document.getElementById('noFilterResults');
+    if (noResults) {
+        const isFiltering = currentSearchQuery || selectedFilters.size > 0;
+        noResults.style.display = (!anyVisible && isFiltering) ? 'block' : 'none';
+    }
+}
+
+function updateFilterResultCount(visibleCount) {
+    const countEl = document.getElementById('filterResultCount');
+    if (!countEl) return;
+    const isFiltering = currentSearchQuery || selectedFilters.size > 0;
+    if (isFiltering) {
+        countEl.innerHTML = `Showing <strong>${visibleCount}</strong> of <strong>${totalPlayerCount}</strong> players`;
+    } else {
+        countEl.innerHTML = '';
+    }
 }
 
 // Collapsible team sections
@@ -1020,12 +1047,14 @@ function toggleTeamCollapse(teamId) {
 
     const toggle = card.querySelector('.collapse-toggle');
     const playersList = document.getElementById(`players-list-${teamId}`);
+    const header = card.querySelector('.team-header');
 
     if (!playersList) return;
 
     const isCollapsed = playersList.classList.toggle('collapsed');
     toggle.classList.toggle('collapsed', isCollapsed);
-    toggle.setAttribute('aria-expanded', !isCollapsed);
+    header.setAttribute('aria-expanded', !isCollapsed);
+    savePageState();
 }
 
 // State persistence using localStorage
@@ -1098,10 +1127,11 @@ function restorePageState() {
             state.collapsedTeams.forEach(teamId => {
                 const playersList = document.getElementById(`players-list-${teamId}`);
                 const toggle = document.querySelector(`.fantasy-card[data-team-id="${teamId}"] .collapse-toggle`);
+                const header = document.querySelector(`.fantasy-card[data-team-id="${teamId}"] .team-header`);
                 if (playersList && toggle) {
                     playersList.classList.add('collapsed');
                     toggle.classList.add('collapsed');
-                    toggle.setAttribute('aria-expanded', 'false');
+                    if (header) header.setAttribute('aria-expanded', 'false');
                 }
             });
         }
@@ -1111,34 +1141,6 @@ function restorePageState() {
         console.error('Error restoring page state:', e);
         return false;
     }
-}
-
-// Override functions to save state on change (guarded against double-wrapping)
-if (!toggleTeamCollapse._wrapped) {
-    const originalToggleTeamCollapse = toggleTeamCollapse;
-    toggleTeamCollapse = function(teamId) {
-        originalToggleTeamCollapse(teamId);
-        savePageState();
-    };
-    toggleTeamCollapse._wrapped = true;
-}
-
-if (!handleFilterChange._wrapped) {
-    const originalHandleFilterChange = handleFilterChange;
-    handleFilterChange = function(checkbox) {
-        originalHandleFilterChange(checkbox);
-        savePageState();
-    };
-    handleFilterChange._wrapped = true;
-}
-
-if (!searchPlayers._wrapped) {
-    const originalSearchPlayers = searchPlayers;
-    searchPlayers = function(query) {
-        originalSearchPlayers(query);
-        savePageState();
-    };
-    searchPlayers._wrapped = true;
 }
 
 // Initialize on page load
@@ -1156,18 +1158,17 @@ document.addEventListener('DOMContentLoaded', function() {
         applyAllFilters();
     }
 
-    // Apply sorts (use restored state or default to points)
+    // Apply sorts (use restored state or default to points descending)
     const teamCards = document.querySelectorAll('.fantasy-card[data-team-id]');
     teamCards.forEach(card => {
         const teamId = parseInt(card.dataset.teamId, 10);
         if (sortState[teamId]) {
-            // Re-apply saved sort
+            // Re-apply saved sort: set opposite then let sortTable toggle to correct
             const { column, ascending } = sortState[teamId];
-            // Temporarily set to opposite so sortTable toggles to correct direction
             sortState[teamId].ascending = !ascending;
             sortTable(teamId, column);
         } else {
-            // Default sort by points descending
+            // Default: points descending — set ascending so sortTable flips to descending
             sortState[teamId] = { column: 'points', ascending: true };
             sortTable(teamId, 'points');
         }
@@ -1178,17 +1179,32 @@ document.addEventListener('DOMContentLoaded', function() {
 function scrollToTeam(teamId) {
     const card = document.querySelector(`.team-card[data-team-id="${teamId}"]`);
     if (card) {
+        // Expand if collapsed
+        const playersList = document.getElementById(`players-list-${teamId}`);
+        if (playersList && playersList.classList.contains('collapsed')) {
+            toggleTeamCollapse(teamId);
+        }
         card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        card.style.transition = 'box-shadow 0.3s ease';
-        card.style.boxShadow = '0 0 20px rgba(102,126,234,0.5)';
-        setTimeout(() => { card.style.boxShadow = ''; }, 1500);
+        card.classList.add('highlight-pulse');
+        setTimeout(() => card.classList.remove('highlight-pulse'), 1500);
     }
 }
 
-// Match-by-match points progression chart
+// Match-by-match points progression chart (lazy-loads Chart.js)
 (async function loadPointsChart() {
     const canvas = document.getElementById('pointsChart');
     if (!canvas) return;
+
+    // Lazy-load Chart.js only when needed
+    if (typeof Chart === 'undefined') {
+        await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js';
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    }
 
     try {
         const resp = await secureFetch('/api/fantasy/team-chart-data');

@@ -2147,6 +2147,7 @@ input:checked + .toggle-slider:before {
     
     .award-card {
         padding: 1rem;
+        flex-wrap: wrap;
     }
     
     .award-image-container {
@@ -2157,6 +2158,11 @@ input:checked + .toggle-slider:before {
     .award-player-image {
         width: 60px;
         height: 60px;
+    }
+
+    .award-leaderboard {
+        flex-basis: 100%;
+        margin-top: 0.5rem;
     }
     
     .fantasy-container {
@@ -2679,9 +2685,6 @@ input:checked + .toggle-slider:before {
     padding: 1rem 2rem;
     margin-bottom: 1.5rem;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    position: sticky;
-    top: 0;
-    z-index: 50;
 }
 
 .filter-result-count {
@@ -3791,7 +3794,123 @@ input:checked + .toggle-slider:before {
     .awards-container {
         grid-template-columns: 1fr;
     }
-    
+
+    .awards-section {
+        padding: 1rem;
+    }
+
+    .awards-section h3 {
+        font-size: 1.2rem;
+        margin-bottom: 1rem;
+    }
+
+    .award-card {
+        flex-wrap: wrap;
+        padding: 1rem;
+    }
+
+    .award-image-container {
+        width: 56px;
+        height: 56px;
+    }
+
+    .award-player-image {
+        width: 56px;
+        height: 56px;
+    }
+
+    .award-icon {
+        font-size: 2rem;
+    }
+
+    .award-info h4 {
+        font-size: 1rem;
+    }
+
+    .award-winner {
+        font-size: 1rem;
+    }
+
+    .award-leaderboard {
+        flex-basis: 100%;
+        margin-top: 0.5rem;
+    }
+
+    .award-top5-table {
+        font-size: 0.8rem;
+    }
+
+    .award-top5-table th {
+        font-size: 0.72rem;
+    }
+
+    /* Override global table min-width (600px) for fantasy page tables */
+    .fantasy-table,
+    .leaderboard-table,
+    .award-top5-table {
+        min-width: 0 !important;
+        width: 100%;
+    }
+
+    .fantasy-table th,
+    .fantasy-table td,
+    .leaderboard-table th,
+    .leaderboard-table td {
+        white-space: normal;
+        word-break: break-word;
+    }
+
+    .leaderboard-table th,
+    .leaderboard-table td {
+        padding: 0.5rem;
+    }
+
+    .leaderboard-section {
+        padding: 1rem;
+        overflow: hidden;
+    }
+
+    /* Filter section: fit within viewport */
+    .filter-section {
+        padding: 0.75rem 1rem;
+    }
+
+    .filter-group {
+        gap: 0.5rem;
+    }
+
+    .filter-divider {
+        display: none;
+    }
+
+    .search-box {
+        width: 100%;
+    }
+
+    .search-box input {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .filter-group select {
+        min-width: 0;
+        flex: 1;
+    }
+
+    .multi-select-btn {
+        min-width: 0;
+    }
+
+    .multi-select-container {
+        flex: 1;
+    }
+
+    /* Team card table wrapper: remove negative margin overflow */
+    .team-card .table-responsive {
+        margin: 0;
+        padding: 0;
+    }
+
     .fantasy-container {
         grid-template-columns: 1fr;
     }
@@ -4690,23 +4809,55 @@ textarea:focus {
         flex: 1 1 auto;
     }
 
+    .standings-awards-row .leaderboard-section {
+        flex: 1 1 auto;
+    }
+
     .awards-sidebar .awards-container {
-        flex-direction: row;
-        flex-wrap: wrap;
+        flex-direction: column;
+        gap: 0.8rem;
     }
 
     .awards-sidebar .award-card {
-        flex: 1 1 200px;
+        flex-wrap: wrap;
+    }
+
+    .awards-sidebar .award-leaderboard {
+        flex-basis: 100%;
+    }
+
+    .awards-sidebar {
+        padding: 1rem;
+    }
+
+    .awards-sidebar h3 {
+        font-size: 1.2rem;
     }
 
     .leaderboard-section {
         padding: 1rem;
+        overflow: hidden;
     }
 
+    /* Override global table min-width for fantasy tables at 900px */
+    .fantasy-table,
+    .leaderboard-table {
+        min-width: 0 !important;
+        width: 100%;
+    }
+
+    .fantasy-table th,
+    .fantasy-table td,
     .leaderboard-table th,
     .leaderboard-table td {
         padding: 0.5rem 0.6rem;
         font-size: 0.85rem;
+        white-space: normal;
+    }
+
+    .team-card .table-responsive {
+        margin: 0;
+        padding: 0;
     }
 
     .chart-container {

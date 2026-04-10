@@ -466,6 +466,14 @@ class IPLScraper(BaseScraper):
                 batting_card, player_stats, cricbuzz_runouts
             )
 
+        # Rain-affected match: if innings 2 is missing, the bowling team's
+        # non-bowling players are absent from player_stats. Fetch their
+        # playing XI from Cricbuzz so they still get Playing XI credit.
+        if len(all_batting_cards) == 1 and summary.get("IsMatchEnd", 0):
+            self._fill_missing_playing_xi(
+                match_info, player_stats
+            )
+
         return ScorecardResult(
             success=True,
             match_info=match_info,
@@ -578,6 +586,129 @@ class IPLScraper(BaseScraper):
         elif action == "run_out_indirect":
             player_stats[fielder].run_outs_indirect += 1
 
+    def _fill_missing_playing_xi(
+        self,
+        match_info: MatchInfo,
+        player_stats: Dict[str, PlayerStats],
+    ) -> None:
+        """Fill in missing playing XI players for rain-affected matches.
+
+        When innings 2 is missing, the bowling team's non-bowling/fielding
+        players are absent from player_stats. This method fetches the full
+        playing XI from Cricbuzz and adds any missing players with empty
+        stats so they receive their Playing XI bonus.
+
+        Args:
+            match_info: Match info with team codes and match number.
+            player_stats: Mutable player stats dict (updated in place).
+        """
+        playing_xi = self._fetch_cricbuzz_playing_xi(
+            match_info.home_team,
+            match_info.away_team,
+            match_info.match_number,
+        )
+        if not playing_xi:
+            return
+
+        # Normalize existing player names for comparison
+        existing_lower = {name.lower().strip() for name in player_stats}
+
+        added = 0
+        for name in playing_xi:
+            name_clean = re.sub(r'\s*\([^)]*\)', '', name).strip()
+            if name_clean.lower() not in existing_lower:
+                player_stats[name_clean] = self.create_empty_player_stats(
+                    name_clean
+                )
+                added += 1
+
+        if added:
+            logger.info(
+                f"Rain match {match_info.match_number}: added {added} "
+                f"missing playing XI players"
+            )
+
+    def _fetch_cricbuzz_playing_xi(
+        self,
+        home_team: str,
+        away_team: str,
+        match_number: str,
+    ) -> List[str]:
+        """Fetch playing XI for both teams from Cricbuzz scorecard page.
+
+        Derives the playing XI by taking the squad roster section from
+        Cricbuzz and subtracting players on the bench.
+
+        Args:
+            home_team: Home team code (e.g., 'KKR').
+            away_team: Away team code (e.g., 'PBKS').
+            match_number: Match number string (e.g., '12').
+
+        Returns:
+            List of player names in the playing XI, or empty list on failure.
+        """
+        cb_id = self._find_cricbuzz_match_id(
+            home_team, away_team, match_number
+        )
+        if not cb_id:
+            return []
+
+        t1 = home_team.lower()
+        t2 = away_team.lower()
+        slug = self._build_cricbuzz_slug(t1, t2, match_number)
+        url = f"{CRICBUZZ_SCORECARD_URL}/{cb_id}/{slug}"
+        response = self._make_request(url)
+        if not response:
+            return []
+
+        text = response.text
+        profile_pattern = r'View Profile Of ([^"\\]+)'
+
+        # Find bench sections — each team has one ">Bench<" marker
+        bench_positions = [
+            m.start() for m in re.finditer(r">Bench<", text)
+        ]
+        if len(bench_positions) < 2:
+            return []
+
+        # Collect ALL bench players across both teams
+        bench_names: set = set()
+        for bp in bench_positions[:2]:
+            section = text[bp: bp + 2000]
+            for name in re.findall(profile_pattern, section):
+                bench_names.add(name.strip())
+
+        # Between bench[0] and bench[1] lies the batting team's bench,
+        # coaching staff, and the bowling team's full squad roster.
+        # The bowling team's squad is a contiguous block of 11 names
+        # at the tail of this section, right before bench[1].
+        section = text[bench_positions[0]: bench_positions[1]]
+        all_names = re.findall(profile_pattern, section)
+
+        # Walk backwards collecting unique names. Stop once we exceed
+        # 11 unique multi-word names (the bowling team's playing XI).
+        # This skips the batting team's bench and coaching staff which
+        # appear earlier in the section.
+        reversed_unique: List[str] = []
+        seen: set = set()
+        for name in reversed(all_names):
+            name = name.strip()
+            if name in seen or name in bench_names:
+                continue
+            seen.add(name)
+            if " " in name:
+                reversed_unique.append(name)
+                if len(reversed_unique) >= 11:
+                    break
+
+        squad = list(reversed(reversed_unique))
+
+        logger.info(
+            f"Cricbuzz playing XI for Match {match_number}: "
+            f"{len(squad)} players"
+        )
+        return squad
+
     def _find_cricbuzz_match_id(
         self, home_team: str, away_team: str, match_number: str
     ) -> Optional[str]:
@@ -638,7 +769,17 @@ class IPLScraper(BaseScraper):
         for cb_id in candidates:
             url = f"{CRICBUZZ_SCORECARD_URL}/{cb_id}/{slug}"
             resp = self._make_request(url)
-            if resp and len(resp.text) > CRICBUZZ_MIN_SCORECARD_SIZE:
+            if not resp:
+                continue
+            page_len = len(resp.text)
+            # Valid scorecard pages are large (>400KB for full matches,
+            # >200KB for rain-shortened matches)
+            if page_len < CRICBUZZ_MIN_SCORECARD_SIZE // 2:
+                continue
+            # Verify the page is for the correct match by checking
+            # that both team codes appear in the page title/content
+            page_lower = resp.text[:5000].lower()
+            if t1 in page_lower and t2 in page_lower:
                 self._cricbuzz_id_cache[match_number] = str(cb_id)
                 return str(cb_id)
 

@@ -116,7 +116,7 @@
 <div class="standings-awards-row">
 <div class="leaderboard-section">
     <h3>📊 Team Standings</h3>
-    <table class="leaderboard-table" style="min-width: 0; overflow: visible;">
+    <table class="leaderboard-table">
         <thead>
             <tr>
                 <th class="rank-col">Rank</th>
@@ -144,9 +144,11 @@
                     <span class="rank-badge default">{{ loop.index }}</span>
                     {% endif %}
                 </td>
-                <td class="team-name-cell">
-                    <span class="leaderboard-team-dot team-{{ team_class }}"></span>
-                    {{ entry.team.name }}
+                <td>
+                    <div class="team-name-cell">
+                        <span class="leaderboard-team-dot team-{{ team_class }}"></span>
+                        {{ entry.team.name }}
+                    </div>
                 </td>
                 <td class="num-col points-highlight" data-leaderboard-points="{{ entry.team.id }}">{{ entry.total }}</td>
             </tr>
@@ -399,8 +401,12 @@ async function fetchAllData() {
     const originalText = btn.innerHTML;
     btn.disabled = true;
 
+    const errors = [];
+    let statusMsg = '';
+    let awardsData = null;
+
+    // Step 1: Fetch fantasy points from match scorecards
     try {
-        // Step 1: Fetch fantasy points from match scorecards
         btn.innerHTML = '⏳ Fetching match data...';
         const pointsResponse = await secureFetch('/api/fantasy/fetch-match-points', {
             method: 'POST',
@@ -408,51 +414,61 @@ async function fetchAllData() {
         });
         const pointsData = await pointsResponse.json();
 
-        let statusMsg = '';
         if (pointsData.success) {
             statusMsg += `Matches: ${pointsData.matches_scraped}, Players: ${pointsData.players_updated}`;
         }
+    } catch (e) {
+        console.error('Error fetching match data:', e);
+        errors.push('Match data: ' + e.message);
+    }
 
-        // Step 2: Fetch awards
+    // Step 2: Fetch awards (independent of match points)
+    try {
         btn.innerHTML = '⏳ Fetching awards...';
         const awardsResponse = await secureFetch('/api/fantasy/fetch-awards', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         });
-        const awardsData = await awardsResponse.json();
-
-        // Step 3: Fetch images for award winners in parallel
-        if (awardsData.results) {
-            btn.innerHTML = '⏳ Fetching images...';
-            const playerIds = [
-                awardsData.results.orange_cap?.player_id,
-                awardsData.results.purple_cap?.player_id,
-                awardsData.results.mvp?.player_id
-            ].filter(Boolean);
-
-            await Promise.all(playerIds.map(async (playerId) => {
-                try {
-                    await secureFetch(`/api/players/${playerId}/fetch-image`, { method: 'POST' });
-                } catch (e) {
-                    console.error('Error fetching image:', e);
-                }
-            }));
-        }
-
-        // Show summary and reload
-        let finalMsg = 'WPL data updated!\n';
-        if (statusMsg) finalMsg += statusMsg + '\n';
-        if (awardsData.results) finalMsg += 'Awards fetched';
-
-        showNotification(finalMsg, 'success');
-        setTimeout(() => location.reload(), 1500);
-
-    } catch (error) {
-        showNotification('Error fetching data: ' + error.message, 'error');
-    } finally {
-        btn.innerHTML = originalText;
-        btn.disabled = false;
+        awardsData = await awardsResponse.json();
+    } catch (e) {
+        console.error('Error fetching awards:', e);
+        errors.push('Awards: ' + e.message);
     }
+
+    // Step 3: Fetch images for award winners in parallel
+    if (awardsData && awardsData.results) {
+        btn.innerHTML = '⏳ Fetching images...';
+        const playerIds = [
+            awardsData.results.orange_cap?.player_id,
+            awardsData.results.purple_cap?.player_id,
+            awardsData.results.mvp?.player_id
+        ].filter(Boolean);
+
+        await Promise.all(playerIds.map(async (playerId) => {
+            try {
+                await secureFetch(`/api/players/${playerId}/fetch-image`, { method: 'POST' });
+            } catch (e) {
+                console.error('Error fetching image:', e);
+            }
+        }));
+    }
+
+    // Show summary and reload
+    let finalMsg = '';
+    if (errors.length > 0) {
+        finalMsg = 'Partial update.\n' + errors.join('\n');
+        if (statusMsg) finalMsg += '\n' + statusMsg;
+        showNotification(finalMsg, 'warning');
+    } else {
+        finalMsg = 'Data updated!\n';
+        if (statusMsg) finalMsg += statusMsg + '\n';
+        if (awardsData && awardsData.results) finalMsg += 'Awards fetched';
+        showNotification(finalMsg, 'success');
+    }
+
+    setTimeout(() => location.reload(), 1500);
+    btn.innerHTML = originalText;
+    btn.disabled = false;
 }
 
 // Helper to show modal using data attributes (safe for special characters in names)
@@ -578,7 +594,7 @@ async function showPointsModal(playerId, playerName, teamId) {
                 data.entries.forEach((entry, index) => {
                     html += `
                         <tr>
-                            <td>Match ${index + 1} <span class="match-actual">(#${entry.match_number})</span></td>
+                            <td>Match ${entry.match_number}</td>
                             <td class="points-cell">${entry.points}</td>
                             ${isAdmin ? `<td><button class="btn btn-small btn-danger" data-entry-id="${entry.id}" onclick="deleteMatchPoints(${entry.id})">🗑️</button></td>` : ''}
                         </tr>

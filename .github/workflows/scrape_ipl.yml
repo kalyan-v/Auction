@@ -1,9 +1,7 @@
 name: Scrape IPL Fantasy Points
 
 on:
-  workflow_dispatch:  # Manual trigger
-  schedule:
-    - cron: '50 17 * * *'  # 11:20 PM IST (17:50 UTC) daily
+  workflow_dispatch:  # Manual trigger (also triggered by local scheduled task)
 
 permissions:
   contents: write

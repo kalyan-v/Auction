@@ -420,6 +420,7 @@ IPL_NAME_MAPPINGS: Final[Dict[str, str]] = {
     'k l rahul': 'kl rahul',
     'vaibhav sooryavanshi': 'vaibhav suryavanshi',
     'quinton de kock': 'quinton de kock',
+    'auqib nabi': 'auqib dar',
 }
 
 

@@ -111,12 +111,14 @@ class FantasyService(BaseService):
                 raise NotFoundError("Player not found")
 
             # Check for existing entry with is_deleted filter
+            # Use with_for_update() to prevent TOCTOU race when game_id is None
+            # (SQL NULL != NULL bypasses the unique constraint)
             existing = FantasyPointEntry.query.filter_by(
                 player_id=player_id,
                 match_number=match_number,
                 league_id=league_id,
                 is_deleted=False
-            ).first()
+            ).with_for_update().first()
 
             if existing:
                 existing.points = points
@@ -269,16 +271,18 @@ class FantasyService(BaseService):
             raise ValidationError(f'Invalid award type. Valid: {valid_types}')
 
         with self.transaction():
-            award = self._get_or_create_award(award_type, league_id)
-
-            award.player_id = player_id if player_id else None
-
+            # Validate player BEFORE mutating the award
             player_name = None
             if player_id:
                 player = db.session.get(Player, player_id)
                 if not player or player.is_deleted:
                     raise ValidationError('Player not found or has been deleted')
+                if player.league_id != league_id:
+                    raise ValidationError('Player does not belong to the current league')
                 player_name = player.name
+
+            award = self._get_or_create_award(award_type, league_id)
+            award.player_id = player_id if player_id else None
 
             logger.info(f"Set {award_type} award to {player_name}")
 
@@ -365,10 +369,10 @@ class FantasyService(BaseService):
             .join(Team, Player.team_id == Team.id)
             .filter(
                 FantasyPointEntry.league_id == league_id,
-                FantasyPointEntry.is_deleted == False,
+                FantasyPointEntry.is_deleted.is_(False),
                 Player.status == PlayerStatus.SOLD,
-                Player.is_deleted == False,
-                Team.is_deleted == False,
+                Player.is_deleted.is_(False),
+                Team.is_deleted.is_(False),
             )
             .group_by(Team.id, Team.name, FantasyPointEntry.match_number)
             .order_by(Team.name, FantasyPointEntry.match_number)
@@ -470,8 +474,13 @@ class FantasyService(BaseService):
             db_name_normalized = normalize_player_name(p.name)
             if db_name_normalized == normalized_search:
                 return p
-            if db_name_normalized in normalized_search or normalized_search in db_name_normalized:
-                return p
+            # Substring match only when names are similar length
+            # to avoid false positives (e.g. "Sharma" matching "Sharmila")
+            shorter = min(len(db_name_normalized), len(normalized_search))
+            longer = max(len(db_name_normalized), len(normalized_search))
+            if longer > 0 and shorter / longer >= 0.8:
+                if db_name_normalized in normalized_search or normalized_search in db_name_normalized:
+                    return p
 
         # Try first name matching
         name_parts = search_name.split()
@@ -540,7 +549,10 @@ class FantasyService(BaseService):
                     award = self._get_or_create_award(
                         award_data['award_type'], league_id
                     )
-                    award.player_id = award_data['player_id']
+                    # Only update player_id when we have a match;
+                    # don't clear an existing winner with None.
+                    if award_data.get('player_id') is not None:
+                        award.player_id = award_data['player_id']
                     if award_data.get('leaderboard'):
                         award.leaderboard_json = json.dumps(
                             award_data['leaderboard'], ensure_ascii=False
@@ -579,31 +591,43 @@ class FantasyService(BaseService):
             fetch_result = method()
 
             if fetch_result.success and fetch_result.leader:
-                player_name = fetch_result.leader.player_name
-                player = self.find_player_by_name(player_name, league_id)
+                # Always serialize the top-5 leaderboard from the
+                # scraper — this is pure display data from the website.
+                top5 = [
+                    entry.to_dict()
+                    for entry in fetch_result.players[:5]
+                ]
 
-                if player:
-                    results[result_key] = {
-                        'player_name': player.name,
-                        'player_id': player.id,
-                        stat_key: fetch_result.leader.stats.get(stat_key, 0),
-                        'wpl_name': player_name
-                    }
-                    # Serialize top-5 leaderboard entries
-                    top5 = [
-                        entry.to_dict()
-                        for entry in fetch_result.players[:5]
-                    ]
-                    return {
-                        'award_type': award_type.value,
-                        'player_id': player.id,
-                        'leaderboard': top5
-                    }
-                else:
-                    results['errors'].append(
-                        f"{result_key.replace('_', ' ').title()}: "
-                        f"Player '{player_name}' not found"
+                # Try to match the leader to a DB player for the
+                # award image. Fall back through the top-5 list.
+                matched_player = None
+                for entry in fetch_result.players[:5]:
+                    p = self.find_player_by_name(
+                        entry.player_name, league_id
                     )
+                    if p:
+                        matched_player = p
+                        break
+
+                leader_stat = fetch_result.leader.stats.get(stat_key, 0)
+                results[result_key] = {
+                    'player_name': (
+                        matched_player.name if matched_player
+                        else fetch_result.leader.player_name
+                    ),
+                    stat_key: leader_stat,
+                    'wpl_name': fetch_result.leader.player_name
+                }
+                if matched_player:
+                    results[result_key]['player_id'] = matched_player.id
+
+                return {
+                    'award_type': award_type.value,
+                    'player_id': (
+                        matched_player.id if matched_player else None
+                    ),
+                    'leaderboard': top5
+                }
             else:
                 results['errors'].append(
                     f"{result_key.replace('_', ' ').title()} fetch failed: "
@@ -631,13 +655,14 @@ class FantasyService(BaseService):
         Returns:
             Dict with award_type and player_id if found, None otherwise.
         """
-        top_player = Player.query.filter(
+        top_players = Player.query.filter(
             Player.league_id == league_id,
             Player.is_deleted.is_(False),
             Player.fantasy_points > 0
-        ).order_by(Player.fantasy_points.desc()).first()
+        ).order_by(Player.fantasy_points.desc()).limit(5).all()
 
-        if top_player:
+        if top_players:
+            top_player = top_players[0]
             # Remove any MVP error from the feed failure since we have a fallback
             results['errors'] = [
                 e for e in results['errors']
@@ -653,9 +678,19 @@ class FantasyService(BaseService):
                 f"MVP fallback: {top_player.name} "
                 f"({top_player.fantasy_points} pts)"
             )
+            # Build top-5 leaderboard from DB fantasy points
+            leaderboard = [
+                {
+                    'player_name': p.name,
+                    'team_short_name': p.team.name if p.team else '',
+                    'points': p.fantasy_points,
+                }
+                for p in top_players
+            ]
             return {
                 'award_type': AwardType.MVP.value,
-                'player_id': top_player.id
+                'player_id': top_player.id,
+                'leaderboard': leaderboard
             }
 
         return None
@@ -755,6 +790,10 @@ class FantasyService(BaseService):
                         'total_wickets': data.get('total_wickets', 0),
                     })
                 else:
+                    logger.warning(
+                        "Player not found in DB: %s (%.1f pts, %d matches)",
+                        wpl_name, total_fantasy_points, matches_played
+                    )
                     not_found_players.append({
                         'wpl_name': wpl_name,
                         'total_points': total_fantasy_points,

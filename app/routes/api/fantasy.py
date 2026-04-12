@@ -328,6 +328,7 @@ def _team_font_color(team_name: str) -> str:
 
 
 @api_bp.route('/fantasy/export-csv', methods=['GET'])
+@limiter.limit("30 per minute")
 def export_fantasy_csv() -> Response:
     """Export fantasy standings as a formatted Excel file.
 

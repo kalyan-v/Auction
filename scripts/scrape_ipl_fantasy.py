@@ -13,10 +13,8 @@ import os
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app import create_app, db
-from app.enums import AwardType
-from app.models import FantasyAward, Player, League
-from app.scrapers import get_scraper, ScraperType
+from app import create_app
+from app.models import League
 from app.services.fantasy_service import fantasy_service
 
 
@@ -33,14 +31,6 @@ def scrape_and_update():
             return False
 
         print(f"Scraping for league: {league.name} (type={league.league_type})")
-
-        # Resolve scraper from league type
-        try:
-            scraper_type = ScraperType(league.league_type)
-            scraper = get_scraper(scraper_type)
-        except Exception as e:
-            print(f"Failed to initialize scraper: {e}")
-            return False
 
         # Fetch match fantasy points via service (handles scoring + DB updates)
         try:
@@ -68,51 +58,21 @@ def scrape_and_update():
         print(f"  Players updated: {len(players_with_new)}")
         print(f"  New match entries: {new_entries_count}")
 
-        # Fetch and update awards
+        # Fetch and update awards (uses service to update leader + top-5 leaderboard)
         print("\nFetching awards...")
-        with scraper:
-            update_awards(scraper, league.id)
+        try:
+            awards_result = fantasy_service.fetch_and_update_awards(league.id)
+            if awards_result.get('success'):
+                for award_type, info in awards_result.get('results', {}).items():
+                    if award_type != 'errors' and info:
+                        print(f"  {award_type}: {info.get('player_name', 'N/A')}")
+            else:
+                for err in awards_result.get('results', {}).get('errors', []):
+                    print(f"  Award error: {err}")
+        except Exception as e:
+            print(f"  Awards fetch failed: {e}")
 
         return True
-
-
-def update_awards(scraper, league_id):
-    """Fetch and update Orange Cap, Purple Cap, and MVP awards."""
-    awards_updated = []
-
-    award_configs = [
-        (AwardType.ORANGE_CAP, 'get_orange_cap', 'Orange Cap', 'runs'),
-        (AwardType.PURPLE_CAP, 'get_purple_cap', 'Purple Cap', 'wickets'),
-        (AwardType.MVP, 'get_mvp', 'MVP', 'points'),
-    ]
-
-    for award_type, method_name, label, stat_key in award_configs:
-        result = getattr(scraper, method_name)()
-        if result.success and result.leader:
-            player_name = result.leader.player_name
-            player = fantasy_service.find_player_by_name(player_name, league_id)
-            if player:
-                award = FantasyAward.query.filter_by(
-                    award_type=award_type.value,
-                    league_id=league_id
-                ).first()
-                if not award:
-                    award = FantasyAward(
-                        award_type=award_type.value,
-                        league_id=league_id
-                    )
-                    db.session.add(award)
-                award.player_id = player.id
-                stat_val = result.leader.stats.get(stat_key, 0)
-                awards_updated.append(f"{label}: {player.name}")
-                print(f"  {label}: {player.name} ({stat_val} {stat_key})")
-            else:
-                print(f"  {label}: Player '{player_name}' not found in league")
-        else:
-            print(f"  {label} fetch failed: {result.error}")
-
-    db.session.commit()
-    return awards_updated
 
 
 if __name__ == '__main__':

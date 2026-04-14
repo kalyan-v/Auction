@@ -10,10 +10,8 @@ import os
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app import create_app, db
-from app.enums import AwardType
-from app.models import FantasyAward, Player, League
-from app.scrapers import get_scraper, ScraperType
+from app import create_app
+from app.models import League
 from app.services.fantasy_service import fantasy_service
 
 
@@ -29,13 +27,6 @@ def scrape_and_update():
             return False
 
         print(f"Scraping for league: {league.name}")
-
-        # Scrape all matches and awards
-        try:
-            scraper = get_scraper(ScraperType.WPL)
-        except Exception as e:
-            print(f"Failed to initialize scraper: {e}")
-            return False
 
         # Use the service function instead of duplicating logic (DRY principle)
         try:
@@ -65,92 +56,21 @@ def scrape_and_update():
         print(f"  Players updated: {len(players_with_new)}")
         print(f"  New match entries: {new_entries_count}")
 
-        # Fetch and update awards
+        # Fetch and update awards (uses service to update leader + top-5 leaderboard)
         print("\nFetching awards...")
-        with scraper:
-            update_awards(scraper, league.id)
+        try:
+            awards_result = fantasy_service.fetch_and_update_awards(league.id)
+            if awards_result.get('success'):
+                for award_type, info in awards_result.get('results', {}).items():
+                    if award_type != 'errors' and info:
+                        print(f"  {award_type}: {info.get('player_name', 'N/A')}")
+            else:
+                for err in awards_result.get('results', {}).get('errors', []):
+                    print(f"  Award error: {err}")
+        except Exception as e:
+            print(f"  Awards fetch failed: {e}")
 
         return True
-
-
-def update_awards(scraper, league_id):
-    """Fetch and update Orange Cap, Purple Cap, and MVP awards."""
-    awards_updated = []
-
-    # Orange Cap
-    orange_result = scraper.get_orange_cap()
-    if orange_result.success and orange_result.leader:
-        player_name = orange_result.leader.player_name
-        player = fantasy_service.find_player_by_name(player_name, league_id)
-        if player:
-            award = FantasyAward.query.filter_by(
-                award_type=AwardType.ORANGE_CAP.value,
-                league_id=league_id
-            ).first()
-            if not award:
-                award = FantasyAward(
-                    award_type=AwardType.ORANGE_CAP.value,
-                    league_id=league_id
-                )
-                db.session.add(award)
-            award.player_id = player.id
-            awards_updated.append(f"Orange Cap: {player.name}")
-            print(f"  Orange Cap: {player.name} ({orange_result.leader.stats.get('runs', 0)} runs)")
-        else:
-            print(f"  Orange Cap: Player '{player_name}' not found in league")
-    else:
-        print(f"  Orange Cap fetch failed: {orange_result.error}")
-
-    # Purple Cap
-    purple_result = scraper.get_purple_cap()
-    if purple_result.success and purple_result.leader:
-        player_name = purple_result.leader.player_name
-        player = fantasy_service.find_player_by_name(player_name, league_id)
-        if player:
-            award = FantasyAward.query.filter_by(
-                award_type=AwardType.PURPLE_CAP.value,
-                league_id=league_id
-            ).first()
-            if not award:
-                award = FantasyAward(
-                    award_type=AwardType.PURPLE_CAP.value,
-                    league_id=league_id
-                )
-                db.session.add(award)
-            award.player_id = player.id
-            awards_updated.append(f"Purple Cap: {player.name}")
-            print(f"  Purple Cap: {player.name} ({purple_result.leader.stats.get('wickets', 0)} wickets)")
-        else:
-            print(f"  Purple Cap: Player '{player_name}' not found in league")
-    else:
-        print(f"  Purple Cap fetch failed: {purple_result.error}")
-
-    # MVP
-    mvp_result = scraper.get_mvp()
-    if mvp_result.success and mvp_result.leader:
-        player_name = mvp_result.leader.player_name
-        player = fantasy_service.find_player_by_name(player_name, league_id)
-        if player:
-            award = FantasyAward.query.filter_by(
-                award_type=AwardType.MVP.value,
-                league_id=league_id
-            ).first()
-            if not award:
-                award = FantasyAward(
-                    award_type=AwardType.MVP.value,
-                    league_id=league_id
-                )
-                db.session.add(award)
-            award.player_id = player.id
-            awards_updated.append(f"MVP: {player.name}")
-            print(f"  MVP: {player.name} ({mvp_result.leader.stats.get('points', 0)} points)")
-        else:
-            print(f"  MVP: Player '{player_name}' not found in league")
-    else:
-        print(f"  MVP fetch failed: {mvp_result.error}")
-
-    db.session.commit()
-    return awards_updated
 
 
 if __name__ == '__main__':
